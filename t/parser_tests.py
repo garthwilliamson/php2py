@@ -1,5 +1,5 @@
 import unittest
-import parser as p
+import php2py.parser as p
 from pprint import pprint
 
 
