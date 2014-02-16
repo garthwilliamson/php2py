@@ -2,15 +2,15 @@ from __future__ import unicode_literals
 
 import unittest
 import php2py.parser as p
+from php2py import parse_and_compile
+
 from pprint import pprint
 
 
-def parse_string(s, tree=False):
+def parse_string(s):
     parser = p.PhpParser(s, "test", False)
     parser.parse()
-    if tree:
-        return parser.get_tree()
-    return parser.to_list()
+    return parser
 
 
 html = "<div>hello</div>"
@@ -99,32 +99,30 @@ class ParserTests(unittest.TestCase):
 
 class SimpleTests(unittest.TestCase):
     def test_html(self):
-        res = parse_string(html)
-        self.assertEqual(res[0], "ROOT")
-        self.assertEqual(res[2][0][0], "HTML")
-        self.assertEqual(res[2][0][1], html)
+        res = parse_string(html).get_tree()
+        self.assertEqual(res.node_type, "ROOT")
+        self.assertEqual(res[0].node_type, "HTML")
+        self.assertEqual(res[0].value, html)
 
     def test_hello(self):
-        res = parse_string(hello)[2]
-        self.assertEqual(res[0][0], "PHP")
+        res = parse_string(hello).get_tree()
+        self.assertEqual(res[0].node_type, "PHP")
 
     def test_hello_no_end(self):
-        res = parse_string(hello_no_end)[2]
-        self.assertEqual(res[0][0], "PHP")
+        res = parse_string(hello_no_end).get_tree()
+        self.assertEqual(res[0].node_type, "PHP")
 
     def test_while(self):
-        res = parse_string(while_eg, tree=True)
+        res = parse_string(while_eg).get_tree()
         php_node = res[0]
         self.assertEqual(php_node.node_type, "PHP")
         while_node = php_node[2]
         self.assertEqual(while_node.node_type, "WHILE")
         echo_world = php_node[3]
-        #p.print_tree(echo_world)
         self.assertEqual(echo_world[0][0].value, "world")
 
     def test_function(self):
-        t = parse_string(function, tree=True)
-        p.print_tree(t)
+        t = parse_string(function).get_tree()
         php_node = t[0]
         function_node = php_node[0]
         self.assertEqual(function_node.value, "foo")
@@ -136,8 +134,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(return_statement[0][2].value, "true")
 
     def test_double_function(self):
-        t = parse_string(double_function, tree=True)
-        #p.print_tree(t)
+        t = parse_string(double_function).get_tree()
         function_call = t[0][1][0]
         self.assertEqual(function_call.node_type, "CALL")
         self.assertEqual(function_call.value, "foo")
@@ -146,19 +143,19 @@ class SimpleTests(unittest.TestCase):
 class CompileTest(unittest.TestCase):
     # TODO: These tests should work out why eval is failing
     def test_while(self):
-        p.parse_and_compile(while_eg)
+        parse_and_compile(while_eg)
 
     def test_hello(self):
-        p.parse_and_compile(hello)
+        parse_and_compile(hello)
 
     def test_function(self):
-        p.parse_and_compile(function)
+        parse_and_compile(function)
 
     def test_double_function(self):
-        p.parse_and_compile(double_function)
+        parse_and_compile(double_function)
 
     def test_recurse(self):
-        print(p.parse_and_compile(recurse))
+        print(parse_and_compile(recurse))
 
 
 if __name__ == "__main__":
