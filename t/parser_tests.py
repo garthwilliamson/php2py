@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import unittest
 import php2py.parser as p
 from pprint import pprint
