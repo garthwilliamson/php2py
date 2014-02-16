@@ -113,8 +113,14 @@ class Compiler(object):
     def var_compile(self, node):
         return self.python_safe(node.value)
 
+    def globalvar_compile(self, node):
+        return "php.g." + self.var_compile(node)
+
     def comparator_compile(self, node):
         return node.value
+
+    def global_compile(self, node):
+        pass
 
     def block_compile(self, node):
         for c in node.children:

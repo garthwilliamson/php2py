@@ -26,6 +26,8 @@ class UpTooMuchException(Exception):
 
 class Parser(object):
     def __init__(self, contents, name, debug=False):
+        self.scope = []
+        self.globals = []
         self.pt = ParseTree(name)
         self.chars = contents
         self.debug = debug
@@ -75,6 +77,29 @@ class Parser(object):
     def get_tree(self):
         return self.pt.root_node
 
+    def push_scope(self, name):
+        self.scope.append(name)
+        self.globals.append([])
+
+    def pop_scope(self):
+        self.scope.pop()
+        self.globals.pop()
+
+    def is_global(self, variable):
+        if variable in self.globals[-1]:
+            return True
+        else:
+            return False
+
+    def scope_is(self, s):
+        if self.scope[-1] == s:
+            return True
+        else:
+            return False
+
+    def add_global(self, g):
+        self.globals[-1].append(g)
+
 
 def create_pattern(items):
     pattern = "|".join([re.escape(i) for i in items])
@@ -99,7 +124,7 @@ SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + FUNKY_KEYWORDS + CONSTANTS
 SYMBOLS.sort(key=len, reverse=True)
 symbol_search = create_pattern(SYMBOLS)
 whitespace_search = re.compile("\\s*")
-CONTROLS = "function return switch while class for if do".split()
+CONTROLS = "function global return switch while class for if do".split()
 SPECIAL_STATEMENTS = ["echo"]
 special_search = re.compile("(" + "|".join([re.escape(w) for w in SPECIAL_STATEMENTS]) + ")([ \\(])")
 control_search = re.compile("(" + "|".join([re.escape(w) for w in CONTROLS]) + ")([ \\(])")
@@ -109,6 +134,7 @@ callable_search = re.compile(IDENTIFIERS + "\\(", flags=re.IGNORECASE)
 
 class PhpParser(Parser):
     def parse(self):
+        self.push_scope("GLOBAL")
         self.parse_html()
 
     def parse_html(self):
@@ -203,7 +229,10 @@ class PhpParser(Parser):
         match = self.match_for(ident_search)
         if match is None:
             raise ExpectedCharError("Alpha or _ expected after $")
-        self.pt.append("VAR", match)
+        if self.scope_is("GLOBAL") or self.is_global(match):
+            self.pt.append("GLOBALVAR", match)
+        else:
+            self.pt.append("VAR", match)
         if self.check_for("->"):
             self.cursor += 2
             match = self.match_for(ident_search)
@@ -282,7 +311,7 @@ class PhpParser(Parser):
     def parse_control(self, keyword):
         self.next_non_white()
         self.pt.cur = self.pt.append(keyword.upper())
-        if keyword in "if while":
+        if keyword in ("if", "while"):
             if not self.check_for("("):
                 raise ExpectedCharError("Expected ( at start of if statement")
             self.cursor += 1
@@ -290,16 +319,28 @@ class PhpParser(Parser):
             self.cursor += 1
             self.next_non_white()
             self.parse_block()
-        elif keyword in "function":
+        elif keyword == "function":
+            self.push_scope("LOCAL")
             match = self.match_for(ident_search)
             if match is None:
                 raise ExpectedCharError("Alpha or _ expected as function name")
             self.pt.cur.value = match
             self.parse_arg_list()
             self.parse_block()
-        elif keyword in "return":
+            self.pop_scope()
+        elif keyword == "return":
             self.next_non_white()
             self.parse_statement(expr=True)
+        elif keyword == "global":
+            while True:
+                self.next_non_white()
+                if self.check_for(";"):
+                    break
+                self.parse_variable()
+                self.match_for(re.compile(",? *"))
+            for var in self.pt.cur:
+                self.add_global(var.value)
+            self.cursor += 1
         else:
             raise NotImplemented
         self.next_non_white()
@@ -319,16 +360,6 @@ class PhpParser(Parser):
             self.parse_statement(expr=True, comma=True)
         self.cursor += 1
         self.pt.up()
-        #while True:
-            #self.next_non_white()
-            #
-                #self.cursor += 1
-                #self.pt.up()
-                #return
-            #elif self.check_for("$"):
-                #self.parse_variable()
-            #else:
-                #raise UnexpectedCharError("Didn't expect to see " + self.get(10) + " in function arguments")
 
     def parse_special(self, keyword):
         self.next_non_white()

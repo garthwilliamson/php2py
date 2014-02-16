@@ -7,9 +7,11 @@ from php2py import parse_and_compile
 from pprint import pprint
 
 
-def parse_string(s):
+def parse_string(s, debug=False):
     parser = p.PhpParser(s, "test", False)
     parser.parse()
+    if debug:
+        parser.pt.print_()
     return parser
 
 
@@ -64,6 +66,27 @@ function recursion($a)
 recursion(10);
 """
 
+scopes = """<?php
+$a = 1;
+function b()
+{
+    echo $a;
+}
+test();
+"""
+
+scope_globalled = """<?php
+$a = 1;
+$b = 2;
+function Sum()
+{
+    global $a, $b;
+    $b = $a + $b;
+}
+Sum();
+echo $b;
+"""
+
 class ParserTests(unittest.TestCase):
     def setUp(self):
         self.matching = "AABBCC1234<?php"
@@ -95,6 +118,14 @@ class ParserTests(unittest.TestCase):
         match, until = self.simple_parser.search_until(p.create_pattern(("<?php",)))
         self.assertEqual(match, "<?php")
         self.assertEqual(until, "1234")
+
+    def test_scopes(self):
+        self.simple_parser.push_scope("GLOBAL")
+        self.assertTrue(self.simple_parser.scope_is("GLOBAL"))
+        self.simple_parser.push_scope("LOCAL")
+        self.assertTrue(self.simple_parser.scope_is("LOCAL"))
+        self.simple_parser.pop_scope()
+        self.assertTrue(self.simple_parser.scope_is("GLOBAL"))
 
 
 class SimpleTests(unittest.TestCase):
@@ -139,6 +170,21 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(function_call.node_type, "CALL")
         self.assertEqual(function_call.value, "foo")
 
+    def test_scope(self):
+        php_node = parse_string(scopes).get_tree()[0]
+        self.assertEqual(php_node[0][0].node_type, "GLOBALVAR")
+        function_node = php_node[1]
+        block_node = function_node[1]
+        self.assertEqual(block_node[0][0][0].node_type, "VAR")
+
+    def test_scopes_global(self):
+        php_node = parse_string(scope_globalled).get_tree()[0]
+        function_node = php_node[2]
+        self.assertEqual(function_node.value, "Sum")
+        # We don't actually output the global node anywhere
+        assignment_statement = function_node[1][1]
+        self.assertEqual(assignment_statement[0].value, "b")
+
 
 class CompileTest(unittest.TestCase):
     # TODO: These tests should work out why eval is failing
@@ -155,7 +201,13 @@ class CompileTest(unittest.TestCase):
         parse_and_compile(double_function)
 
     def test_recurse(self):
-        print(parse_and_compile(recurse))
+        parse_and_compile(recurse)
+
+    def test_scope(self):
+        parse_and_compile(scopes)
+
+    def test_scope_global(self):
+        print(parse_and_compile(scope_globalled))
 
 
 if __name__ == "__main__":

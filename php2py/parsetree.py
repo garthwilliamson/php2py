@@ -52,3 +52,11 @@ class ParseTree(object):
         self.cur.append(new_node)
         return new_node
 
+    def print_(self, node=None):
+        if node == None:
+            node = self.root_node
+        def print_tree(tree, indent):
+            print(indent * " " + str(tree))
+            for c in tree:
+                print_tree(c, indent + 4)
+        print_tree(node, 0)
