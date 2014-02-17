@@ -7,8 +7,11 @@ class ParseNode(object):
         self.value = value
         self.children = []
 
-    def append(self, node):
-        self.children.append(node)
+    def append(self, node, value=None):
+        if value is None:
+            self.children.append(node)
+        else:
+            self.children.append(ParseNode(node, self, value))
 
     def to_list(self):
         if len(self.children) > 0:

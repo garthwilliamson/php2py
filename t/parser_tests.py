@@ -87,6 +87,15 @@ Sum();
 echo $b;
 """
 
+comments = """<?php
+// Out of band comment
+$a = 1; //In band comment
+/* Big groupy comment
+*/
+$a = 2; /* groupy comment on line */ $b=3;
+
+"""
+
 class ParserTests(unittest.TestCase):
     def setUp(self):
         self.matching = "AABBCC1234<?php"
@@ -185,6 +194,13 @@ class SimpleTests(unittest.TestCase):
         assignment_statement = function_node[1][1]
         self.assertEqual(assignment_statement[0].value, "b")
 
+    def test_comments(self):
+        php_node = parse_string(comments).get_tree()[0]
+        comment_node = php_node[0]
+        self.assertEqual(comment_node.value, " Out of band comment")
+        comment_node3 = php_node[4]
+        self.assertEqual(comment_node3.value, " Big groupy comment\n")
+
 
 class CompileTest(unittest.TestCase):
     # TODO: These tests should work out why eval is failing
@@ -207,7 +223,10 @@ class CompileTest(unittest.TestCase):
         parse_and_compile(scopes)
 
     def test_scope_global(self):
-        print(parse_and_compile(scope_globalled))
+        parse_and_compile(scope_globalled)
+
+    def test_comments(self):
+        parse_and_compile(comments)
 
 
 if __name__ == "__main__":

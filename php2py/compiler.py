@@ -151,3 +151,11 @@ class Compiler(object):
 
     def constant_compile(self, node):
         return constant_map[node.value]
+
+    def commentline_compile(self, node):
+        # Should do something about putting comments on the end of a line properly
+        self.append("//" + node.value + "\n")
+
+    def commentblock_compile(self, node):
+        # TODO: Note that we don't deal with comments inline very well. Should strip them if they are in the wrong place
+        self.append('"""{}"""\n'.format(node.value))
