@@ -1,7 +1,8 @@
 from __future__ import unicode_literals
 
-
 import collections
+
+from . import parsetree
 
 
 constant_map = {
@@ -9,6 +10,13 @@ constant_map = {
     "false": "False",
     "null": "None",
 }
+
+magic_map = {
+    "__file__": "__file__",
+}
+
+class CompileError(Exception):
+    pass
 
 
 class Compiler(object):
@@ -65,12 +73,18 @@ class Compiler(object):
         return string
 
     def marshal(self, node):
-        #print("marshalling", str(node))
         try:
             return getattr(self, node.node_type.lower() + "_compile")(node)
-        except TypeError:
-            print("Buggerit")
-            raise
+        except TypeError as e:
+            print("Tried to compile...")
+            parsetree.print_tree(node)
+            print("...but failed")
+            raise CompileError("Probably something isn't returning a string when it should", e)
+        except AttributeError as e:
+            print("Tried to compile...")
+            parsetree.print_tree(node)
+            print("...but failed")
+            raise CompileError("Unimplemented method " + node.node_type.lower() + "_compile", e)
 
     def php_compile(self, node):
         for c in node:
@@ -120,7 +134,13 @@ class Compiler(object):
         return " ".join([self.marshal(c) for c in node])
 
     def var_compile(self, node):
-        return self.python_safe(node.value)
+        sub_var = ""
+        if len(node.children) > 0:
+            sub_var = self.subvar_compile(node.children[0])
+        return self.python_safe(node.value) + sub_var
+
+    def subvar_compile(self, node):
+        return '.{0}'.format(node.value)
 
     def globalvar_compile(self, node):
         return "php.g." + self.var_compile(node)
@@ -165,10 +185,18 @@ class Compiler(object):
     def commentline_compile(self, node):
         # Should do something about putting comments on the end of a line properly
         if node.parent.node_type in ("STATEMENT", "EXPRESSION"):
-            return "//" + node.value + "\n"
+            return "#" + node.value + "\n"
         else:
-            self.append("//" + node.value)
+            self.append("#" + node.value)
 
     def commentblock_compile(self, node):
         # TODO: Note that we don't deal with comments inline very well. Should strip them if they are in the wrong place
         self.append('"""{}"""\n'.format(node.value))
+
+    def require_once_compile(self, node):
+        return "php.require_once({0})".format(self.expression_compile(node[0]))
+
+    def magic_compile(self, node):
+        if node.value not in magic_map:
+            raise CompileError("No magic value {0} known".format(node.value))
+        return magic_map[node.value]

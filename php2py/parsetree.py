@@ -58,10 +58,16 @@ class ParseTree(object):
         return new_node
 
     def print_(self, node=None):
-        if node == None:
+        if node is None:
             node = self.root_node
         def print_tree(tree, indent):
             print(indent * " " + str(tree))
             for c in tree:
                 print_tree(c, indent + 4)
         print_tree(node, 0)
+
+
+def print_tree(tree):
+    p = ParseTree("temp")
+    p.root_node = tree
+    p.print_()

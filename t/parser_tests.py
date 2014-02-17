@@ -215,7 +215,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(assignment_statement[0].value, "b")
 
     def test_comments(self):
-        php_node = parse_string(comments, True).get_tree()[0]
+        php_node = parse_string(comments).get_tree()[0]
         comment_node = php_node[0]
         self.assertEqual(comment_node.value, " Out of band comment")
         comment_node3 = php_node[4]
@@ -239,7 +239,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(arglist[0][0].value, "a")
 
     def test_multiline_call2(self):
-        php_node = parse_string(multiline_call2, True).get_tree()[0]
+        php_node = parse_string(multiline_call2).get_tree()[0]
         fcall = php_node[0][0]
         self.assertEqual(fcall.node_type, "CALL")
         self.assertEqual(fcall.value, "F")
@@ -271,16 +271,16 @@ class CompileTest(unittest.TestCase):
         parse_and_compile(scope_globalled)
 
     def test_comments(self):
-        print(parse_and_compile(comments))
+        parse_and_compile(comments)
 
     def test_new(self):
-        print(parse_and_compile(new_eg))
+        parse_and_compile(new_eg)
 
     def test_multiline_call(self):
-        print(parse_and_compile(multiline_call))
+        parse_and_compile(multiline_call)
 
     def test_multiline_call2(self):
-        print(parse_and_compile(multiline_call2))
+        parse_and_compile(multiline_call2)
 
 
 if __name__ == "__main__":
