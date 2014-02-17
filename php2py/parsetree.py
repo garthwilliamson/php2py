@@ -42,6 +42,7 @@ class ParseTree(object):
     def __init__(self, name):
         self.root_node = ParseNode("ROOT", value=name)
         self.cur = self.root_node
+        self.last = self.cur
 
     def up(self):
         #print("Going up from", self.cur, "to", self.cur.parent)
@@ -53,6 +54,7 @@ class ParseTree(object):
         #print("Appending node", node_type, value, "to", self.cur)
         new_node = ParseNode(node_type, self.cur, value)
         self.cur.append(new_node)
+        self.last = new_node
         return new_node
 
     def print_(self, node=None):

@@ -124,12 +124,13 @@ SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + FUNKY_KEYWORDS + CONSTANTS
 SYMBOLS.sort(key=len, reverse=True)
 symbol_search = create_pattern(SYMBOLS)
 whitespace_search = re.compile("\\s*")
-CONTROLS = "function global return switch while class new for if do".split()
-SPECIAL_STATEMENTS = ["echo"]
-special_search = re.compile("(" + "|".join([re.escape(w) for w in SPECIAL_STATEMENTS]) + ")([ \\(])")
+CONTROLS = "function global return switch while class call for if do".split()
+SPECIAL_STATEMENTS = ["echo ", "echo(", "new "]
+special_search = create_pattern(SPECIAL_STATEMENTS)
 control_search = re.compile("(" + "|".join([re.escape(w) for w in CONTROLS]) + ")([ \\(])")
 int_search = re.compile("[0-9]+")
 callable_search = re.compile(IDENTIFIERS + "\\(", flags=re.IGNORECASE)
+endline_search = re.compile("(\\r)?\\n")
 
 
 class PhpParser(Parser):
@@ -169,25 +170,23 @@ class PhpParser(Parser):
 
     def parse_statement(self, expr=False, comma=False):
         if self.debug:
+            print("---------------------------------------------------------------------------")
             print("Parsing statement at |{0}|".format(self.get(10)))
         control = control_search.match(self.chars, self.cursor)
         if control is not None:
             self.cursor = control.end() - 1    # go back one in case we had a "("
             self.parse_control(control.group(1))
             return
-        special = special_search.match(self.chars, self.cursor)
-        if special is not None:
-            self.cursor = special.end() - 1
-            self.parse_special(special.group(1))
-            return
         if expr:
             self.pt.cur = self.pt.append("EXPRESSION")
         else:
             self.pt.cur = self.pt.append("STATEMENT")
         while True:
+            if self.debug:
+                print("=============")
             if self.check_for("$"):
                 self.parse_variable()
-            elif self.check_for('"'):
+            elif self.check_for('"') or self.check_for("'"):
                 self.parse_string()
             elif self.check_for("//"):
                 self.cursor += 2
@@ -224,6 +223,13 @@ class PhpParser(Parser):
                 if match is not None:
                     self.parse_callable(match)
                     continue
+                special = special_search.match(self.chars, self.cursor)
+                if special is not None:
+                    if self.debug:
+                        print("Found special " + special.group())
+                    self.cursor = special.end() - 1
+                    self.parse_special(special.group()[:-1])
+                    return
 
                 # Deal with the dregs
                 self.next_non_white()
@@ -238,14 +244,16 @@ class PhpParser(Parser):
         match = self.match_for(ident_search)
         if match is None:
             raise ExpectedCharError("Alpha or _ expected after $")
+
+        v = None
         if self.scope_is("GLOBAL") or self.is_global(match):
-            self.pt.append("GLOBALVAR", match)
+            v = self.pt.append("GLOBALVAR", match)
         else:
-            self.pt.append("VAR", match)
-        if self.check_for("->"):
+            v = self.pt.append("VAR", match)
+        while self.check_for("->"):
             self.cursor += 2
             match = self.match_for(ident_search)
-            self.pt.cur = self.pt.append("SUBVAR", match)
+            v = v.append("SUBVAR", match)
         self.next_non_white()
 
     def parse_string(self):
@@ -286,7 +294,7 @@ class PhpParser(Parser):
         self.next_non_white()
 
     def parse_comment_line(self):
-        match, value = self.search_until(re.compile("\\n"))
+        match, value = self.search_until(endline_search)
         self.pt.append("COMMENTLINE", value)
         self.next_non_white()
 
@@ -299,12 +307,13 @@ class PhpParser(Parser):
         elif symbol in ASSIGNMENTS:
             self.parse_basic("ASSIGNMENT", symbol)
         elif symbol in FUNKY_KEYWORDS:
-            self.pt.append(symbol)
-            raise NotImplemented
+            self.next_non_white()
+            match, value = self.search_until(endline_search)
+            self.parse_basic(symbol.upper(), value)
         elif symbol in CONSTANTS:
             self.pt.append("CONSTANT", symbol)
         else:
-            raise ParseException("Implement" + symbol)
+            raise NotImplementedError("Implement" + symbol)
         self.next_non_white()
 
     def parse_block(self):
@@ -352,8 +361,14 @@ class PhpParser(Parser):
         self.pop_scope()
 
     def parse_return(self):
-        self.next_non_white()
         self.parse_statement(expr=True)
+
+    def parse_new(self):
+        self.next_non_white()
+        match = self.match_for(callable_search)
+        self.parse_callable(match)
+        self.cursor += 1
+        self.pt.up()
 
     def parse_global(self):
         while True:
@@ -372,6 +387,7 @@ class PhpParser(Parser):
         self.cursor += 1
         self.pt.cur = self.pt.append("ARGLIST")
         while True:
+            self.next_non_white()
             if self.check_for(")"):
                 break
             elif self.check_for(","):
@@ -384,13 +400,18 @@ class PhpParser(Parser):
     def parse_special(self, keyword):
         self.next_non_white()
         self.pt.cur = self.pt.append(keyword.upper())
-        if keyword in "echo":
-            while True:
-                self.parse_statement(expr=True, comma=True)
-                self.next_non_white()
-                if self.get() != ",":
+        getattr(self, "parse_" + keyword.lower())()
+        self.pt.up()
+        self.next_non_white()
+
+    def parse_echo(self):
+        while True:
+            self.parse_statement(expr=True, comma=True)
+            if self.get() != ",":
+                if self.get() != ")":
                     self.pt.up()
-                    return
+                return
+            self.next_non_white()
 
     def parse_basic(self, node_type, value):
         self.pt.append(node_type, value)

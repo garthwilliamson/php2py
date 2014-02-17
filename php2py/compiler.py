@@ -47,6 +47,7 @@ class Compiler(object):
         self.append("php.write({0})".format(value))
 
     def append(self, line):
+        #print(line)
         self.results.append(' ' * self.indent + line)
 
     def prepend(self, line):
@@ -64,10 +65,11 @@ class Compiler(object):
         return string
 
     def marshal(self, node):
-        #print("marshalling", node)
+        #print("marshalling", str(node))
         try:
             return getattr(self, node.node_type.lower() + "_compile")(node)
         except TypeError:
+            print("Buggerit")
             raise
 
     def php_compile(self, node):
@@ -102,7 +104,14 @@ class Compiler(object):
             self.blank_lines(1)
 
     def call_compile(self, node):
-        return "php.f.{0}({1})".format(node.value, ", ".join([self.expression_compile(e) for e in node[0]]))
+        # Process args
+        arg_list = []
+        for e in node[0]:
+            arg_list.append(self.expression_compile(e))
+        return "php.f.{0}({1})".format(node.value, ", ".join(arg_list))
+
+    def new_compile(self, node):
+        return self.call_compile(node[0])
 
     def return_compile(self, node):
         self.append("return " + self.expression_compile(node[0]))
@@ -127,12 +136,11 @@ class Compiler(object):
             self.marshal(c)
 
     def echo_compile(self, node):
-        self.add_output(" + ".join([self.marshal(c) for c in node]))
+        return " + ".join([self.marshal(c) for c in node])
 
     def string_compile(self, node):
         fmt = ""
         if len(node.children) > 0:
-            print(node.children[0])
             fmt = ".format({})".format(", ".join([v.value for v in node]))
         return repr(node.value) + fmt
 
@@ -144,6 +152,8 @@ class Compiler(object):
 
     def statement_compile(self, node):
         if len(node.children) != 0:
+            #for n in node:
+                #print(n)
             self.append(" ".join([self.marshal(c) for c in node]))
 
     def int_compile(self, node):
@@ -154,7 +164,10 @@ class Compiler(object):
 
     def commentline_compile(self, node):
         # Should do something about putting comments on the end of a line properly
-        self.append("//" + node.value + "\n")
+        if node.parent.node_type in ("STATEMENT", "EXPRESSION"):
+            return "//" + node.value + "\n"
+        else:
+            self.append("//" + node.value)
 
     def commentblock_compile(self, node):
         # TODO: Note that we don't deal with comments inline very well. Should strip them if they are in the wrong place

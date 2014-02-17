@@ -96,6 +96,26 @@ $a = 2; /* groupy comment on line */ $b=3;
 
 """
 
+new_eg = """<?php
+$a = new B();
+$c = new D("e", "f");
+"""
+
+multiline_call = """<?php
+F(  $a,
+    $b,
+
+    $c
+);
+"""
+
+multiline_call2 = """<?php
+F(  $a,
+    $b,
+//Commenting is horrid
+    $c
+);
+"""
 class ParserTests(unittest.TestCase):
     def setUp(self):
         self.matching = "AABBCC1234<?php"
@@ -159,7 +179,7 @@ class SimpleTests(unittest.TestCase):
         while_node = php_node[2]
         self.assertEqual(while_node.node_type, "WHILE")
         echo_world = php_node[3]
-        self.assertEqual(echo_world[0][0].value, "world")
+        self.assertEqual(echo_world[0][0][0].value, "world")
 
     def test_function(self):
         t = parse_string(function).get_tree()
@@ -184,7 +204,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(php_node[0][0].node_type, "GLOBALVAR")
         function_node = php_node[1]
         block_node = function_node[1]
-        self.assertEqual(block_node[0][0][0].node_type, "VAR")
+        self.assertEqual(block_node[0][0][0][0].node_type, "VAR")
 
     def test_scopes_global(self):
         php_node = parse_string(scope_globalled).get_tree()[0]
@@ -195,11 +215,36 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(assignment_statement[0].value, "b")
 
     def test_comments(self):
-        php_node = parse_string(comments).get_tree()[0]
+        php_node = parse_string(comments, True).get_tree()[0]
         comment_node = php_node[0]
         self.assertEqual(comment_node.value, " Out of band comment")
         comment_node3 = php_node[4]
         self.assertEqual(comment_node3.value, " Big groupy comment\n")
+
+    def test_new(self):
+        php_node = parse_string(new_eg).get_tree()[0]
+        statement = php_node[0]
+        new_call = statement[2]
+        self.assertEqual(new_call.node_type, "NEW")
+        call = new_call[0]
+        self.assertEqual(call.node_type, "CALL")
+        self.assertEqual(call.value, "B")
+
+    def test_multiline_call(self):
+        php_node = parse_string(multiline_call).get_tree()[0]
+        fcall = php_node[0][0]
+        self.assertEqual(fcall.node_type, "CALL")
+        self.assertEqual(fcall.value, "F")
+        arglist = fcall[0]
+        self.assertEqual(arglist[0][0].value, "a")
+
+    def test_multiline_call2(self):
+        php_node = parse_string(multiline_call2, True).get_tree()[0]
+        fcall = php_node[0][0]
+        self.assertEqual(fcall.node_type, "CALL")
+        self.assertEqual(fcall.value, "F")
+        arglist = fcall[0]
+        self.assertEqual(arglist[0][0].value, "a")
 
 
 class CompileTest(unittest.TestCase):
@@ -226,7 +271,16 @@ class CompileTest(unittest.TestCase):
         parse_and_compile(scope_globalled)
 
     def test_comments(self):
-        parse_and_compile(comments)
+        print(parse_and_compile(comments))
+
+    def test_new(self):
+        print(parse_and_compile(new_eg))
+
+    def test_multiline_call(self):
+        print(parse_and_compile(multiline_call))
+
+    def test_multiline_call2(self):
+        print(parse_and_compile(multiline_call2))
 
 
 if __name__ == "__main__":
