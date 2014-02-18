@@ -280,7 +280,7 @@ class CompileTest(unittest.TestCase):
         parse_and_compile(multiline_call)
 
     def test_multiline_call2(self):
-        parse_and_compile(multiline_call2)
+        parse_and_compile(multiline_call2, debug=True)
 
 
 if __name__ == "__main__":

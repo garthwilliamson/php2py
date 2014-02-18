@@ -22,7 +22,7 @@ class CompileError(Exception):
 class Compiler(object):
     def __init__(self, tree):
         self.imports = collections.defaultdict(list)
-        self.imports["php"].append(None)
+        self.imports["php2py"].append(("php"))
         self.results = []
         self.indent = 0
 
@@ -39,9 +39,12 @@ class Compiler(object):
 
     def generic_header_compile(self):
         self.blank_lines(2)
+        self.append("def body(p):")
+        self.indent += 4
 
     def generic_footer_compile(self):
-        self.append("""if __name__ == "__main__":\n    php.print_output()\n""")
+        self.indent -= 4
+        self.append("""if __name__ == "__main__":\n    php.serve_up(body)\n""")
 
     def add_import(self, module, els=None):
         module = self.python_safe(module)
@@ -107,11 +110,11 @@ class Compiler(object):
         #TODO: Think about elif
 
     def function_compile(self, node):
-        self.append("def {0}({1}):".format(node.value, ", ".join([self.var_compile(v[0]) for v in node[0]])))
+        self.append("@phpfunc\ndef {0}(p, {1}):".format(node.value, ", ".join([self.var_compile(v[0]) for v in node[0]])))
         self.indent += 4
         self.marshal(node[1])
         self.indent -= 4
-        self.append("php.f.{0} = {0}".format(node.value))
+        self.append("p.f.{0} = {0}".format(node.value))
         if self.indent == 0:
             self.blank_lines(2)
         else:
@@ -119,10 +122,16 @@ class Compiler(object):
 
     def call_compile(self, node):
         # Process args
-        arg_list = []
-        for e in node[0]:
-            arg_list.append(self.expression_compile(e))
-        return "php.f.{0}({1})".format(node.value, ", ".join(arg_list))
+        # TODO: Deal with possitional and other args combined
+        args = ""
+        if node[0].node_type == "DICT":
+            args = "**{" + self.dict_compile(node[0]) + "}"
+        else:
+            for e in node[0]:
+                arg_list = []
+                arg_list.append(self.expression_compile(e))
+                args = ", ".join(arg_list)
+        return "p.f.{0}(p, {1})".format(node.value, args)
 
     def new_compile(self, node):
         return self.call_compile(node[0])
@@ -143,7 +152,7 @@ class Compiler(object):
         return '.{0}'.format(node.value)
 
     def globalvar_compile(self, node):
-        return "php.g." + self.var_compile(node)
+        return "p.g." + self.var_compile(node)
 
     def comparator_compile(self, node):
         return node.value
@@ -194,9 +203,16 @@ class Compiler(object):
         self.append('"""{}"""\n'.format(node.value))
 
     def require_once_compile(self, node):
-        return "php.require_once({0})".format(self.expression_compile(node[0]))
+        return "p.f.require_once(p, {0})".format(self.expression_compile(node[0]))
 
     def magic_compile(self, node):
         if node.value not in magic_map:
             raise CompileError("No magic value {0} known".format(node.value))
         return magic_map[node.value]
+
+    def dict_compile(self, node):
+        out = []
+        for c in node:
+            if len(c.children) == 3:
+                out.append(self.marshal(c[0]) + ": " + self.marshal(c[2]))
+        return (", ".join(out))

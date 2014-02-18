@@ -55,7 +55,11 @@ class Parser(object):
         return m.group(0)
 
     def check_for(self, s):
+        if self.debug:
+            print("Checking for " + s)
         if self.chars.startswith(s, self.cursor):
+            if self.debug:
+                print "found"
             return True
         return False
 
@@ -114,6 +118,7 @@ ident_search = re.compile(IDENTIFIERS, flags=re.IGNORECASE)
 # Have to do these all at once because of sizing issues
 COMPARATORS = ["===", "!==", "==", "!=", "<>", "<=", ">=", "<", ">"]
 OPERATORS = ["AND", "XOR",
+             "=>",        # Here because I don't know where else to put it
              "<<", ">>", "||", "OR", "++", "--",
              "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!"]
 ASSIGNMENTS = ["<<=", ">>=",
@@ -133,8 +138,8 @@ SPECIAL_STATEMENTS = ["echo ", "echo(",
 special_search = create_pattern(SPECIAL_STATEMENTS)
 control_search = re.compile("(" + "|".join([re.escape(w) for w in CONTROLS]) + ")([ \\(])")
 int_search = re.compile("[0-9]+")
-callable_search = re.compile(IDENTIFIERS + "\\(", flags=re.IGNORECASE)
-endline_search = re.compile("(\\r)?\\n")
+callable_search = re.compile(IDENTIFIERS + "\\s*\\(", flags=re.IGNORECASE)
+endline_search = re.compile("(\\r)?\\n|$")
 
 
 class PhpParser(Parser):
@@ -159,6 +164,8 @@ class PhpParser(Parser):
 
     def parse_php(self):
         while True:
+            if self.debug:
+                print("*********")
             self.next_non_white()
             if self.check_for("//"):
                 self.cursor += 2
@@ -171,6 +178,8 @@ class PhpParser(Parser):
                 return
             else:
                 self.parse_statement()
+            if self.is_eof():
+                return
 
     def parse_statement(self, expr=False, comma=False):
         if self.debug:
@@ -193,6 +202,8 @@ class PhpParser(Parser):
             elif self.check_for('"') or self.check_for("'"):
                 self.parse_string()
             elif self.check_for("//"):
+                if self.debug:
+                    print "COMMENT"
                 self.cursor += 2
                 self.parse_comment_line()
             elif self.check_for("/*"):
@@ -428,6 +439,11 @@ class PhpParser(Parser):
         if o in ("++", "--"):
             self.pt.append("ASSIGNMENT", o[0] + "=")
             self.pt.append("INT", 1)
+        elif o == "=>":
+            self.pt.cur.parent.node_type = "DICT"
+            self.pt.append("KEYVALUE")
+        elif o == ".":
+            self.pt.append("OPERATOR", "+")
         else:
             self.pt.append("OPERATOR", o)
         self.next_non_white()
