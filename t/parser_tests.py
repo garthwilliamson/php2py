@@ -39,6 +39,7 @@ function foo($arg1, $arg2) {
     return $arg1 || True;
 }
 
+
 """
 
 # PHP scopes functions globally. wtf?
@@ -116,74 +117,64 @@ F(  $a,
     $c
 );
 """
-class ParserTests(unittest.TestCase):
-    def setUp(self):
-        self.matching = "AABBCC1234<?php"
-        self.simple_parser = p.Parser(self.matching, "test1", False)
 
-    def test_create_pattern(self):
-        res = p.create_pattern(("AA", "BB"))
-        self.assertEqual(res.pattern, "AA|BB")
-        self.assertEqual(res.match(self.matching).group(0), "AA")
+nested_brackets = """<?php
+require_once(dirname(__FILE__) . '/lib/setup.php');
+"""
 
-    def test_sizing(self):
-        pat = p.create_pattern(("AABBD", "AABBC", "AAB", "BC", "B"))
-        self.assertEqual(pat.search(self.matching).group(0), "AABBC")
 
-    def test_matching(self):
-        pat = p.create_pattern(("BB", "CC"))
-        self.assertIs(None, self.simple_parser.match_for(pat))
-        pat = p.create_pattern(("BB", "AA"))
-        self.assertEqual("AA", self.simple_parser.match_for(pat))
+more_keywords = """<?php
+die;
 
-    def test_searching(self):
-        pat = p.create_pattern(("DD",))
-        match, until = self.simple_parser.search_until(pat)
-        self.assertEqual(match, "EOF")
-        pat = p.create_pattern(("CC",))
-        match, until = self.simple_parser.search_until(pat)
-        self.assertEqual(match, "CC")
-        self.assertEqual(until, "AABB")
-        match, until = self.simple_parser.search_until(p.create_pattern(("<?php",)))
-        self.assertEqual(match, "<?php")
-        self.assertEqual(until, "1234")
+"""
 
-    def test_scopes(self):
-        self.simple_parser.push_scope("GLOBAL")
-        self.assertTrue(self.simple_parser.scope_is("GLOBAL"))
-        self.simple_parser.push_scope("LOCAL")
-        self.assertTrue(self.simple_parser.scope_is("LOCAL"))
-        self.simple_parser.pop_scope()
-        self.assertTrue(self.simple_parser.scope_is("GLOBAL"))
+complex_if = """<?php
+if (!empty($CFG->a) && ($CFG->a == CONS) && optional_param('b', 1, PARAM_BOOL) === 0) {
+    die;
+}
+"""
 
 
 class SimpleTests(unittest.TestCase):
     def test_html(self):
-        res = parse_string(html).get_tree()
+        p = parse_string(html)
+        res = p.get_tree()
         self.assertEqual(res.node_type, "ROOT")
         self.assertEqual(res[0].node_type, "HTML")
         self.assertEqual(res[0].value, html)
 
+        self.assertEqual(res[0].start_cursor, 0)
+        self.assertEqual(res[0].end_cursor, 16)
+
     def test_hello(self):
-        res = parse_string(hello).get_tree()
-        self.assertEqual(res[0].node_type, "PHP")
+        p = parse_string(hello)
+        res = p.get_tree()
+        php = res[0]
+        self.assertEqual(php.node_type, "PHP")
 
     def test_hello_no_end(self):
-        res = parse_string(hello_no_end).get_tree()
-        self.assertEqual(res[0].node_type, "PHP")
+        p = parse_string(hello_no_end)
+        res = p.get_tree()
+        php = res[0]
+        self.assertEqual(php.node_type, "PHP")
+        echo_s = php[0]
+        echo_e = echo_s[0][0]
+        self.assertEqual(echo_e[0][0].value, "Hello World")
 
     def test_while(self):
-        res = parse_string(while_eg).get_tree()
+        p = parse_string(while_eg)
+        res = p.get_tree()
         php_node = res[0]
         self.assertEqual(php_node.node_type, "PHP")
         while_node = php_node[2]
         self.assertEqual(while_node.node_type, "WHILE")
-        echo_world = php_node[3]
-        self.assertEqual(echo_world[0][0][0].value, "world")
+        echo_world_expression = php_node[3][0]
+        self.assertEqual(echo_world_expression[0][0][0].value, "world")
 
     def test_function(self):
-        t = parse_string(function).get_tree()
-        php_node = t[0]
+        p = parse_string(function)
+        res = p.get_tree()
+        php_node = res[0]
         function_node = php_node[0]
         self.assertEqual(function_node.value, "foo")
         function_args = function_node[0]
@@ -194,17 +185,19 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(return_statement[0][2].value, "true")
 
     def test_double_function(self):
-        t = parse_string(double_function).get_tree()
-        function_call = t[0][1][0]
+        t = parse_string(double_function, True).get_tree()
+        function_call = t[0][1][0][0]
         self.assertEqual(function_call.node_type, "CALL")
         self.assertEqual(function_call.value, "foo")
 
     def test_scope(self):
-        php_node = parse_string(scopes).get_tree()[0]
-        self.assertEqual(php_node[0][0].node_type, "GLOBALVAR")
+        php_node = parse_string(scopes, True).get_tree()[0]
+        self.assertEqual(php_node[0][0][0].node_type, "GLOBALVAR")
         function_node = php_node[1]
         block_node = function_node[1]
-        self.assertEqual(block_node[0][0][0][0].node_type, "VAR")
+        echo_statement_line = block_node[0]
+        echo_expression = echo_statement_line[0][0]
+        self.assertEqual(echo_expression[0][0].node_type, "VAR")
 
     def test_scopes_global(self):
         php_node = parse_string(scope_globalled).get_tree()[0]
@@ -212,39 +205,48 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(function_node.value, "Sum")
         # We don't actually output the global node anywhere
         assignment_statement = function_node[1][1]
-        self.assertEqual(assignment_statement[0].value, "b")
+        self.assertEqual(assignment_statement[0][0].value, "b")
 
     def test_comments(self):
-        php_node = parse_string(comments).get_tree()[0]
+        php_node = parse_string(comments, True).get_tree()[0]
         comment_node = php_node[0]
         self.assertEqual(comment_node.value, " Out of band comment")
-        comment_node3 = php_node[4]
+        comment_node3 = php_node[2]
         self.assertEqual(comment_node3.value, " Big groupy comment\n")
 
     def test_new(self):
-        php_node = parse_string(new_eg).get_tree()[0]
+        php_node = parse_string(new_eg, True).get_tree()[0]
         statement = php_node[0]
-        new_call = statement[2]
+        new_call = statement[0][2]
         self.assertEqual(new_call.node_type, "NEW")
         call = new_call[0]
+        print(call)
         self.assertEqual(call.node_type, "CALL")
         self.assertEqual(call.value, "B")
 
     def test_multiline_call(self):
-        php_node = parse_string(multiline_call).get_tree()[0]
-        fcall = php_node[0][0]
+        php_node = parse_string(multiline_call, True).get_tree()[0]
+        fcall = php_node[0][0][0]
         self.assertEqual(fcall.node_type, "CALL")
         self.assertEqual(fcall.value, "F")
-        arglist = fcall[0]
-        self.assertEqual(arglist[0][0].value, "a")
+        self.assertEqual(fcall[0][0].value, "a")
 
     def test_multiline_call2(self):
-        php_node = parse_string(multiline_call2).get_tree()[0]
-        fcall = php_node[0][0]
+        print("ASDFASDF")
+        php_node = parse_string(multiline_call2, True).get_tree()[0]
+        fcall = php_node[0][0][0]
+        print(fcall)
         self.assertEqual(fcall.node_type, "CALL")
         self.assertEqual(fcall.value, "F")
-        arglist = fcall[0]
-        self.assertEqual(arglist[0][0].value, "a")
+        self.assertEqual(fcall[0][0].value, "a")
+
+    def test_nested(self):
+        php_node = parse_string(nested_brackets, True).get_tree()[0]
+        self.assertEqual(php_node[0][0][0][0][0].node_type, "CALL")
+        self.assertEqual(php_node[0][0][0][0][0][0][0].value, "__file__")
+
+    def test_complex_if(self):
+        php_node = parse_string(complex_if, True).get_tree()[0]
 
 
 class CompileTest(unittest.TestCase):
@@ -262,7 +264,7 @@ class CompileTest(unittest.TestCase):
         parse_and_compile(double_function)
 
     def test_recurse(self):
-        parse_and_compile(recurse)
+        parse_and_compile(recurse, debug=True)
 
     def test_scope(self):
         parse_and_compile(scopes)

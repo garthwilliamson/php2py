@@ -13,10 +13,11 @@ def parse_and_compile(string, name="anon", debug=False):
     return c
 
 
-def compile(filename, debug=0):
+def compile(filename, debug=0, strip_comments=False):
     parser = PhpParser("".join(open(filename).readlines()), filename, bool(debug))
     parser.parse()
     if debug:
+        pass
         parser.pt.print_()
-    c = Compiler(parser.get_tree())
+    c = Compiler(parser.get_tree(), strip_comments=strip_comments)
     return str(c)

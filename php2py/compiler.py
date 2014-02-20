@@ -20,7 +20,8 @@ class CompileError(Exception):
 
 
 class Compiler(object):
-    def __init__(self, tree):
+    def __init__(self, tree, strip_comments=False):
+        self.strip_comments = strip_comments
         self.imports = collections.defaultdict(list)
         self.imports["php2py"].append(("php"))
         self.results = []
@@ -58,7 +59,6 @@ class Compiler(object):
         self.append("php.write({0})".format(value))
 
     def append(self, line):
-        #print(line)
         self.results.append(' ' * self.indent + line)
 
     def prepend(self, line):
@@ -97,20 +97,23 @@ class Compiler(object):
         self.add_output(repr(node.value))
 
     def while_compile(self, node):
-        self.append("while {0}:".format(self.marshal(node[0])))
+        self.append("while {0}:".format(self.marshal(node[0][0])))
         self.indent += 4
         self.marshal(node[1])
         self.indent -= 4
 
     def if_compile(self, node):
-        self.append("if {0}:".format(self.marshal(node[0])))
+        self.append("if {0}:".format(self.marshal(node[0][0])))
         self.indent += 4
         self.marshal(node[1])
         self.indent -= 4
         #TODO: Think about elif
 
     def function_compile(self, node):
-        self.append("@phpfunc\ndef {0}(p, {1}):".format(node.value, ", ".join([self.var_compile(v[0]) for v in node[0]])))
+        args = ["p"]
+        for v in node[0]:
+            args.append(self.var_compile(v[0]))
+        self.append("@phpfunc\ndef {0}({1}):".format(node.value, ", ".join(args)))
         self.indent += 4
         self.marshal(node[1])
         self.indent -= 4
@@ -124,13 +127,14 @@ class Compiler(object):
         # Process args
         # TODO: Deal with possitional and other args combined
         args = ""
-        if node[0].node_type == "DICT":
-            args = "**{" + self.dict_compile(node[0]) + "}"
-        else:
-            for e in node[0]:
-                arg_list = []
-                arg_list.append(self.expression_compile(e))
-                args = ", ".join(arg_list)
+        if len(node.children) > 0:
+            if node[0].node_type == "DICT":
+                args = "**{" + self.dict_compile(node[0]) + "}"
+            else:
+                for e in node:
+                    arg_list = []
+                    arg_list.append(self.expression_compile(e))
+                    args = ", ".join(arg_list)
         return "p.f.{0}(p, {1})".format(node.value, args)
 
     def new_compile(self, node):
@@ -140,7 +144,8 @@ class Compiler(object):
         self.append("return " + self.expression_compile(node[0]))
 
     def expression_compile(self, node):
-        return " ".join([self.marshal(c) for c in node])
+        r = " ".join([self.marshal(c) for c in node])
+        return r
 
     def var_compile(self, node):
         sub_var = ""
@@ -193,6 +198,8 @@ class Compiler(object):
 
     def commentline_compile(self, node):
         # Should do something about putting comments on the end of a line properly
+        if self.strip_comments:
+            return ""
         if node.parent.node_type in ("STATEMENT", "EXPRESSION"):
             return "#" + node.value + "\n"
         else:
@@ -200,14 +207,20 @@ class Compiler(object):
 
     def commentblock_compile(self, node):
         # TODO: Note that we don't deal with comments inline very well. Should strip them if they are in the wrong place
-        self.append('"""{}"""\n'.format(node.value))
+        if self.strip_comments:
+            return ""
+        print(node.parent.node_type)
+        if node.parent.node_type in("STATEMENT", "EXPRESSION"):
+            return '"""{}"""\n'.format(node.value)
+        else:
+            self.append('"""{}"""\n'.format(node.value))
 
     def require_once_compile(self, node):
-        return "p.f.require_once(p, {0})".format(self.expression_compile(node[0]))
+        return "p.f.require_once(p, {})".format(self.expression_compile(node[0]))
 
     def magic_compile(self, node):
         if node.value not in magic_map:
-            raise CompileError("No magic value {0} known".format(node.value))
+            raise CompileError("No magic value {} known".format(node.value))
         return magic_map[node.value]
 
     def dict_compile(self, node):
