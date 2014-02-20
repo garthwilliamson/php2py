@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 import collections
 
-from . import parsetree
+from . import parsetree, transformer
 
 
 constant_map = {
@@ -26,6 +26,8 @@ class Compiler(object):
         self.imports["php2py"].append(("php"))
         self.results = []
         self.indent = 0
+
+        transformer.transform(tree)
 
         self.generic_header_compile()
         for c in tree:

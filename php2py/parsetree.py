@@ -47,6 +47,10 @@ class ParseNode(object):
     def __iter__(self):
         return iter(self.children)
 
+    def insert_after(self, search, new_node):
+        i = self.children.index(search) + 1
+        self.children.insert(i, new_node)
+
 
 class ParseTree(object):
     def __init__(self, name, get_cursor=None):

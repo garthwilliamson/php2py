@@ -362,6 +362,12 @@ class PhpParser(Parser):
         var = self.pt.new(t, match, start=start, end=self.cursor)
         if self.match_for(re.compile(re.escape("->"))):
             var.append(self.parse_subvar())
+        start = self.cursor
+        if self.match_for(create_pattern(("++", "--"))):
+            if self.last_match == "++":
+                var.append(self.pt.new("POSTINC", start=start, end=self.cursor))
+            else:
+                var.append(self.pt.new("POSTDEC", start=start, end=self.cursor))
         return var
 
     def parse_subvar(self):
@@ -428,7 +434,7 @@ class PhpParser(Parser):
         if symbol in COMPARATORS:
             self.parse_basic("COMPARATOR", symbol)
         elif symbol in OPERATORS:
-            self.parse_operator(symbol)
+            self.pt.cur.append(self.parse_operator(symbol))
         elif symbol in ASSIGNMENTS:
             self.parse_basic("ASSIGNMENT", symbol)
         elif symbol in CONSTANTS:
@@ -531,19 +537,11 @@ class PhpParser(Parser):
         self.next_non_white()
 
     def parse_operator(self, o):
-        if o in ("++", "--"):
-            self.pt.append("ASSIGNMENT", o[0] + "=", start_offset=-2)
-            self.pt.last.end_cursor = self.cursor
-            self.pt.append("INT", 1, start_offset=-2)
-        elif o == "=>":
-            self.pt.cur.parent.node_type = "DICT"
-            self.pt.append("KEYVALUE", start_offset=-2)
-        elif o == ".":
-            self.pt.append("OPERATOR", "+", start_offset=-1)
+        start = self.cursor - len(o)
+        if o == "=>":
+            return self.pt.new("KEYVALUE", start=start, end=self.cursor)
         else:
-            self.pt.append("OPERATOR", o, start_offset=-len(o))
-        self.pt.last.end_cursor = self.cursor
-        self.next_non_white()
+            return self.pt.new("OPERATOR", o, start=start, end=self.cursor)
 
     def parse_callable(self, c):
         sm = self.start_marker
