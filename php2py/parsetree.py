@@ -9,7 +9,7 @@ def get_next_id():
 
 
 class ParseNode(object):
-    def __init__(self, node_type, parent=None, value=None):
+    def __init__(self, node_type, value=None, parent=None):
         self.node_type = node_type
         self.parent = parent
         self.value = value
@@ -21,7 +21,7 @@ class ParseNode(object):
             self.children.append(node)
             node.parent = self
         else:
-            self.children.append(ParseNode(node, self, value))
+            self.children.append(ParseNode(node, value, self))
 
     def to_list(self):
         if len(self.children) > 0:
@@ -70,7 +70,7 @@ class ParseTree(object):
         self.cur = self.cur.parent
 
     def append(self, node_type, value=None, start_offset=0):
-        new_node = ParseNode(node_type, self.cur, value)
+        new_node = ParseNode(node_type, value, self.cur)
         # The start of the item should be where the cursor currently is
         new_node.start_cursor = self.get_cursor() + start_offset
         print("Appending node", str(new_node), value, "to", str(self.cur))

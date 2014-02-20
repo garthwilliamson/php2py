@@ -232,13 +232,13 @@ class PhpParser(Parser):
             if self.is_eof():
                 break
             if self.check_for("//"):
-                self.parse_comment_line()
+                self.pt.cur.append(self.parse_comment_line())
             elif self.check_for("#"):
-                self.parse_comment_line()
+                self.pt.cur.append(self.parse_comment_line())
             elif self.match_for(re.compile(re.escape("?>"))) is not None or self.is_eof():
                 break
             elif self.check_for("/*"):
-                self.parse_comment_group()
+                self.pt.cur.append(self.parse_comment_group())
             else:
                 self.parse_statement()
             self.next_non_white()
@@ -277,10 +277,10 @@ class PhpParser(Parser):
             # Statements can end with comments
             self.match_for(space_tab_search)
             if self.check_for("//"):
-                self.parse_comment_line()
+                self.pt.cur.append(self.parse_comment_line())
                 statement_end = self.cursor
             elif self.check_for("/*"):
-                self.parse_comment_group()
+                self.pt.cur.append(self.parse_comment_group())
                 statement_end = self.cursor
             self.pt.up(end_offset=-self.cursor + statement_end)
 
@@ -298,26 +298,24 @@ class PhpParser(Parser):
                 print("breaking from {} because reached {}".format(self.pt.cur, self.get()))
                 break
             elif self.check_for("//"):
-                if self.debug:
-                    print("COMMENT")
-                self.parse_comment_line()
+                self.pt.cur.append(self.parse_comment_line())
             elif self.check_for("/*"):
-                self.parse_comment_group()
+                self.pt.cur.append(self.parse_comment_group())
             elif self.check_for('"') or self.check_for("'"):
-                self.parse_string()
+                self.pt.cur.append(self.parse_string())
             elif self.check_for("$"):
                 self.pt.cur.append(self.parse_variable())
             elif self.match_for(symbol_search) is not None:
-                self.parse_symbol(self.last_match)
+                self.pt.cur.append(self.parse_symbol(self.last_match))
             elif self.match_for(int_search) is not None:
-                self.parse_basic("INT", int(self.last_match))
+                self.pt.cur.append(self.parse_basic("INT", int(self.last_match)))
             elif self.match_for(special_search) is not None:
                 self.parse_special(self.last_match)
             elif self.match_for(callable_search) is not None:
                 self.parse_callable(self.last_match)
             elif self.match_for(ident_search) is not None:
                 # I don't like doing this - will it always be a constant? I don't think so!
-                self.parse_constant(self.last_match)
+                self.pt.cur.append(self.parse_basic("CONSTANT", self.last_match))
             else:
                 raise UnexpectedCharError("`{}` in expression".format(self.get()))
         print("Returning from {} at {} because end of expression function".format(self.pt.cur, self.get()))
@@ -379,10 +377,6 @@ class PhpParser(Parser):
             v.append(self.parse_subvar())
         return v
 
-    def parse_constant(self, name):
-        self.pt.append("CONSTANT", name, start_offset=-len(name))
-        self.pt.last.end_cursor = self.cursor
-
     def parse_string(self):
         delim = self.get()
         start_cursor = self.cursor
@@ -407,43 +401,39 @@ class PhpParser(Parser):
                     # get rid of the backslash
                     res += string_until[-2:] + delim
         res = search_string(delim)
-        self.pt.append_and_into("STRING", res, start_offset=-self.cursor + start_cursor)
-        if len(format_vars) > 0:
-            for v in format_vars:
-                self.pt.append("VARIABLE", v)
-        self.pt.up()
-        self.next_non_white()
+        st = self.pt.new("STRING", res, start=start_cursor, end=self.cursor)
+        for v in format_vars:
+            st.append("VARIABLE", v)
+        return st
 
     def parse_comment_group(self):
+        start = self.cursor
         self.cursor += 2
         match, comment = self.search_until(re.compile("\\*\\/"))
-        self.pt.append("COMMENTBLOCK", comment)
-        self.next_non_white()
+        return self.pt.new("COMMENTBLOCK", comment, start=start, end=self.cursor)
 
     def parse_comment_line(self):
+        start = self.cursor
         if self.check_for("#"):
             self.cursor += 1
         else:
             self.cursor += 2
         match, value = self.search_until(endline_search)
-        self.pt.append("COMMENTLINE", value)
-        self.next_non_white()
+        return self.pt.new("COMMENTLINE", value, start=start, end=self.cursor)
 
     def parse_symbol(self, symbol):
         symbol = symbol.lower()
         if symbol in COMPARATORS:
-            self.parse_basic("COMPARATOR", symbol)
+            return self.parse_basic("COMPARATOR", symbol)
         elif symbol in OPERATORS:
-            self.pt.cur.append(self.parse_operator(symbol))
+            return self.parse_operator(symbol)
         elif symbol in ASSIGNMENTS:
-            self.parse_basic("ASSIGNMENT", symbol)
+            return self.parse_basic("ASSIGNMENT", symbol)
         elif symbol in CONSTANTS:
-            self.parse_basic("CONSTANT", symbol)
+            return self.parse_basic("CONSTANT", symbol)
         elif symbol in MAGIC_CONSTANTS:
-            self.parse_basic("MAGIC", symbol)
-        else:
-            raise NotImplementedError("Implement" + symbol)
-        self.next_non_white()
+            return self.parse_basic("MAGIC", symbol)
+        raise NotImplementedError("Implement" + symbol)
 
     def parse_block(self):
         self.start_marker = self.cursor
@@ -532,9 +522,7 @@ class PhpParser(Parser):
         self.next_non_white()
 
     def parse_basic(self, node_type, value):
-        self.pt.append(node_type, value, start_offset=-self.cursor + self.start_marker)
-        self.pt.last.end_cursor = self.cursor
-        self.next_non_white()
+        return self.pt.new(node_type, value, start=self.start_marker, end=self.cursor)
 
     def parse_operator(self, o):
         start = self.cursor - len(o)
