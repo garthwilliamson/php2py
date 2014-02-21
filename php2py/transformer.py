@@ -11,6 +11,7 @@ class TransformException(Exception):
 def transform(tree):
     transform_node(tree)
 
+
 def transform_node(node):
     for c in node:
         if c.node_type in ("VAR", "GLOBALVAR"):
@@ -21,8 +22,14 @@ def transform_node(node):
                 elif var_child.node_type == "POSTDEC":
                     post_transform(c, "-", i)
                 i += 1
+        elif c.node_type == "EXPRESSION":
+            if len(c.children) == 3 and c[1].node_type == "KEYVALUE":
+                keyvalue_transform(c)
+            else:
+                transform_node(c)
         else:
             transform_node(c)
+
 
 def post_transform(var_node, op, child_index):
     var_value = var_node.value
@@ -34,8 +41,8 @@ def post_transform(var_node, op, child_index):
 
     new_expression = ParseNode("EXPRESSION", None)
     new_expression.append(ParseNode(var_type, value=var_value))
-    new_expression.append("OPERATOR", op + "=")
-    new_expression.append("INT", 1)
+    new_expression.append(ParseNode("OPERATOR", op + "="))
+    new_expression.append(ParseNode("INT", 1))
     parent = var_node.parent
     if parent.node_type == "EXPRESSION":
         statement = parent.parent
@@ -43,7 +50,15 @@ def post_transform(var_node, op, child_index):
             statement.insert_after(parent, new_expression)
         else:
             print_tree(var_node.parent.parent)
-            raise Exception("Unimplemented post or preinc")
+            raise TransformException("Unimplemented post or preinc")
     else:
         print_tree(var_node.parent.parent)
-        raise Exception("Unimplemented post or preinc")
+        raise TransformException("Unimplemented post or preinc")
+
+
+def keyvalue_transform(expression):
+    if len(expression.children) != 3:
+        raise TransformException("A key value expression must have 3 children")
+    expression.node_type = "KEYVALUE"
+    # Delete original KEYVALUE node
+    del expression[1]

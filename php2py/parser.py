@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
-from .parsetree import ParseTree
+from .parsetree import ParseTree, ParseTreeError
 
 import re
 from functools import wraps
@@ -172,26 +172,27 @@ ASSIGNMENTS = ["<<=", ">>=",
 MAGIC_CONSTANTS = ["__line__", "__file__", "__dir__", "__function__", "__class__",
                    "__trait__", "__method__", "__namespace__"]
 CONSTANTS = ["true", "false"]
-SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + CONSTANTS + MAGIC_CONSTANTS
+SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + MAGIC_CONSTANTS
 SYMBOLS.sort(key=len, reverse=True)
 symbol_search = create_pattern(SYMBOLS)
 whitespace_search = re.compile("\\s+")
-CONTROLS = "function global return switch while class call for if do".split()
-SPECIAL_STATEMENTS = ["echo ", "echo(",
-                      "new ",
-                      "die ", "die;",
-                      "require_once ", "require_once(", "require ", "require(",
-                      "include ", "include("]
+CONTROLS = "function switch while class call for if do".split()
+SPECIAL_STATEMENTS = ["echo", "new", "die", "require_once", "require", "include", "global", "return"]
 special_search = create_pattern(SPECIAL_STATEMENTS)
 control_search = re.compile("(" + "|".join([re.escape(w) for w in CONTROLS]) + ")([ \\(])")
 int_search = re.compile("[0-9]+")
 callable_search = re.compile(IDENTIFIERS + "\\s*\\(", flags=re.IGNORECASE)
 endline_search = re.compile("(\\r)?\\n|$")
 endstatement_search = create_pattern(("?>", ";", "}"))
+
 open_brace_search = re.compile("\\(")
-close_brace_search = re.compile("\\)")
+close_brace_search = re.compile(re.escape(")"))
+
 comma_search = re.compile(re.escape(","))
 space_tab_search = re.compile("\t| ")
+
+open_curly_search = re.compile(re.escape("{"))
+close_curly_search = re.compile(re.escape("}"))
 
 
 class PhpParser(Parser):
@@ -203,6 +204,11 @@ class PhpParser(Parser):
             if self.pt.cur.node_type != "ROOT":
                 self.pt.up()
         except ParseException as e:
+            print("Parse error on line {}:".format(self.line_number()))
+            self.print_node_info(self.pt.root_node)
+            self.print_cur_location(str(e))
+            raise
+        except ParseTreeError as e:
             print("Parse error on line {}:".format(self.line_number()))
             self.print_node_info(self.pt.root_node)
             self.print_cur_location(str(e))
@@ -240,7 +246,7 @@ class PhpParser(Parser):
             elif self.check_for("/*"):
                 self.pt.cur.append(self.parse_comment_group())
             else:
-                self.parse_statement()
+                self.pt.cur.append(self.parse_statement())
             self.next_non_white()
             if self.is_eof():
                 break
@@ -257,95 +263,97 @@ class PhpParser(Parser):
         control = control_search.match(self.chars, self.cursor)
         if control is not None:
             self.cursor = control.end() - 1    # go back one in case we had a "("
-            self.parse_control(control.group(1))
-            self.next_non_white()
-            m = self.match_for(endstatement_search)
-            if m is None:
-                raise ExpectedCharError("Expected to see ; or } after control structure")
-            return
+            return self.parse_control(control.group(1))
         else:
-            self.pt.append_and_into("STATEMENT", self.start_marker)
+            statement = self.pt.new("STATEMENT", start=self.cursor)
             self.next_non_white()
-            self.parse_expression()
+            statement.append(self.parse_expression())
+
             self.next_non_white()
             if self.is_eof():
-                return
+                return statement
             m = self.match_for(endstatement_search)
             if m is None:
                 raise UnexpectedCharError("Didn't expect to see `{}` here".format(self.get()))
-            statement_end = self.cursor + len(m)
+
             # Statements can end with comments
             self.match_for(space_tab_search)
             if self.check_for("//"):
-                self.pt.cur.append(self.parse_comment_line())
-                statement_end = self.cursor
+                statement.append(self.parse_comment_line())
             elif self.check_for("/*"):
-                self.pt.cur.append(self.parse_comment_group())
-                statement_end = self.cursor
-            self.pt.up(end_offset=-self.cursor + statement_end)
+                statement.append(self.parse_comment_group())
+            statement.end_cursor = self.cursor
+            return statement
 
     def parse_expression(self):
         if self.debug:
             print("^^^^^^^^ Parsing expresion at ", self.cursor)
-        self.pt.cur = self.pt.append("EXPRESSION")
+        expr = self.pt.new("EXPRESSION", start=self.cursor)
         while True:
-            self.start_marker = self.cursor
             self.next_non_white()
-            if self.check_for("("):
-                self.parse_expression_group()
-                break
             if self.check_for(";") or self.check_for(")") or self.check_for(",") or self.check_for("?>") or self.is_eof():
-                print("breaking from {} because reached {}".format(self.pt.cur, self.get()))
                 break
-            elif self.check_for("//"):
-                self.pt.cur.append(self.parse_comment_line())
-            elif self.check_for("/*"):
-                self.pt.cur.append(self.parse_comment_group())
-            elif self.check_for('"') or self.check_for("'"):
-                self.pt.cur.append(self.parse_string())
-            elif self.check_for("$"):
-                self.pt.cur.append(self.parse_variable())
-            elif self.match_for(symbol_search) is not None:
-                self.pt.cur.append(self.parse_symbol(self.last_match))
-            elif self.match_for(int_search) is not None:
-                self.pt.cur.append(self.parse_basic("INT", int(self.last_match)))
-            elif self.match_for(special_search) is not None:
-                self.parse_special(self.last_match)
-            elif self.match_for(callable_search) is not None:
-                self.parse_callable(self.last_match)
-            elif self.match_for(ident_search) is not None:
-                # I don't like doing this - will it always be a constant? I don't think so!
-                self.pt.cur.append(self.parse_basic("CONSTANT", self.last_match))
+            ep = self.parse_expression_part()
+            expr.append(ep)
+        expr.end_cursor = self.cursor
+        return expr
+
+    def parse_expression_part(self):
+        self.start_marker = self.cursor
+        self.next_non_white()
+        if self.check_for("("):
+            return self.parse_expression_group()
+        elif self.check_for("//"):
+            return self.parse_comment_line()
+        elif self.check_for("/*"):
+            return self.parse_comment_group()
+        elif self.check_for('"') or self.check_for("'"):
+            return self.parse_string()
+        elif self.check_for("$"):
+            return self.parse_variable()
+        elif self.match_for(symbol_search) is not None:
+            return self.parse_symbol(self.last_match)
+        elif self.match_for(int_search):
+            return self.parse_basic("INT", int(self.last_match))
+        elif self.match_for(callable_search):
+            return self.parse_callable(self.last_match)
+        elif self.match_for(ident_search):
+            # I don't like doing this - will it always be a constant or a special statement? I don't think so!
+            match = self.last_match
+            if match.lower() in SPECIAL_STATEMENTS:
+                return self.parse_special(match)
+            elif match.lower() in CONSTANTS:
+                return self.parse_basic("PHPCONSTANT", match.lower())
             else:
-                raise UnexpectedCharError("`{}` in expression".format(self.get()))
-        print("Returning from {} at {} because end of expression function".format(self.pt.cur, self.get()))
-        self.pt.up()
+                return self.parse_basic("CONSTANT", match)
+        else:
+            raise UnexpectedCharError("`{}` in expression".format(self.get()))
 
     def parse_expression_group(self):
+        start = self.cursor
+        self.next_non_white()
         m = self.match_for(open_brace_search)
         if m != "(":
             raise ExpectedCharError("Expected ( at start of item")
-        eg = self.pt.append_and_into("EXPRESSIONGROUP", start_offset=-1)
         self.next_non_white()
         m = self.match_for(close_brace_search)
         if m == ")":
-            print("Returning from {} because )".format(self.pt.cur))
-            self.pt.up()
-            return eg
-        while True:
-            self.next_non_white()
-            self.parse_expression()
-            self.next_non_white()
-            if self.match_for(comma_search) is None:
-                break
-        m = self.match_for(close_brace_search)
+            return self.pt.new("EXPRESSIONGROUP", start=start, end=self.cursor)
 
-        if m != ")":
-            raise ExpectedCharError("Expected to see `)` after sub expression `{}`".format(self.pt.cur))
-        self.pt.up()
-        print("Returning from {} because function end".format(self.pt.cur))
+        eg = self.parse_comma_list("EXPRESSIONGROUP", start=start)
+        if self.match_for(close_brace_search) is None:
+            raise ExpectedCharError("Expected to see `)` after sub expression `{}`".format(eg))
+        eg.end_cursor = self.cursor
         return eg
 
+    def parse_comma_list(self, name, value=None, start=0):
+        res = self.pt.new(name, value, start=start)
+        while True:
+            self.next_non_white()
+            res.append(self.parse_expression())
+            self.next_non_white()
+            if self.match_for(comma_search) is None:
+                return res
 
     def parse_variable(self):
         start = self.cursor
@@ -403,7 +411,7 @@ class PhpParser(Parser):
         res = search_string(delim)
         st = self.pt.new("STRING", res, start=start_cursor, end=self.cursor)
         for v in format_vars:
-            st.append("VARIABLE", v)
+            st.append(self.pt.new("VARIABLE", v))
         return st
 
     def parse_comment_group(self):
@@ -429,103 +437,97 @@ class PhpParser(Parser):
             return self.parse_operator(symbol)
         elif symbol in ASSIGNMENTS:
             return self.parse_basic("ASSIGNMENT", symbol)
-        elif symbol in CONSTANTS:
-            return self.parse_basic("CONSTANT", symbol)
         elif symbol in MAGIC_CONSTANTS:
             return self.parse_basic("MAGIC", symbol)
         raise NotImplementedError("Implement" + symbol)
 
     def parse_block(self):
-        self.start_marker = self.cursor
-        self.next_non_white()
-        if self.match_for(re.compile("\\{")) is None:
+        start = self.cursor
+        if self.match_for(open_curly_search) is None:
             raise ExpectedCharError("Expected { to start block")
-        self.pt.append_and_into("BLOCK", start_offset=self.start_marker - self.cursor)
+        block = self.pt.new("BLOCK", start=start)
         self.next_non_white()
         self.start_marker = self.cursor
-        while True:
-            self.parse_statement()
+        while self.match_for(close_curly_search) is None:
+            block.append(self.parse_statement())
             self.next_non_white()
-            if self.check_for("}"):
-                break
-            self.start_marker = self.cursor
-        self.pt.up(end_offset=1)
+        return block
 
     def parse_control(self, keyword):
+        c = None
+        if keyword.lower() in ("if", "while"):
+            c = self.parse_control_general(keyword)
+        else:
+            c = getattr(self, "parse_" + keyword.lower())()
+        return c
 
+    def parse_control_general(self, keyword):
+        start = self.cursor - 2
+        i = self.pt.new(keyword.upper(), start=start)
+        i.append(self.parse_expression_group())
         self.next_non_white()
-        self.pt.append_and_into(keyword.upper(), start_offset=self.start_marker - self.cursor)
-        getattr(self, "parse_" + keyword.lower())()
-        self.next_non_white()
-        self.pt.up(end_offset=1)
-
-    def parse_if(self):
-        self.parse_expression_group()
-        self.next_non_white()
-        self.parse_block()
-
-    def parse_while(self):
-        self.parse_if()    # It looks the same!
+        i.append(self.parse_block())
+        i.end_cursor = self.cursor
+        return i
 
     def parse_function(self):
+        start = self.cursor - 8
         self.push_scope("LOCAL")
+        self.match_for(space_tab_search)
         match = self.match_for(ident_search)
         if match is None:
             raise ExpectedCharError("Alpha or _ expected as function name")
-        self.pt.cur.value = match
-
+        f = self.pt.new("FUNCTION", match, start=start)
         # Arglist is pretty much just an expression group
-        self.parse_expression_group()
-        self.pt.last.node_type = "ARGLIST"
-        self.parse_block()
+        al = self.parse_expression_group()
+        al.node_type = "ARGLIST"
+        f.append(al)
+        self.next_non_white()
+        f.append(self.parse_block())
         self.pop_scope()
+        return f
 
     def parse_return(self):
-        self.parse_expression()
+        return self.parse_expression()
 
     def parse_new(self):
         if self.debug:
             print("NEW")
         self.next_non_white()
         match = self.match_for(callable_search)
-        self.parse_callable(match)
+        return self.parse_callable(match)
 
     def parse_global(self):
-        while True:
-            self.next_non_white()
-            if self.check_for(";"):
-                break
-            self.pt.cur.append(self.parse_variable())
-            self.match_for(re.compile(",? *"))
-        for var in self.pt.cur:
+        g = self.parse_comma_list("GLOBALLIST", start=self.cursor)
+        for var in g:
             self.add_global(var.value)
+        return g
 
     def parse_special(self, keyword):
-        # keyword might have a ( on the end, otherwise it has a space
-        brace_end = False
-        if keyword[-1] == "(":
-            brace_end = True
-        if keyword[-1] == ";":
-            self.cursor -= 1
-        keyword = keyword[:-1]
-        self.next_non_white()
-        self.pt.append_and_into(keyword.upper(), start_offset=-self.cursor + self.start_marker)
-        if keyword in ("new"):
-            getattr(self, "parse_" + keyword.lower())()
+        start = self.cursor
+        special = self.pt.new("CALL", keyword.lower(), start=start)
+        if keyword in ("new", "return", "global"):
+            special.append(getattr(self, "parse_" + keyword.lower())())
+            special.node_type = keyword.upper()
         else:
-            self.parse_expression()
-        if brace_end:
-            # Skip over closing brace
             self.next_non_white()
-            self.cursor += 1
-        self.pt.up()
-        self.next_non_white()
+            args = None
+            if self.check_for("("):
+                args =self.parse_expression_group()
+            else:
+                args = self.parse_comma_list("ARGLIST")
+            for a in args:
+                special.append(a)
+        special.end_cursor = self.cursor
+        return special
 
     def parse_basic(self, node_type, value):
         return self.pt.new(node_type, value, start=self.start_marker, end=self.cursor)
 
     def parse_operator(self, o):
         start = self.cursor - len(o)
+        if o == ".":
+            o = "+"
         if o == "=>":
             return self.pt.new("KEYVALUE", start=start, end=self.cursor)
         else:
@@ -540,6 +542,8 @@ class PhpParser(Parser):
         self.next_non_white()
         call = self.parse_expression_group()
         call.node_type = "CALL"
+        call.trim_childless_children("EXPRESSION")
         call.value = c[:-1]
         call.start_cursor = sm - self.cursor
         self.next_non_white()
+        return call

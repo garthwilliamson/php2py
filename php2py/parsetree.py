@@ -1,6 +1,10 @@
 from __future__ import unicode_literals
 
 
+class ParseTreeError(Exception):
+    pass
+
+
 next_id = 0
 def get_next_id():
     global next_id
@@ -17,6 +21,8 @@ class ParseNode(object):
         self.id_ = get_next_id()
 
     def append(self, node, value=None):
+        if not isinstance(node, ParseNode):
+            raise ParseTreeError("Expected a node, saw a {} as a child of {}".format(node, self))
         if value is None:
             self.children.append(node)
             node.parent = self
@@ -51,6 +57,14 @@ class ParseNode(object):
         i = self.children.index(search) + 1
         self.children.insert(i, new_node)
 
+    def trim_childless_children(self, node_type):
+        new_children = []
+        for i in range(0, len(self.children)):
+            if self.children[i].node_type == node_type and len(self.children[i].children) == 0:
+                pass
+            else:
+                new_children.append(self.children[i])
+        self.children = new_children
 
 class ParseTree(object):
     def __init__(self, name, get_cursor=None):
@@ -62,7 +76,7 @@ class ParseTree(object):
         self.last = self.cur
 
     def up(self, end_offset=0):
-        print("Going up from", str(self.cur), "to", str(self.cur.parent))
+        #print("Going up from", str(self.cur), "to", str(self.cur.parent))
         if self.cur.parent is None:
             raise Exception("Can't go up from here")
         # The end of the item should be around where the cursor currently is
@@ -73,7 +87,7 @@ class ParseTree(object):
         new_node = ParseNode(node_type, value, self.cur)
         # The start of the item should be where the cursor currently is
         new_node.start_cursor = self.get_cursor() + start_offset
-        print("Appending node", str(new_node), value, "to", str(self.cur))
+        #print("Appending node", str(new_node), value, "to", str(self.cur))
         self.cur.append(new_node)
         self.last = new_node
         return new_node

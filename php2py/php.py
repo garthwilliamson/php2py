@@ -66,10 +66,10 @@ class PhpFunctions(PhpVars):
 
 
 class PhpGlobals(PhpVars):
-    def __init__(self):
+    def __init__(self, root_dir):
         # Sets the super-global variables
         # $_POST etc
-        pass
+        self.__rootdir__ = root_dir
 
     pass
     #This be where the globals go
@@ -80,8 +80,8 @@ class PhpClasses(PhpVars):
     #This be where the classes go
 
 
-def serve_up(body):
-    g = PhpGlobals()
+def serve_up(body, root_dir):
+    g = PhpGlobals(root_dir=root_dir)
     f = PhpFunctions()
     f._add_php_functions()
     c = PhpClasses()

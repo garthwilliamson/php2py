@@ -134,8 +134,22 @@ if (!empty($CFG->a) && ($CFG->a == CONS) && optional_param('b', 1, PARAM_BOOL) =
 }
 """
 
+array_keyvalue = """<?php
+$CFG->dboptions = array (
+  'dbpersist' => 0,
+  'dbsocket' => 0,
+);
+"""
+
 
 class SimpleTests(unittest.TestCase):
+    def assertEcho(self, node, string, node_type="STRING"):
+        self.assertEqual(node[0].node_type, "EXPRESSION")
+        self.assertEqual(node[0][0].node_type, "CALL")
+        self.assertEqual(node[0][0][0].node_type, "EXPRESSION")
+        self.assertEqual(node[0][0][0][0].node_type, node_type)
+        self.assertEqual(node[0][0][0][0].value, string)
+
     def test_html(self):
         p = parse_string(html)
         res = p.get_tree()
@@ -151,15 +165,14 @@ class SimpleTests(unittest.TestCase):
         res = p.get_tree()
         php = res[0]
         self.assertEqual(php.node_type, "PHP")
+        self.assertEcho(php[0], "Hello World")
 
     def test_hello_no_end(self):
         p = parse_string(hello_no_end)
         res = p.get_tree()
         php = res[0]
         self.assertEqual(php.node_type, "PHP")
-        echo_s = php[0]
-        echo_e = echo_s[0][0]
-        self.assertEqual(echo_e[0][0].value, "Hello World")
+        self.assertEcho(php[0], "Hello World")
 
     def test_while(self):
         p = parse_string(while_eg)
@@ -168,8 +181,8 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(php_node.node_type, "PHP")
         while_node = php_node[2]
         self.assertEqual(while_node.node_type, "WHILE")
-        echo_world_expression = php_node[3][0]
-        self.assertEqual(echo_world_expression[0][0][0].value, "world")
+        echo_world_statement = php_node[3]
+        self.assertEcho(echo_world_statement, "world")
 
     def test_function(self):
         p = parse_string(function)
@@ -181,8 +194,9 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(function_args[0][0].value, "arg1")
         function_body = function_node[1]
         return_statement = function_body[1]
-        self.assertEqual(return_statement[0][2].node_type, "CONSTANT")
-        self.assertEqual(return_statement[0][2].value, "true")
+        self.assertEqual(return_statement[0][0].node_type, "RETURN")
+        self.assertEqual(return_statement[0][0][0][2].node_type, "PHPCONSTANT")
+        self.assertEqual(return_statement[0][0][0][2].value, "true")
 
     def test_double_function(self):
         t = parse_string(double_function, True).get_tree()
@@ -195,9 +209,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(php_node[0][0][0].node_type, "GLOBALVAR")
         function_node = php_node[1]
         block_node = function_node[1]
-        echo_statement_line = block_node[0]
-        echo_expression = echo_statement_line[0][0]
-        self.assertEqual(echo_expression[0][0].node_type, "VAR")
+        self.assertEcho(block_node[0], "a", node_type="VAR")
 
     def test_scopes_global(self):
         php_node = parse_string(scope_globalled).get_tree()[0]
@@ -205,6 +217,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(function_node.value, "Sum")
         # We don't actually output the global node anywhere
         assignment_statement = function_node[1][1]
+        self.assertEqual(assignment_statement[0].node_type, "EXPRESSION")
         self.assertEqual(assignment_statement[0][0].value, "b")
 
     def test_comments(self):

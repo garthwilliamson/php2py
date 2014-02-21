@@ -12,7 +12,7 @@ constant_map = {
 }
 
 magic_map = {
-    "__file__": "__file__",
+    "__file__": "p.f.get__file__(p, __file__)",
 }
 
 class CompileError(Exception):
@@ -47,7 +47,11 @@ class Compiler(object):
 
     def generic_footer_compile(self):
         self.indent -= 4
-        self.append("""if __name__ == "__main__":\n    php.serve_up(body)\n""")
+        self.append("""if __name__ == "__main__":""")
+        self.indent += 4
+        self.append("""import os.path""")
+        self.append("""php.serve_up(body, root_dir=os.path.abspath(os.path.dirname(__file__)))""")
+        self.indent -= 4
 
     def add_import(self, module, els=None):
         module = self.python_safe(module)
@@ -128,24 +132,34 @@ class Compiler(object):
     def call_compile(self, node):
         # Process args
         # TODO: Deal with possitional and other args combined
-        args = ""
+        arg_list = ["p"]
+        kwarg_list = []
+        kwargs = ""
         if len(node.children) > 0:
-            if node[0].node_type == "DICT":
-                args = "**{" + self.dict_compile(node[0]) + "}"
-            else:
-                for e in node:
-                    arg_list = []
+            for e in node:
+                if e.node_type == "KEYVALUE":
+                    kwarg_list.append(self.keyvalue_compile(e))
+                else:
                     arg_list.append(self.expression_compile(e))
-                    args = ", ".join(arg_list)
-        return "p.f.{0}(p, {1})".format(node.value, args)
+
+        if len(kwarg_list) != 0:
+            kwargs = "**{" + ", ".join(kwarg_list) + "}"
+            arg_list.append(kwargs)
+        args = ", ".join(arg_list)
+        return "p.f.{0}({1})".format(node.value, args, kwargs)
+
+    def keyvalue_compile(self, node, assign=": "):
+        return self.marshal(node[0]) + assign + self.marshal(node[1])
 
     def new_compile(self, node):
         return self.call_compile(node[0])
 
     def return_compile(self, node):
-        self.append("return " + self.expression_compile(node[0]))
+        return "return " + self.expression_compile(node[0])
 
     def expression_compile(self, node):
+        if len(node.children) == 0:
+            return ""
         r = " ".join([self.marshal(c) for c in node])
         return r
 
@@ -165,14 +179,11 @@ class Compiler(object):
         return node.value
 
     def global_compile(self, node):
-        pass
+        return ""
 
     def block_compile(self, node):
         for c in node.children:
             self.marshal(c)
-
-    def echo_compile(self, node):
-        return " + ".join([self.marshal(c) for c in node])
 
     def string_compile(self, node):
         fmt = ""
@@ -195,7 +206,7 @@ class Compiler(object):
     def int_compile(self, node):
         return str(node.value)
 
-    def constant_compile(self, node):
+    def phpconstant_compile(self, node):
         return constant_map[node.value]
 
     def commentline_compile(self, node):
@@ -211,14 +222,10 @@ class Compiler(object):
         # TODO: Note that we don't deal with comments inline very well. Should strip them if they are in the wrong place
         if self.strip_comments:
             return ""
-        print(node.parent.node_type)
         if node.parent.node_type in("STATEMENT", "EXPRESSION"):
             return '"""{}"""\n'.format(node.value)
         else:
             self.append('"""{}"""\n'.format(node.value))
-
-    def require_once_compile(self, node):
-        return "p.f.require_once(p, {})".format(self.expression_compile(node[0]))
 
     def magic_compile(self, node):
         if node.value not in magic_map:
