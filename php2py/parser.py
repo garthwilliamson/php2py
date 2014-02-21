@@ -163,9 +163,9 @@ IDENTIFIERS = "[a-z_][a-z_1-9]*"
 ident_search = re.compile(IDENTIFIERS, flags=re.IGNORECASE)
 # Have to do these all at once because of sizing issues
 COMPARATORS = ["===", "!==", "==", "!=", "<>", "<=", ">=", "<", ">"]
-OPERATORS = ["AND", "XOR",
+OPERATORS = ["and", "xor",
              "=>",        # Here because I don't know where else to put it
-             "<<", ">>", "||", "&&", "OR", "++", "--",
+             "<<", ">>", "||", "&&", "or", "++", "--",
              "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!"]
 ASSIGNMENTS = ["<<=", ">>=",
               "+=", "-=", "*=", "/=", "|=", "^=", "="]
@@ -184,6 +184,9 @@ int_search = re.compile("[0-9]+")
 callable_search = re.compile(IDENTIFIERS + "\\s*\\(", flags=re.IGNORECASE)
 endline_search = re.compile("(\\r)?\\n|$")
 endstatement_search = create_pattern(("?>", ";", "}"))
+
+else_search = re.compile("else( |\\{)")
+elif_search = re.compile("else\\s+if")
 
 open_brace_search = re.compile("\\(")
 close_brace_search = re.compile(re.escape(")"))
@@ -291,7 +294,7 @@ class PhpParser(Parser):
         expr = self.pt.new("EXPRESSION", start=self.cursor)
         while True:
             self.next_non_white()
-            if self.check_for(";") or self.check_for(")") or self.check_for(",") or self.check_for("?>") or self.is_eof():
+            if self.check_for(";") or self.check_for(")") or self.check_for(",") or self.check_for("?>") or self.check_for("]") or self.is_eof():
                 break
             ep = self.parse_expression_part()
             expr.append(ep)
@@ -368,6 +371,8 @@ class PhpParser(Parser):
         var = self.pt.new(t, match, start=start, end=self.cursor)
         if self.match_for(re.compile(re.escape("->"))):
             var.append(self.parse_subvar())
+        if self.get() == "[":
+            var.append(self.parse_index())
         start = self.cursor
         if self.match_for(create_pattern(("++", "--"))):
             if self.last_match == "++":
@@ -384,6 +389,18 @@ class PhpParser(Parser):
             self.cursor += 2
             v.append(self.parse_subvar())
         return v
+
+    def parse_index(self):
+        if self.get() != "[":
+            raise ExpectedCharError("Expected [ at start of index")
+        self.cursor += 1
+        ex = self.parse_expression()
+        ex.node_type = "INDEX"
+        if self.get() != "]":
+            raise ExpectedCharError("Expected ] at end of index")
+        else:
+            self.cursor += 1
+        return ex
 
     def parse_string(self):
         delim = self.get()
@@ -455,7 +472,7 @@ class PhpParser(Parser):
 
     def parse_control(self, keyword):
         c = None
-        if keyword.lower() in ("if", "while"):
+        if keyword.lower() in ("while",):
             c = self.parse_control_general(keyword)
         else:
             c = getattr(self, "parse_" + keyword.lower())()
@@ -469,6 +486,21 @@ class PhpParser(Parser):
         i.append(self.parse_block())
         i.end_cursor = self.cursor
         return i
+
+    def parse_if(self):
+        i = self.parse_control_general("if")
+        while True:
+            self.next_non_white()
+            if self.match_for(elif_search):
+                i.append(self.parse_control_general("ELIF"))
+            elif self.match_for(else_search):
+                if self.last_match == "else{":
+                    self.cursor -= 1
+                else:
+                    self.next_non_white()
+                i.append(self.parse_block())
+            else:
+                return i
 
     def parse_function(self):
         start = self.cursor - 8
