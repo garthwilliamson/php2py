@@ -192,7 +192,7 @@ open_brace_search = re.compile("\\(")
 close_brace_search = re.compile(re.escape(")"))
 
 comma_search = re.compile(re.escape(","))
-space_tab_search = re.compile("\t| ")
+space_tab_search = re.compile("[\t ]*")
 
 open_curly_search = re.compile(re.escape("{"))
 close_curly_search = re.compile(re.escape("}"))
@@ -271,14 +271,12 @@ class PhpParser(Parser):
             statement = self.pt.new("STATEMENT", start=self.cursor)
             self.next_non_white()
             statement.append(self.parse_expression())
-
             self.next_non_white()
             if self.is_eof():
                 return statement
             m = self.match_for(endstatement_search)
             if m is None:
                 raise UnexpectedCharError("Didn't expect to see `{}` here".format(self.get()))
-
             # Statements can end with comments
             self.match_for(space_tab_search)
             if self.check_for("//"):

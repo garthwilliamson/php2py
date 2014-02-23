@@ -141,6 +141,13 @@ $CFG->dboptions = array (
 );
 """
 
+multi_space_comment = """<?php
+if ($a) {
+    $a;   // Comment with exta spaces
+}
+
+"""
+
 
 class SimpleTests(unittest.TestCase):
     def assertEcho(self, node, string, node_type="STRING"):
@@ -245,22 +252,22 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(fcall[0][0].value, "a")
 
     def test_multiline_call2(self):
-        print("ASDFASDF")
         php_node = parse_string(multiline_call2, True).get_tree()[0]
         fcall = php_node[0][0][0]
-        print(fcall)
         self.assertEqual(fcall.node_type, "CALL")
         self.assertEqual(fcall.value, "F")
         self.assertEqual(fcall[0][0].value, "a")
 
     def test_nested(self):
-        php_node = parse_string(nested_brackets, True).get_tree()[0]
+        php_node = parse_string(nested_brackets).get_tree()[0]
         self.assertEqual(php_node[0][0][0][0][0].node_type, "CALL")
         self.assertEqual(php_node[0][0][0][0][0][0][0].value, "__file__")
 
     def test_complex_if(self):
-        php_node = parse_string(complex_if, True).get_tree()[0]
+        php_node = parse_string(complex_if).get_tree()[0]
 
+    def test_new_test(self):
+        php_node = parse_string(multi_space_comment, True).get_tree()[0]
 
 class CompileTest(unittest.TestCase):
     # TODO: These tests should work out why eval is failing
