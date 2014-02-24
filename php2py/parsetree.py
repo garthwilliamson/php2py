@@ -57,6 +57,10 @@ class ParseNode(object):
         i = self.children.index(search) + 1
         self.children.insert(i, new_node)
 
+    def insert_before(self, search, new_node):
+        i = self.children.index(search)
+        self.children.insert(i, new_node)
+
     def trim_childless_children(self, node_type):
         new_children = []
         for i in range(0, len(self.children)):

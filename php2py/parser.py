@@ -158,6 +158,21 @@ def create_pattern(items):
     return re.compile(pattern, flags=re.IGNORECASE)
 
 
+cast_map = {
+    "(int)": "int",
+    "(integer)": "int",
+    "(bool)": "bool",
+    "(boolean)": "bool",
+    "(float)": "float",
+    "(double)": "float",
+    "(real)": "float",
+    "(string)": "str",
+    "(array)": "list",
+    "(object)": "object",
+    "(unset)": None,    #TODO: unset should be not so shit
+}
+
+
 # REMEMBER BIGGEST TO SMALLEST
 PHP_START = ("<?php",)
 html_search = create_pattern(PHP_START)
@@ -179,11 +194,12 @@ SYMBOLS.sort(key=len, reverse=True)
 symbol_search = create_pattern(SYMBOLS)
 whitespace_search = re.compile("\\s+")
 CONTROLS = "function switch while catch class call try for if do".split()
-SPECIAL_STATEMENTS = ["echo", "new", "die", "require_once", "require", "include", "global", "return"]
+SPECIAL_STATEMENTS = "echo new die require_once require include global return case".split()
+cast_search = create_pattern(cast_map.keys())
 special_search = create_pattern(SPECIAL_STATEMENTS)
 control_search = re.compile("(" + "|".join([re.escape(w) for w in CONTROLS]) + ")([ \\(])")
 int_search = re.compile("[0-9]+")
-callable_search = re.compile("\\$?" + IDENTIFIERS + "\\s*\\(", flags=re.IGNORECASE)
+callable_search = re.compile("\\@?\\$?" + IDENTIFIERS + "\\s*\\(", flags=re.IGNORECASE)
 endline_search = re.compile("(\\r)?\\n|$")
 endstatement_search = create_pattern(("?>", ";", "}"))
 
@@ -198,6 +214,8 @@ space_tab_search = re.compile("[\t ]*")
 
 open_curly_search = re.compile(re.escape("{"))
 close_curly_search = re.compile(re.escape("}"))
+
+
 
 
 class PhpParser(Parser):
@@ -321,7 +339,10 @@ class PhpParser(Parser):
         self.next_non_white()
         if self.debug:
             print("Looking for ")
-        if self.check_for("("):
+        if self.match_for(cast_search):
+            # Casts have to come first to override (
+            return self.parse_cast(self.last_match)
+        elif self.check_for("("):
             return self.parse_expression_group()
         elif self.check_for("//"):
             return self.parse_comment_line()
@@ -489,7 +510,7 @@ class PhpParser(Parser):
 
     def parse_control(self, keyword):
         c = None
-        if keyword.lower() in ("while",):
+        if keyword.lower() in ("while","switch"):
             c = self.parse_control_general(keyword)
         else:
             c = getattr(self, "parse_" + keyword.lower())()
@@ -572,8 +593,16 @@ class PhpParser(Parser):
             self.add_global(var.value)
         return g
 
+    def parse_cast(self, keyword):
+        start = self.cursor - len(keyword)
+        cast = self.pt.new("CAST", cast_map[keyword.lower()], start=start)
+        self.next_non_white()
+        cast.append(self.parse_expression())
+        cast.end_cursor = self.cursor
+        return cast
+
     def parse_special(self, keyword):
-        start = self.cursor
+        start = self.cursor - len(keyword)
         special = self.pt.new("CALL", keyword.lower(), start=start)
         if keyword in ("new", "return", "global"):
             special.append(getattr(self, "parse_" + keyword.lower())())
@@ -582,7 +611,7 @@ class PhpParser(Parser):
             self.next_non_white()
             args = None
             if self.check_for("("):
-                args =self.parse_expression_group()
+                args = self.parse_expression_group()
             else:
                 args = self.parse_comma_list("ARGLIST")
             for a in args:
@@ -595,8 +624,15 @@ class PhpParser(Parser):
 
     def parse_operator(self, o):
         start = self.cursor - len(o)
+        #TODO: Move these transforms into transform
         if o == ".":
             o = "+"
+        elif o == "!":
+            o = "not"
+        elif o == "&&":
+            o = "and"
+        elif o == "||":
+            o = "or"
         if o == "=>":
             return self.pt.new("KEYVALUE", start=start, end=self.cursor)
         else:
@@ -612,6 +648,8 @@ class PhpParser(Parser):
         call = self.parse_expression_group()
         call.node_type = "CALL"
         call.trim_childless_children("EXPRESSION")
+        #TODO: Move to transform?
+        c = c.replace("::", ".")
         if c[0] == "$":
             call.value = c[1:-1]
         else:

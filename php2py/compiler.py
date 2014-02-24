@@ -161,7 +161,7 @@ class Compiler(object):
         if len(node.children) == 0:
             return ""
         parsetree.print_tree(node)
-        r = "".join([self.marshal(c) for c in node])
+        r = "".join([self.marshal(c) for c in node]).lstrip()
         return r
 
     def var_compile(self, node):
@@ -178,6 +178,10 @@ class Compiler(object):
 
     def index_compile(self, node):
         return "[{}]".format(self.expression_compile(node).lstrip())
+
+    def constant_compile(self, node):
+        #TODO: Contants might need further thought
+        return " " + node.value
 
     def comparator_compile(self, node):
         return node.value
@@ -242,3 +246,23 @@ class Compiler(object):
             if len(c.children) == 3:
                 out.append(self.marshal(c[0]) + ": " + self.marshal(c[2]))
         return (", ".join(out))
+
+    def expressiongroup_compile(self, node):
+        return " ({})".format([self.marshal(c) for c in node.children])
+
+    def try_compile(self, node):
+        self.append("try:")
+        self.indent += 4
+        self.marshal(node[0])
+        self.indent -= 4
+        self.append("except {} as {}:".format(self.marshal(node[1][0][0][0]), self.marshal(node[1][0][0][1])))
+        self.indent += 4
+        self.marshal(node[1][0])
+        self.indent -= 4
+
+    def switch_compile(self, node):
+        #TODO: Transform switch statements
+        pass
+
+    def cast_compile(self, node):
+        return " {}({})".format(node.value, self.marshal(node[0]))
