@@ -2,6 +2,8 @@ from __future__ import unicode_literals
 
 import unittest
 import php2py.parser as p
+from php2py.parsetree import print_tree
+from php2py.transformer import transform_node
 from php2py import parse_and_compile
 
 from pprint import pprint
@@ -167,6 +169,30 @@ dynamic_class_creation = """<?php
 $A = new $b();
 """
 
+casting = """<?php
+$a = (array)$B;
+"""
+
+assign_in_if = """<?php
+if ($a = 3) {
+}
+"""
+
+assign_in_if2 = """<?php
+if ($dbhash = $DB->get_field('config', 'value', array('name'=>'phpunittest'))) {
+    // reset DB tables
+    phpunit_util::reset_database();
+}
+"""
+
+try_catch = """<?php
+try {
+    $A = 1 / 0;
+} catch (Exception $e) {
+    $D;
+}
+"""
+
 
 class SimpleTests(unittest.TestCase):
     def assertEcho(self, node, string, node_type="STRING"):
@@ -317,6 +343,37 @@ class SimpleTests(unittest.TestCase):
     def test_dynamic_class_creation(self):
         php_node = parse_string(dynamic_class_creation, False).get_tree()[0]
 
+    def test_casting(self):
+        php_node = parse_string(casting, False).get_tree()[0]
+
+    def test_assign_in_if(self):
+        php_node = parse_string(assign_in_if).get_tree()[0]
+        print_tree(php_node)
+        transform_node(php_node)
+        print_tree(php_node)
+        assign_statement = php_node[0]
+        if_statement = php_node[1]
+        self.assertEqual(assign_statement[0][0].value, "a")
+        self.assertEqual(if_statement[0][0][0].value, "a")
+        self.assertEqual(len(if_statement[0][0].children), 1)
+        self.assertEqual(len(if_statement[1].children), 0)
+
+    def test_assign_in_if2(self):
+        php_node = parse_string(assign_in_if2).get_tree()[0]
+        print_tree(php_node)
+        transform_node(php_node)
+        print_tree(php_node)
+        self.assertTrue(False)
+
+    def test_try_catch(self):
+        php_node = parse_string(try_catch).get_tree()[0]
+        print_tree(php_node)
+        try_node = php_node[0]
+        self.assertEqual(try_node.node_type, "TRY")
+        self.assertEqual(try_node[0].node_type, "BLOCK")
+        self.assertEqual(try_node[1].node_type, "CATCH")
+        self.assertEqual(try_node[1][0].node_type, "CATCHMATCH")
+        self.assertEqual(try_node[1][1].node_type, "BLOCK")
 
 class CompileTest(unittest.TestCase):
     # TODO: These tests should work out why eval is failing

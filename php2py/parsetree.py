@@ -59,6 +59,7 @@ class ParseNode(object):
 
     def insert_before(self, search, new_node):
         i = self.children.index(search)
+        print("inserting {} in {} before {}".format(new_node, self, self[i]))
         self.children.insert(i, new_node)
 
     def trim_childless_children(self, node_type):
@@ -104,9 +105,15 @@ class ParseTree(object):
         if node is None:
             node = self.root_node
         def print_tree(tree, indent):
+            s = str(tree)
+            if len(s) > 50:
+                s = s[0:51]
             print(indent * " " + str(tree))
             for c in tree:
-                print_tree(c, indent + 4)
+                if indent > 50:
+                    print_tree(c, indent)
+                else:
+                    print_tree(c, indent + 4)
         print_tree(node, 0)
 
     def new(self, node_type=None, value=None, start=0, end=0):

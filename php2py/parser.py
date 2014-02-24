@@ -143,10 +143,12 @@ class Parser(object):
 
         try:
             end = node.end_cursor
+            if end - start > 30:
+                end = start + 30
         except AttributeError:
             print("{} has no end cursor. Up mustn't have been called for it or one of its children".format(node))
             end = len(self.chars)
-        print("{:<30}{:<7}{}{!r}".format(str(node), str(start) + ":" + str(end), " " * (indent), self.chars[start:end]))
+        #print("{:<30}{:<7}{}{!r}".format(str(node), str(start) + ":" + str(end), " " * (indent), self.chars[start:end]))
 
         if recurse:
             for c in node:
@@ -354,7 +356,7 @@ class PhpParser(Parser):
             return self.parse_variable()
         elif self.check_for("["):
             return self.parse_index()
-        elif self.match_for(symbol_search) is not None:
+        elif self.match_for(symbol_search):
             return self.parse_symbol(self.last_match)
         elif self.match_for(int_search):
             return self.parse_basic("INT", int(self.last_match))
@@ -569,7 +571,9 @@ class PhpParser(Parser):
             start = self.cursor
             if self.match_for(re.compile("catch")):
                 c = self.pt.new("CATCH", None, start)
-                c.append(self.parse_expression_group())
+                catchmatch = self.parse_expression_group()
+                catchmatch.node_type = "CATCHMATCH"
+                c.append(catchmatch)
                 self.next_non_white()
                 c.append(self.parse_block())
                 t.append(c)
@@ -633,10 +637,9 @@ class PhpParser(Parser):
             o = "and"
         elif o == "||":
             o = "or"
-        if o == "=>":
-            return self.pt.new("KEYVALUE", start=start, end=self.cursor)
-        else:
-            return self.pt.new("OPERATOR", o, start=start, end=self.cursor)
+        elif o == "=>":
+            o == ":"
+        return self.pt.new("OPERATOR", o, start=start, end=self.cursor)
 
     def parse_callable(self, c):
         sm = self.start_marker

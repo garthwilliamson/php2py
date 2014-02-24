@@ -119,7 +119,8 @@ class Compiler(object):
         args = ["p"]
         for v in node[0]:
             args.append(self.var_compile(v[0]))
-        self.append("@phpfunc\ndef {0}({1}):".format(node.value, ", ".join(args)))
+        self.append("@phpfunc")
+        self.append("def {0}({1}):".format(node.value, ", ".join(args)))
         self.indent += 4
         self.marshal(node[1])
         self.indent -= 4
@@ -149,6 +150,9 @@ class Compiler(object):
         return " p.f.{0}({1})".format(node.value, args, kwargs)
 
     def keyvalue_compile(self, node, assign=": "):
+        if len(node.children) != 2:
+            parsetree.print_tree(node.parent)
+            raise CompileError("Keyvalues must have more than one child")
         return self.marshal(node[0]) + assign + self.marshal(node[1])
 
     def new_compile(self, node):
@@ -157,10 +161,12 @@ class Compiler(object):
     def return_compile(self, node):
         return "return " + self.expression_compile(node[0])
 
+    def pass_compile(self, node):
+        self.append("pass")
+
     def expression_compile(self, node):
         if len(node.children) == 0:
             return ""
-        parsetree.print_tree(node)
         r = "".join([self.marshal(c) for c in node]).lstrip()
         return r
 
@@ -255,9 +261,12 @@ class Compiler(object):
         self.indent += 4
         self.marshal(node[0])
         self.indent -= 4
-        self.append("except {} as {}:".format(self.marshal(node[1][0][0][0]), self.marshal(node[1][0][0][1])))
+        catch = node[1]
+        catch_match = catch[0]
+        catch_block = catch[1]
+        self.append("except {} as {}:".format(self.marshal(catch_match[0][0]), self.marshal(catch_match[0][1])))
         self.indent += 4
-        self.marshal(node[1][0])
+        self.marshal(catch_block)
         self.indent -= 4
 
     def switch_compile(self, node):
