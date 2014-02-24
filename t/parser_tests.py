@@ -163,6 +163,10 @@ if ($a) {
 }
 """
 
+dynamic_class_creation = """<?php
+$A = new $b();
+"""
+
 
 class SimpleTests(unittest.TestCase):
     def assertEcho(self, node, string, node_type="STRING"):
@@ -281,7 +285,7 @@ class SimpleTests(unittest.TestCase):
     def test_complex_if(self):
         php_node = parse_string(complex_if).get_tree()[0]
 
-    def test_new_test(self):
+    def test_multi_space_comment(self):
         php_node = parse_string(multi_space_comment).get_tree()[0]
 
     def test_array_lookups(self):
@@ -309,6 +313,9 @@ class SimpleTests(unittest.TestCase):
         if_s = php_node[0]
         comment_s = if_s[1][0]
         self.assertEqual(comment_s[0].node_type, "COMMENTLINE")
+
+    def test_dynamic_class_creation(self):
+        php_node = parse_string(dynamic_class_creation, False).get_tree()[0]
 
 
 class CompileTest(unittest.TestCase):

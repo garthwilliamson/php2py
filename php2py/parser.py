@@ -183,7 +183,7 @@ SPECIAL_STATEMENTS = ["echo", "new", "die", "require_once", "require", "include"
 special_search = create_pattern(SPECIAL_STATEMENTS)
 control_search = re.compile("(" + "|".join([re.escape(w) for w in CONTROLS]) + ")([ \\(])")
 int_search = re.compile("[0-9]+")
-callable_search = re.compile(IDENTIFIERS + "\\s*\\(", flags=re.IGNORECASE)
+callable_search = re.compile("\\$?" + IDENTIFIERS + "\\s*\\(", flags=re.IGNORECASE)
 endline_search = re.compile("(\\r)?\\n|$")
 endstatement_search = create_pattern(("?>", ";", "}"))
 
@@ -612,7 +612,10 @@ class PhpParser(Parser):
         call = self.parse_expression_group()
         call.node_type = "CALL"
         call.trim_childless_children("EXPRESSION")
-        call.value = c[:-1]
+        if c[0] == "$":
+            call.value = c[1:-1]
+        else:
+            call.value = c[:-1]
         call.start_cursor = sm - self.cursor
         self.next_non_white()
         return call
