@@ -161,14 +161,14 @@ def create_pattern(items):
 # REMEMBER BIGGEST TO SMALLEST
 PHP_START = ("<?php",)
 html_search = create_pattern(PHP_START)
-IDENTIFIERS = "[a-z_][a-z_1-9]*"
+IDENTIFIERS = "[a-z_][a-z_1-9:]*"
 ident_search = re.compile(IDENTIFIERS, flags=re.IGNORECASE)
 # Have to do these all at once because of sizing issues
 COMPARATORS = ["===", "!==", "==", "!=", "<>", "<=", ">=", "<", ">"]
 OPERATORS = ["and", "xor",
              "=>",        # Here because I don't know where else to put it
              "<<", ">>", "||", "&&", "or", "++", "--",
-             "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!"]
+             "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!", "?", ":"]
 ASSIGNMENTS = ["<<=", ">>=",
               "+=", "-=", "*=", "/=", "|=", "^=", "="]
 MAGIC_CONSTANTS = ["__line__", "__file__", "__dir__", "__function__", "__class__",
@@ -178,7 +178,7 @@ SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + MAGIC_CONSTANTS
 SYMBOLS.sort(key=len, reverse=True)
 symbol_search = create_pattern(SYMBOLS)
 whitespace_search = re.compile("\\s+")
-CONTROLS = "function switch while class call for if do".split()
+CONTROLS = "function switch while catch class call try for if do".split()
 SPECIAL_STATEMENTS = ["echo", "new", "die", "require_once", "require", "include", "global", "return"]
 special_search = create_pattern(SPECIAL_STATEMENTS)
 control_search = re.compile("(" + "|".join([re.escape(w) for w in CONTROLS]) + ")([ \\(])")
@@ -293,7 +293,6 @@ class PhpParser(Parser):
             # Statements can end with comments
             self.match_for(space_tab_search)
             if self.check_for("//"):
-                print("Putting a comment line in the block")
                 statement.append(self.parse_comment_line())
             elif self.check_for("/*"):
                 statement.append(self.parse_comment_group())
@@ -497,7 +496,7 @@ class PhpParser(Parser):
         return c
 
     def parse_control_general(self, keyword):
-        start = self.cursor - 2
+        start = self.cursor - len(keyword)
         i = self.pt.new(keyword.upper(), start=start)
         i.append(self.parse_expression_group())
         self.next_non_white()
@@ -518,6 +517,7 @@ class PhpParser(Parser):
                     self.next_non_white()
                 i.append(self.parse_block())
             else:
+                i.end_cursor = self.cursor
                 return i
 
     def parse_function(self):
@@ -536,6 +536,25 @@ class PhpParser(Parser):
         f.append(self.parse_block())
         self.pop_scope()
         return f
+
+    def parse_try(self):
+        start = self.cursor - 3
+        self.match_for(space_tab_search)
+        t = self.pt.new("TRY", None, start=start)
+        t.append(self.parse_block())
+        t.end_cursor = self.cursor
+        while True:
+            self.next_non_white()
+            start = self.cursor
+            if self.match_for(re.compile("catch")):
+                c = self.pt.new("CATCH", None, start)
+                c.append(self.parse_expression_group())
+                self.next_non_white()
+                c.append(self.parse_block())
+                t.append(c)
+            else:
+                break
+        return t
 
     def parse_return(self):
         return self.parse_expression()
