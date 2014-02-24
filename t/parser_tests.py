@@ -148,6 +148,12 @@ if ($a) {
 
 """
 
+array_lookups = """<?php
+$a['a'] = "maybe";
+a[0] = 2;
+$b = a['a']
+"""
+
 
 class SimpleTests(unittest.TestCase):
     def assertEcho(self, node, string, node_type="STRING"):
@@ -267,7 +273,35 @@ class SimpleTests(unittest.TestCase):
         php_node = parse_string(complex_if).get_tree()[0]
 
     def test_new_test(self):
-        php_node = parse_string(multi_space_comment, True).get_tree()[0]
+        php_node = parse_string(multi_space_comment).get_tree()[0]
+
+    def test_array_lookups(self):
+        php_node = parse_string(array_lookups, True).get_tree()[0]
+        maybe_statement = php_node[0]
+        var_a = maybe_statement[0][0]
+        self.assertEqual(var_a.node_type, "GLOBALVAR")
+        self.assertEqual(var_a.value, "a")
+        index_expression = maybe_statement[0][1]
+        self.assertEqual(index_expression.node_type, "INDEX")
+        self.assertEqual(index_expression.value, None)
+        self.assertEqual(index_expression[0].node_type, "STRING")
+        self.assertEqual(index_expression[0].value, "a")
+        deep_nesting = php_node[1]
+        var_b = deep_nesting[0][0]
+        b_c_attr = var_b[0]
+        self.assertEqual(b_c_attr.node_type, "ATTR")
+        c_index_expression = deep_nesting[0][1]
+        self.assertEqual(c_index_expression[0].node_type, "INT")
+        self.assertEqual(c_index_expression[0].value, 0)
+        call_index = php_node[2]
+
+
+array_lookups = """<?php
+$a['a'] = "maybe";
+$b->c[0] = 2;
+$d = d()['d']
+"""
+
 
 class CompileTest(unittest.TestCase):
     # TODO: These tests should work out why eval is failing

@@ -312,6 +312,8 @@ class PhpParser(Parser):
             return self.parse_string()
         elif self.check_for("$"):
             return self.parse_variable()
+        elif self.check_for("["):
+            return self.parse_index()
         elif self.match_for(symbol_search) is not None:
             return self.parse_symbol(self.last_match)
         elif self.match_for(int_search):
@@ -368,9 +370,7 @@ class PhpParser(Parser):
             t = "GLOBALVAR"
         var = self.pt.new(t, match, start=start, end=self.cursor)
         if self.match_for(re.compile(re.escape("->"))):
-            var.append(self.parse_subvar())
-        if self.get() == "[":
-            var.append(self.parse_index())
+            var.append(self.parse_attr())
         start = self.cursor
         if self.match_for(create_pattern(("++", "--"))):
             if self.last_match == "++":
@@ -379,13 +379,13 @@ class PhpParser(Parser):
                 var.append(self.pt.new("POSTDEC", start=start, end=self.cursor))
         return var
 
-    def parse_subvar(self):
+    def parse_attr(self):
         start = self.cursor
         match = self.match_for(ident_search)
-        v = self.pt.new("SUBVAR", match, start, self.cursor)
+        v = self.pt.new("ATTR", match, start, self.cursor)
         if self.match_for(re.compile(re.escape("->"))):
             self.cursor += 2
-            v.append(self.parse_subvar())
+            v.append(self.parse_attr())
         return v
 
     def parse_index(self):
