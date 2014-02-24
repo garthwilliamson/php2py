@@ -150,8 +150,17 @@ if ($a) {
 
 array_lookups = """<?php
 $a['a'] = "maybe";
-a[0] = 2;
-$b = a['a']
+$c->d[0] = 2;
+$e = f()['g']
+"""
+
+statement_comment = """<?php
+if ($a) {
+    // comment b
+    if (!defined('c')) {
+        $e;
+    }
+}
 """
 
 
@@ -276,7 +285,7 @@ class SimpleTests(unittest.TestCase):
         php_node = parse_string(multi_space_comment).get_tree()[0]
 
     def test_array_lookups(self):
-        php_node = parse_string(array_lookups, True).get_tree()[0]
+        php_node = parse_string(array_lookups, False).get_tree()[0]
         maybe_statement = php_node[0]
         var_a = maybe_statement[0][0]
         self.assertEqual(var_a.node_type, "GLOBALVAR")
@@ -295,12 +304,11 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(c_index_expression[0].value, 0)
         call_index = php_node[2]
 
-
-array_lookups = """<?php
-$a['a'] = "maybe";
-$b->c[0] = 2;
-$d = d()['d']
-"""
+    def test_statement_commend(self):
+        php_node = parse_string(statement_comment, False).get_tree()[0]
+        if_s = php_node[0]
+        comment_s = if_s[1][0]
+        self.assertEqual(comment_s[0].node_type, "COMMENTLINE")
 
 
 class CompileTest(unittest.TestCase):
@@ -337,6 +345,9 @@ class CompileTest(unittest.TestCase):
 
     def test_multiline_call2(self):
         parse_and_compile(multiline_call2, debug=True)
+
+    def test_array_lookups(self):
+        print(parse_and_compile(array_lookups, debug=True))
 
 
 if __name__ == "__main__":

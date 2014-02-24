@@ -20,7 +20,9 @@ class ExpectedCharError(ParseError):
 
 
 class UnexpectedCharError(ParseError):
-    pass
+    def __init__(self, tree_so_far, *args):
+        super(UnexpectedCharError, self).__init__(*args)
+        self.known = tree_so_far
 
 
 class UpTooMuchException(Exception):
@@ -41,7 +43,7 @@ class Parser(object):
 
     def search_until(self, search_re):
         if self.debug:
-            print("Searching at", self.get(10), self.cursor, search_re.pattern)
+            print("Searching at", repr(self.get(10)), self.cursor, search_re.pattern)
         m = search_re.search(self.chars, self.cursor)
         if m is None:
             # Set the cursor to the end of the file
@@ -54,7 +56,7 @@ class Parser(object):
 
     def match_for(self, match_re):
         if self.debug:
-            print("Matching at", self.get(10), self.cursor, match_re.pattern)
+            print("Matching at |{}| for {}".format(repr(self.get(10)), match_re.pattern))
         m = match_re.match(self.chars, self.cursor)
         if m is None:
             return None
@@ -206,6 +208,13 @@ class PhpParser(Parser):
             self.parse_html()
             if self.pt.cur.node_type != "ROOT":
                 self.pt.up()
+        except UnexpectedCharError as e:
+            print("Parse error on line {}:".format(self.line_number()))
+            self.print_node_info(self.pt.root_node)
+            print("Parsed so far")
+            self.print_node_info(e.known)
+            self.print_cur_location(str(e))
+            raise
         except ParseException as e:
             print("Parse error on line {}:".format(self.line_number()))
             self.print_node_info(self.pt.root_node)
@@ -236,7 +245,7 @@ class PhpParser(Parser):
         while True:
             self.start_marker = self.cursor
             if self.debug:
-                print("*********")
+                print("*************************")
             self.next_non_white()
             if self.is_eof():
                 break
@@ -263,23 +272,28 @@ class PhpParser(Parser):
             print("+++++++++++++++++++++++++++")
             print("Parsing statement at |{0}|".format(self.get(10)))
             print(self.get_line())
+        self.next_non_white()
         control = control_search.match(self.chars, self.cursor)
         if control is not None:
             self.cursor = control.end() - 1    # go back one in case we had a "("
             return self.parse_control(control.group(1))
+        elif self.check_for("//") or self.check_for("#"):
+            statement = self.pt.new("STATEMENT", start=self.cursor)
+            statement.append(self.parse_comment_line())
+            return statement
         else:
             statement = self.pt.new("STATEMENT", start=self.cursor)
-            self.next_non_white()
             statement.append(self.parse_expression())
             self.next_non_white()
             if self.is_eof():
                 return statement
             m = self.match_for(endstatement_search)
             if m is None:
-                raise UnexpectedCharError("Didn't expect to see `{}` here".format(self.get()))
+                raise UnexpectedCharError(statement, "Didn't expect to see `{}` here".format(self.get()))
             # Statements can end with comments
             self.match_for(space_tab_search)
             if self.check_for("//"):
+                print("Putting a comment line in the block")
                 statement.append(self.parse_comment_line())
             elif self.check_for("/*"):
                 statement.append(self.parse_comment_group())
@@ -288,20 +302,26 @@ class PhpParser(Parser):
 
     def parse_expression(self):
         if self.debug:
-            print("^^^^^^^^ Parsing expresion at ", self.cursor)
+            print("^^^^^^^^ Parsing expression at ", self.cursor)
         expr = self.pt.new("EXPRESSION", start=self.cursor)
         while True:
             self.next_non_white()
             if self.check_for(";") or self.check_for(")") or self.check_for(",") or self.check_for("?>") or self.check_for("]") or self.is_eof():
                 break
             ep = self.parse_expression_part()
+            if ep is False:
+                raise UnexpectedCharError(expr, "`{}` in expression".format(self.get()))
             expr.append(ep)
         expr.end_cursor = self.cursor
+        if self.debug:
+            print("vvvvvvv Finished parsing expression")
         return expr
 
     def parse_expression_part(self):
         self.start_marker = self.cursor
         self.next_non_white()
+        if self.debug:
+            print("Looking for ")
         if self.check_for("("):
             return self.parse_expression_group()
         elif self.check_for("//"):
@@ -330,7 +350,7 @@ class PhpParser(Parser):
             else:
                 return self.parse_basic("CONSTANT", match)
         else:
-            raise UnexpectedCharError("`{}` in expression".format(self.get()))
+            return False
 
     def parse_expression_group(self):
         start = self.cursor

@@ -47,7 +47,7 @@ class Compiler(object):
 
     def generic_footer_compile(self):
         self.indent -= 4
-        self.append("""if __name__ == "__main__":""")
+        self.append("""\n\nif __name__ == "__main__":""")
         self.indent += 4
         self.append("""import os.path""")
         self.append("""php.serve_up(body, root_dir=os.path.abspath(os.path.dirname(__file__)))""")
@@ -146,7 +146,7 @@ class Compiler(object):
             kwargs = "**{" + ", ".join(kwarg_list) + "}"
             arg_list.append(kwargs)
         args = ", ".join(arg_list)
-        return "p.f.{0}({1})".format(node.value, args, kwargs)
+        return " p.f.{0}({1})".format(node.value, args, kwargs)
 
     def keyvalue_compile(self, node, assign=": "):
         return self.marshal(node[0]) + assign + self.marshal(node[1])
@@ -160,20 +160,24 @@ class Compiler(object):
     def expression_compile(self, node):
         if len(node.children) == 0:
             return ""
-        r = " ".join([self.marshal(c) for c in node])
+        parsetree.print_tree(node)
+        r = "".join([self.marshal(c) for c in node])
         return r
 
     def var_compile(self, node):
         sub_var = ""
         if len(node.children) > 0:
             sub_var = self.subvar_compile(node.children[0])
-        return self.python_safe(node.value) + sub_var
+        return " " + self.python_safe(node.value) + sub_var
 
     def subvar_compile(self, node):
         return '.{0}'.format(node.value)
 
     def globalvar_compile(self, node):
-        return "p.g." + self.var_compile(node)
+        return " p.g." + self.var_compile(node).lstrip()
+
+    def index_compile(self, node):
+        return "[{}]".format(self.expression_compile(node).lstrip())
 
     def comparator_compile(self, node):
         return node.value
@@ -189,13 +193,13 @@ class Compiler(object):
         fmt = ""
         if len(node.children) > 0:
             fmt = ".format({})".format(", ".join([v.value for v in node]))
-        return repr(node.value) + fmt
+        return " " + repr(node.value) + fmt
 
     def assignment_compile(self, node):
-        return "{}".format(node.value)
+        return " {}".format(node.value)
 
     def operator_compile(self, node):
-        return "{}".format(node.value)
+        return " {}".format(node.value)
 
     def statement_compile(self, node):
         if len(node.children) != 0:
@@ -204,7 +208,7 @@ class Compiler(object):
             self.append(" ".join([self.marshal(c) for c in node]))
 
     def int_compile(self, node):
-        return str(node.value)
+        return " " + str(node.value)
 
     def phpconstant_compile(self, node):
         return constant_map[node.value]
