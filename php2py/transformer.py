@@ -73,21 +73,15 @@ def keyvalue_transform(expression):
 
 def if_transform(if_statement):
     if_expression = if_statement[0][0]
-    i = 0
     #TODO: This probably only deals with the most basic cases
-    for c in if_expression:
-        if c.node_type == "ASSIGNMENT":
-            print("FOUND ASSIGNMENT !!!")
-            print(if_statement.node_type)
-            print(if_statement.parent.node_type)
-            assign_statement = ParseNode("STATEMENT", None)
-            assign_statement.append(if_expression)
-            if_statement.parent.insert_before(if_statement, assign_statement)
-            var_node = if_expression[i - 1]
-            ex = ParseNode("EXPRESSION", None)
-            ex.append(var_node)
-            if_statement[0][0] = ex
-        i += 1
+    if if_expression[0].node_type == "ASSIGNMENT":
+        assign_statement = ParseNode("STATEMENT", None)
+        assign_ex = ParseNode("EXPRESSION", None)
+        assign_ex.append(if_expression[0])
+        assign_statement.append(assign_ex)
+        if_statement.parent.insert_before(if_statement, assign_statement)
+        var_node = if_expression[0][1]
+        if_expression[0] = var_node
 
 def block_transform(block_node):
     empty = True

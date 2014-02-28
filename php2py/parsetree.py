@@ -14,20 +14,19 @@ def get_next_id():
 
 class ParseNode(object):
     def __init__(self, node_type, value=None, parent=None):
+        if not isinstance(node_type, basestring):
+            raise ParseTreeError("node_type must be a string, not {}".format(node_type))
         self.node_type = node_type
         self.parent = parent
         self.value = value
         self.children = []
         self.id_ = get_next_id()
 
-    def append(self, node, value=None):
+    def append(self, node):
         if not isinstance(node, ParseNode):
             raise ParseTreeError("Expected a node, saw a {} as a child of {}".format(node, self))
-        if value is None:
-            self.children.append(node)
-            node.parent = self
-        else:
-            self.children.append(ParseNode(node, value, self))
+        self.children.append(node)
+        node.parent = self
 
     def to_list(self):
         if len(self.children) > 0:
@@ -53,6 +52,12 @@ class ParseNode(object):
     def __iter__(self):
         return iter(self.children)
 
+    def get(self, node_type):
+        for c in self.children:
+            if c.node_type == node_type:
+                return c
+        raise IndexError("No node of type {} is a child of {}".format(node_type, self))
+
     def insert_after(self, search, new_node):
         i = self.children.index(search) + 1
         self.children.insert(i, new_node)
@@ -72,33 +77,26 @@ class ParseNode(object):
         self.children = new_children
 
 class ParseTree(object):
-    def __init__(self, name, get_cursor=None):
-        self.get_cursor = get_cursor
-
+    def __init__(self, name):
         self.root_node = ParseNode("ROOT", value=name)
-        self.root_node.start_cursor = 0
         self.cur = self.root_node
         self.last = self.cur
 
-    def up(self, end_offset=0):
+    def up(self):
         #print("Going up from", str(self.cur), "to", str(self.cur.parent))
         if self.cur.parent is None:
             raise Exception("Can't go up from here")
-        # The end of the item should be around where the cursor currently is
-        self.cur.end_cursor = self.get_cursor() + end_offset
         self.cur = self.cur.parent
 
-    def append(self, node_type, value=None, start_offset=0):
+    def append(self, node_type, value=None):
         new_node = ParseNode(node_type, value, self.cur)
-        # The start of the item should be where the cursor currently is
-        new_node.start_cursor = self.get_cursor() + start_offset
         #print("Appending node", str(new_node), value, "to", str(self.cur))
         self.cur.append(new_node)
         self.last = new_node
         return new_node
 
-    def append_and_into(self, node_type, value=None, start_offset=0):
-        self.cur = self.append(node_type, value, start_offset)
+    def append_and_into(self, node_type, value=None):
+        self.cur = self.append(node_type, value)
         return self.cur
 
     def print_(self, node=None):
@@ -116,10 +114,9 @@ class ParseTree(object):
                     print_tree(c, indent + 4)
         print_tree(node, 0)
 
-    def new(self, node_type=None, value=None, start=0, end=0):
+    def new(self, node_type=None, value=None):
         n = ParseNode(node_type, value=value)
-        n.start_cursor = start
-        n.end_cursor = end
+        #print("New node: {}".format(n))
         return n
 
 

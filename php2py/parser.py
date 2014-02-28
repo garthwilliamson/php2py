@@ -1,7 +1,8 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
-from .parsetree import ParseTree, ParseTreeError
+from .parsetree import ParseTree, ParseTreeError, print_tree
+from . import tokeniser
 
 import re
 from functools import wraps
@@ -16,7 +17,13 @@ class ParseError(ParseException):
 
 
 class ExpectedCharError(ParseError):
-    pass
+    def __init__(self, expected, saw, *args):
+        super(ExpectedCharError, self).__init__(*args)
+        self.expected = expected
+        self.saw = saw
+
+    def __str__(self):
+        return "Excepted a {}, instead saw {}".format(self.expected, self.saw)
 
 
 class UnexpectedCharError(ParseError):
@@ -33,59 +40,9 @@ class Parser(object):
     def __init__(self, contents, name, debug=False):
         self.scope = []
         self.globals = []
-        self.pt = ParseTree(name, self.get_cursor)
+        self.pt = ParseTree(name)
         self.chars = contents
         self.debug = debug
-        self.cursor = 0
-
-    def get_cursor(self):
-        return self.cursor
-
-    def search_until(self, search_re):
-        if self.debug:
-            print("Searching at", repr(self.get(10)), self.cursor, search_re.pattern)
-        m = search_re.search(self.chars, self.cursor)
-        if m is None:
-            # Set the cursor to the end of the file
-            text_until = self.chars[self.cursor:]
-            self.cursor = len(self.chars)
-            return "EOF", text_until
-        text_until = self.chars[self.cursor:m.start()]
-        self.cursor = m.end()
-        return m.group(0), text_until
-
-    def match_for(self, match_re):
-        if self.debug:
-            print("Matching at |{}| for {}".format(repr(self.get(10)), match_re.pattern))
-        m = match_re.match(self.chars, self.cursor)
-        if m is None:
-            return None
-        if self.debug:
-            print("Found", m.group())
-        self.cursor = m.end()
-        self.last_match = m.group()
-        return m.group()
-
-    def check_for(self, s):
-        if self.debug:
-            print(s, end="")
-        if self.chars.startswith(s, self.cursor):
-            if self.debug:
-                print("found")
-            return True
-        return False
-
-    def get(self, length=1):
-        return self.chars[self.cursor:self.cursor + length]
-
-    def next_non_white(self):
-        self.match_for(whitespace_search)
-
-    def is_eof(self):
-        if self.cursor >= len(self.chars):
-            return True
-        else:
-            return False
 
     def to_list(self, ):
         return self.pt.root_node.to_list()
@@ -116,25 +73,6 @@ class Parser(object):
     def add_global(self, g):
         self.globals[-1].append(g)
 
-    def line_start(self):
-        return self.chars.rfind("\n", 0, self.cursor) + 1
-
-    def get_line(self):
-        start = self.line_start()
-        if start == -1:
-            start = 0
-        end = self.chars.find("\n", self.cursor)
-        if end == -1:
-            end = 0
-        return self.chars[start:end]
-
-    def line_number(self):
-        return self.chars.count("\n", 0, self.cursor) + 1
-
-    def print_cur_location(self, msg):
-        print(self.get_line())
-        print(" " * (self.cursor - self.line_start()) + "^ --- " + msg)
-
     def print_node_info(self, node, recurse=True, start_indent=None):
         if start_indent is None:
             start_indent = node.start_cursor
@@ -153,6 +91,57 @@ class Parser(object):
         if recurse:
             for c in node:
                 self.print_node_info(c, recurse, start_indent)
+
+    def pdebug(self, s, i_change=0):
+        if self.debug:
+            print(" " * self.debug_indent + str(s))
+        self.debug_indent += i_change
+
+    def next(self):
+        self.current = self.tokens.next()
+        self.pdebug("^^^^^^^" + str(self.current))
+        return self.current
+
+    def peek(self):
+        return self.tokens.peek()
+
+    def next_while_kind(self, match):
+        while True:
+            if self.peek().kind in match:
+                yield self.next()
+            else:
+                raise StopIteration
+
+    def next_while(self, match):
+        for t in self.peek_while(match):
+            self.next()
+            yield t
+
+    def next_until(self, match):
+        for t in self.peek_until(match):
+            self.next()
+            yield t
+
+    def peek_until(self, match):
+        while True:
+            if self.peek().val in match:
+                raise StopIteration
+            else:
+                yield self.peek()
+
+    def peek_while(self, match):
+        while True:
+            if self.peek().val in match:
+                yield self.peek()
+            else:
+                raise StopIteration
+
+    def assert_next(self, kind, value=None):
+        t = self.next()
+        if t.kind != kind:
+            raise ExpectedCharError(kind + ":" + value, self.current)
+        if value is not None and t.val != value:
+            raise ExpectedCharError(kind + ":" + value, self.current)
 
 
 def create_pattern(items):
@@ -195,7 +184,7 @@ SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + MAGIC_CONSTANTS
 SYMBOLS.sort(key=len, reverse=True)
 symbol_search = create_pattern(SYMBOLS)
 whitespace_search = re.compile("\\s+")
-CONTROLS = "function switch while catch class call try for if do".split()
+CONTROLS = "function return switch while catch class call try for if do".split()
 SPECIAL_STATEMENTS = "echo new die require_once require include global return case".split()
 cast_search = create_pattern(cast_map.keys())
 special_search = create_pattern(SPECIAL_STATEMENTS)
@@ -217,446 +206,423 @@ space_tab_search = re.compile("[\t ]*")
 open_curly_search = re.compile(re.escape("{"))
 close_curly_search = re.compile(re.escape("}"))
 
+operator_map = {
+    #OP:        (ARITY,    PREC, ASSOC)
+#   "[":        (2,        120,  "left"),
+    ".":        (2,        170,  "left"),
+    "::":       (2,        160,  "right"),
+    "return":   (1,        150,  "none"),
+    "new":      (0,        150,  "right"),
+    "++":       (1,        110,  "right"),
+    "--":       (1,        110,  "right"),
+    "~":        (1,        110,  "right"),
+    "(int)":    (1,        110,  "right"),
+    "(float)":  (1,        110,  "right"),
+    "(string)": (1,        110,  "right"),
+    "(array)":  (1,        110,  "right"),
+    "(object)": (1,        110,  "right"),
+    "(bool)":   (1,        110,  "right"),
+    "@":        (1,        110,  "right"),
+    "!":        (1,        105,  "right"),
+    "*":        (2,        100,  "left"),
+    "/":        (2,        100,  "left"),
+    "%":        (2,        100,  "left"),
+    "+":        (2,        90,   "left"),
+    "-":        (2,        90,   "left"),
+    "<<":       (2,        80,   "left"),
+    ">>":       (2,        80,   "left"),
+    "<":        (2,        70,   "none"),
+    "<=":       (2,        70,   "none"),
+    ">":        (2,        70,   "none"),
+    ">=":       (2,        70,   "none"),
+    "==":       (2,        60,   "none"),
+    "!=":       (2,        60,   "none"),
+    "===":      (2,        60,   "none"),
+    "!==":      (2,        60,   "none"),
+    "<>":       (2,        60,   "none"),
+    "&":        (2,        55,   "left"),
+    "^":        (2,        54,   "left"),
+    "|":        (2,        53,   "left"),
+    "&&":       (2,        52,   "left"),
+    "||":       (2,        51,   "left"),
+    "?":        (3,        50,   "left"),
+    "=":        (2,        40,   "right"),
+    "+=":       (2,        40,   "right"),
+    "-=":       (2,        40,   "right"),
+    "*=":       (2,        40,   "right"),
+    "/=":       (2,        40,   "right"),
+    ".=":       (2,        40,   "right"),
+    "%=":       (2,        40,   "right"),
+    "&=":       (2,        40,   "right"),
+    "|=":       (2,        40,   "right"),
+    "^=":       (2,        40,   "right"),
+    "<<=":      (2,        40,   "right"),
+    ">>=":      (2,        40,   "right"),
+    "=>":       (2,        40,   "right"),
+    "->":       (2,        155,   "left"),
+    "EX":       (1,       -1000, "right")
+}
 
+
+EOF = ["EOF"]
+PHPEND = EOF + ["?>"]
+ENDBLOCK = PHPEND + ["}"]
+ENDSTATEMENT = [";"] + ENDBLOCK
+ENDGROUP = ENDSTATEMENT + [")"]
+ENDEXPRESSION = [",", "]"] + ENDGROUP
+
+
+def lookup_op_type(op_value):
+    #print("LOOKING UP " + op_value)
+    if op_value in ASSIGNMENTS:
+        return "ASSIGNMENT"
+    elif op_value == "[":
+        return "INDEX"
+    elif op_value == "->":
+        return "ATTR"
+    elif op_value in ("return", "new"):
+        return op_value.upper()
+    else:
+        return "OPERATOR"
 
 
 class PhpParser(Parser):
-    def parse(self):
+    def __init__(self, linestream, debug=False):
+        Parser.__init__(self, "", "Test", debug)
+
+        self.tokens = tokeniser.tokens(linestream)
+        #print(tokeniser.TOKENS)
+        self.debug_indent = 0
         self.push_scope("GLOBAL")
+
         try:
-            self.pt.cur.end_cursor = len(self.chars)
+            self.parse()
+        except ExpectedCharError as e:
+            self.print_cur_location(str(e))
+            raise
+
+    def next_non_white(self):
+        while self.peek().kind in ("WHITESPACE", "NEWLINE"):
+            self.next()
+
+    def parse(self):
+        #print("\n".join(self.tokens.position()))
+        for t in self.peek_until(("EOF",)):
             self.parse_html()
-            if self.pt.cur.node_type != "ROOT":
-                self.pt.up()
-        except UnexpectedCharError as e:
-            print("Parse error on line {}:".format(self.line_number()))
-            self.print_node_info(self.pt.root_node)
-            print("Parsed so far")
-            self.print_node_info(e.known)
-            self.print_cur_location(str(e))
-            raise
-        except ParseException as e:
-            print("Parse error on line {}:".format(self.line_number()))
-            self.print_node_info(self.pt.root_node)
-            self.print_cur_location(str(e))
-            raise
-        except ParseTreeError as e:
-            print("Parse error on line {}:".format(self.line_number()))
-            self.print_node_info(self.pt.root_node)
-            self.print_cur_location(str(e))
-            raise
+            if self.peek().kind == "PHPSTART":
+                self.parse_php()
 
     def parse_html(self):
-        while True:
-            match, contents = self.search_until(html_search)
-            if contents != "":
-                self.pt.append("HTML", contents, -len(contents))
-                self.pt.last.end_cursor = self.cursor
-            if match != "EOF" and match is not None:
-                self.parse_php()
-                if self.is_eof():
-                    return
-            else:
-                return
-        return
+        contents = ""
+        #print("Parsing html")
+        for t in self.next_while_kind(("HTML",)):
+            #print("FOUND HTML")
+            contents += t.val
+        if len(contents) > 0:
+            self.pdebug("FOUND HTML CONTENTS")
+            self.pt.append("HTML", contents)
+        else:
+            pass
+
+    def parse_blockcomment(self):
+        contents = ""
+        for t in self.next_while_kind(("BLOCKCOMMENT",)):
+            contents += t.val
+        return self.pt.new("BLOCKCOMMENT", contents)
 
     def parse_php(self):
-        self.pt.cur = self.pt.append("PHP", None)
-        while True:
-            self.start_marker = self.cursor
-            if self.debug:
-                print("*************************")
+        self.pdebug("PHP:", 4)
+        self.assert_next("PHPSTART")
+        php_node = self.pt.new("PHP", None)
+        for t in self.peek_until(PHPEND):
             self.next_non_white()
-            if self.is_eof():
-                break
-            if self.check_for("//"):
-                self.pt.cur.append(self.parse_comment_line())
-            elif self.check_for("#"):
-                self.pt.cur.append(self.parse_comment_line())
-            elif self.match_for(re.compile(re.escape("?>"))) is not None or self.is_eof():
-                break
-            elif self.check_for("/*"):
-                self.pt.cur.append(self.parse_comment_group())
+            php_node.append(self.parse_statement())
+
+        self.pt.cur.append(php_node)
+        self.next()
+        self.debug_indent -= 4
+
+    def parse_statement(self):
+        self.pdebug("STATEMENT starting with {}:".format(self.peek()), 4)
+        self.comments = []
+        #TODO: Move to using attr to look up these
+        if self.peek().kind == "CONTROL":
+            statement = self.parse_control()
+        elif self.peek().kind == "TRY":
+            statement = self.parse_try()
+        elif self.peek().kind == "FUNCTION":
+            statement = self.parse_function()
+        elif self.peek().kind == "RETURN":
+            statement = self.parse_return()
+        else:
+            statement = self.pt.new("STATEMENT", None)
+            if self.peek().kind == "COMMENTLINE":
+                self.comments.append(self.parse_comment(self.next()))
             else:
-                self.pt.cur.append(self.parse_statement())
-            self.next_non_white()
-            if self.is_eof():
-                break
-        if self.last_match == "?>":
-            self.pt.up(end_offset=-2)
-        else:
-            self.pt.up()
-
-    def parse_statement(self, start_offset=0):
-        if self.debug:
-            print("+++++++++++++++++++++++++++")
-            print("Parsing statement at |{0}|".format(self.get(10)))
-            print(self.get_line())
-        self.next_non_white()
-        control = control_search.match(self.chars, self.cursor)
-        if control is not None:
-            self.cursor = control.end() - 1    # go back one in case we had a "("
-            return self.parse_control(control.group(1))
-        elif self.check_for("//") or self.check_for("#"):
-            statement = self.pt.new("STATEMENT", start=self.cursor)
-            statement.append(self.parse_comment_line())
-            return statement
-        else:
-            statement = self.pt.new("STATEMENT", start=self.cursor)
-            statement.append(self.parse_expression())
-            self.next_non_white()
-            if self.is_eof():
-                return statement
-            m = self.match_for(endstatement_search)
-            if m is None:
-                raise UnexpectedCharError(statement, "Didn't expect to see `{}` here".format(self.get()))
-            # Statements can end with comments
-            self.match_for(space_tab_search)
-            if self.check_for("//"):
-                statement.append(self.parse_comment_line())
-            elif self.check_for("/*"):
-                statement.append(self.parse_comment_group())
-            statement.end_cursor = self.cursor
-            return statement
-
-    def parse_expression(self):
-        if self.debug:
-            print("^^^^^^^^ Parsing expression at ", self.cursor)
-        expr = self.pt.new("EXPRESSION", start=self.cursor)
-        while True:
-            self.next_non_white()
-            if self.check_for(";") or self.check_for(")") or self.check_for(",") or self.check_for("?>") or self.check_for("]") or self.is_eof():
-                break
-            ep = self.parse_expression_part()
-            if ep is False:
-                raise UnexpectedCharError(expr, "`{}` in expression".format(self.get()))
-            expr.append(ep)
-        expr.end_cursor = self.cursor
-        if self.debug:
-            print("vvvvvvv Finished parsing expression")
-        return expr
-
-    def parse_expression_part(self):
-        self.start_marker = self.cursor
-        self.next_non_white()
-        if self.debug:
-            print("Looking for ")
-        if self.match_for(cast_search):
-            # Casts have to come first to override (
-            return self.parse_cast(self.last_match)
-        elif self.check_for("("):
-            return self.parse_expression_group()
-        elif self.check_for("//"):
-            return self.parse_comment_line()
-        elif self.check_for("/*"):
-            return self.parse_comment_group()
-        elif self.check_for('"') or self.check_for("'"):
-            return self.parse_string()
-        elif self.check_for("$"):
-            return self.parse_variable()
-        elif self.check_for("["):
-            return self.parse_index()
-        elif self.match_for(symbol_search):
-            return self.parse_symbol(self.last_match)
-        elif self.match_for(int_search):
-            return self.parse_basic("INT", int(self.last_match))
-        elif self.match_for(callable_search):
-            return self.parse_callable(self.last_match)
-        elif self.match_for(ident_search):
-            # I don't like doing this - will it always be a constant or a special statement? I don't think so!
-            match = self.last_match
-            if match.lower() in SPECIAL_STATEMENTS:
-                return self.parse_special(match)
-            elif match.lower() in CONSTANTS:
-                return self.parse_basic("PHPCONSTANT", match.lower())
-            else:
-                return self.parse_basic("CONSTANT", match)
-        else:
-            return False
-
-    def parse_expression_group(self):
-        start = self.cursor
-        self.next_non_white()
-        m = self.match_for(open_brace_search)
-        if m != "(":
-            raise ExpectedCharError("Expected ( at start of item")
-        self.next_non_white()
-        m = self.match_for(close_brace_search)
-        if m == ")":
-            return self.pt.new("EXPRESSIONGROUP", start=start, end=self.cursor)
-
-        eg = self.parse_comma_list("EXPRESSIONGROUP", start=start)
-        if self.match_for(close_brace_search) is None:
-            raise ExpectedCharError("Expected to see `)` after sub expression `{}`".format(eg))
-        eg.end_cursor = self.cursor
-        return eg
-
-    def parse_comma_list(self, name, value=None, start=0):
-        res = self.pt.new(name, value, start=start)
-        while True:
-            self.next_non_white()
-            res.append(self.parse_expression())
-            self.next_non_white()
-            if self.match_for(comma_search) is None:
-                return res
-
-    def parse_variable(self):
-        start = self.cursor
-        self.cursor += 1    # eliminate $
-        match = self.match_for(ident_search)
-        if match is None:
-            raise ExpectedCharError("Alpha or _ expected after $")
-
-        t = "VAR"
-        if self.scope_is("GLOBAL") or self.is_global(match):
-            t = "GLOBALVAR"
-        var = self.pt.new(t, match, start=start, end=self.cursor)
-        if self.match_for(re.compile(re.escape("->"))):
-            var.append(self.parse_attr())
-        start = self.cursor
-        if self.match_for(create_pattern(("++", "--"))):
-            if self.last_match == "++":
-                var.append(self.pt.new("POSTINC", start=start, end=self.cursor))
-            else:
-                var.append(self.pt.new("POSTDEC", start=start, end=self.cursor))
-        return var
-
-    def parse_attr(self):
-        start = self.cursor
-        match = self.match_for(ident_search)
-        v = self.pt.new("ATTR", match, start, self.cursor)
-        if self.match_for(re.compile(re.escape("->"))):
-            self.cursor += 2
-            v.append(self.parse_attr())
-        return v
-
-    def parse_index(self):
-        if self.get() != "[":
-            raise ExpectedCharError("Expected [ at start of index")
-        self.cursor += 1
-        ex = self.parse_expression()
-        ex.node_type = "INDEX"
-        if self.get() != "]":
-            raise ExpectedCharError("Expected ] at end of index")
-        else:
-            self.cursor += 1
-        return ex
-
-    def parse_string(self):
-        delim = self.get()
-        start_cursor = self.cursor
-        self.cursor += 1
-        format_vars = []
-
-        def search_string(delim):
-            search_expr = re.compile("\\\\" + delim + "|\\$|" + delim)
-            res = ""
-            while True:
-                match, string_until = self.search_until(search_expr)
-                res += string_until
-                if match == "EOF":
-                    raise ExpectedCharError("Expected the end of a string")
-                elif match == delim:
-                    return res
-                elif match == "$":
-                    var = self.match_for(ident_search)
-                    res += "{}"
-                    format_vars.append(var)
-                else:
-                    # get rid of the backslash
-                    res += string_until[-2:] + delim
-        res = search_string(delim)
-        st = self.pt.new("STRING", res, start=start_cursor, end=self.cursor)
-        for v in format_vars:
-            st.append(self.pt.new("VARIABLE", v))
-        return st
-
-    def parse_comment_group(self):
-        start = self.cursor
-        self.cursor += 2
-        match, comment = self.search_until(re.compile("\\*\\/"))
-        return self.pt.new("COMMENTBLOCK", comment, start=start, end=self.cursor)
-
-    def parse_comment_line(self):
-        start = self.cursor
-        if self.check_for("#"):
-            self.cursor += 1
-        else:
-            self.cursor += 2
-        match, value = self.search_until(endline_search)
-        return self.pt.new("COMMENTLINE", value, start=start, end=self.cursor)
-
-    def parse_symbol(self, symbol):
-        symbol = symbol.lower()
-        if symbol in COMPARATORS:
-            return self.parse_basic("COMPARATOR", symbol)
-        elif symbol in OPERATORS:
-            return self.parse_operator(symbol)
-        elif symbol in ASSIGNMENTS:
-            return self.parse_basic("ASSIGNMENT", symbol)
-        elif symbol in MAGIC_CONSTANTS:
-            return self.parse_basic("MAGIC", symbol)
-        raise NotImplementedError("Implement" + symbol)
+                statement.append(self.parse_expression())
+                if self.peek().val == ";":
+                    self.next()
+        statement.comments = self.comments
+        self.debug_indent -= 4
+        return statement
 
     def parse_block(self):
-        start = self.cursor
-        if self.match_for(open_curly_search) is None:
-            raise ExpectedCharError("Expected { to start block")
-        block = self.pt.new("BLOCK", start=start)
-        self.next_non_white()
-        self.start_marker = self.cursor
-        while self.match_for(close_curly_search) is None:
+        self.pdebug("Staring new block", 4)
+        self.assert_next("STARTBRACE", "{")
+        block = self.pt.new("BLOCK", None)
+        for t in self.peek_until(ENDBLOCK):
             block.append(self.parse_statement())
-            self.next_non_white()
+
+        self.pdebug("At end of block")
+        #print_tree(block)
+        self.pdebug("=-=-=-=-=-")
+        self.assert_next("ENDBRACE", "}")
+        self.debug_indent -= 4
         return block
 
-    def parse_control(self, keyword):
-        c = None
-        if keyword.lower() in ("while","switch"):
-            c = self.parse_control_general(keyword)
-        else:
-            c = getattr(self, "parse_" + keyword.lower())()
+    def parse_control(self):
+        control_token = self.next()
+        keyword = control_token.val.upper()
+        c = self.pt.new(keyword, None)
+        c.append(self.parse_expression_group(self.next()))
+        c.append(self.parse_block())
         return c
 
-    def parse_control_general(self, keyword):
-        start = self.cursor - len(keyword)
-        i = self.pt.new(keyword.upper(), start=start)
-        i.append(self.parse_expression_group())
-        self.next_non_white()
-        i.append(self.parse_block())
-        i.end_cursor = self.cursor
-        return i
-
-    def parse_if(self):
-        i = self.parse_control_general("if")
-        while True:
-            self.next_non_white()
-            if self.match_for(elif_search):
-                i.append(self.parse_control_general("ELIF"))
-            elif self.match_for(else_search):
-                if self.last_match == "else{":
-                    self.cursor -= 1
-                else:
-                    self.next_non_white()
-                i.append(self.parse_block())
-            else:
-                i.end_cursor = self.cursor
-                return i
+    def parse_try(self):
+        self.next()
+        try_node = self.pt.new("TRY", None)
+        try_node.append(self.parse_block())
+        for t in self.next_while(("catch",)):
+            c = self.pt.new("CATCH", None)
+            self.assert_next("STARTBRACE", "(")
+            catchmatch = self.pt.new("EXCEPTION", self.next().val)
+            catchmatch.append(self.parse_variable(self.next()))
+            c.append(catchmatch)
+            self.assert_next("ENDBRACE", ")")
+            c.append(self.parse_block())
+            try_node.append(c)
+        return try_node
 
     def parse_function(self):
-        start = self.cursor - 8
+        self.pdebug("Doing a function call", 4)
         self.push_scope("LOCAL")
-        self.match_for(space_tab_search)
-        match = self.match_for(ident_search)
-        if match is None:
-            raise ExpectedCharError("Alpha or _ expected as function name")
-        f = self.pt.new("FUNCTION", match, start=start)
-        # Arglist is pretty much just an expression group
-        al = self.parse_expression_group()
-        al.node_type = "ARGLIST"
-        f.append(al)
-        self.next_non_white()
+        self.next()
+        f = self.pt.new("FUNCTION", self.next().val)
+        f.append(self.parse_expression_group(self.next(), "ARGSLIST"))
         f.append(self.parse_block())
+        self.pdebug("At end of function")
+        #print_tree(f)
+        self.pdebug("=-=-=-=-=-")
+        self.debug_indent -= 4
         self.pop_scope()
         return f
 
-    def parse_try(self):
-        start = self.cursor - 3
-        self.match_for(space_tab_search)
-        t = self.pt.new("TRY", None, start=start)
-        t.append(self.parse_block())
-        t.end_cursor = self.cursor
-        while True:
-            self.next_non_white()
-            start = self.cursor
-            if self.match_for(re.compile("catch")):
-                c = self.pt.new("CATCH", None, start)
-                catchmatch = self.parse_expression_group()
-                catchmatch.node_type = "CATCHMATCH"
-                c.append(catchmatch)
-                self.next_non_white()
-                c.append(self.parse_block())
-                t.append(c)
+    def parse_expression(self):
+        ex = self.pt.new("EXPRESSION", "EX")
+        self.pdebug("\033[94m########Starting new expression##########", 4)
+        full_ex = []
+        for t in self.next_until(ENDEXPRESSION):
+            self.pdebug("Current token is {}".format(t))
+            if t.val in operator_map:
+                full_ex.append(self.parse_operator(t))
+                self.pdebug("Appended an operator")
+            elif t.kind in ("BLOCKCOMMENT", "COMMENTLINE"):
+                # Get rid of block comments for the meantime - too hard to deal with
+                self.comments.append(self.parse_comment(t))
+            elif t.val == "(":
+                self.pdebug("About to deal with an expression group")
+                full_ex.append(self.parse_expression_group("("))
+                #print_tree(full_ex[-1])
+                self.pdebug("Finished with expression group")
+            else:
+                self.pdebug("Appended notoperator")
+                try:
+                    self.pdebug("Going to try to run parse_" + t.kind.lower())
+                    full_ex.append(getattr(self, "parse_" + t.kind.lower())(t))
+                except AttributeError:
+                    raise ParseError("function for parsing {} not yet implemented".format(t))
+        self.pdebug("Expresion nodes")
+        self.pdebug([str(n) for n in full_ex])
+        op_stack = []
+        opee_stack = []
+        for n in full_ex:
+            if n is None:
+                continue
+            if n.node_type not in ("OPERATOR", "INDEX"):
+                opee_stack.append(n)
+            else:
+                if len(op_stack) == 0:
+                    op_stack.append(n)
+                else:
+                    while len(op_stack) > 0:
+                        o2 = op_stack[-1]
+                        if (n.assoc == "left" and n.precedence == o2.precedence) or n.precedence < o2.precedence:
+                            #print("{} <=? {} so outing {}".format(n, o2, o2))
+                            o2 = op_stack.pop()
+                            args = [opee_stack.pop() for i in range(0, o2.arrity)]
+                            [o2.children.append(a) for a in args]
+                            o2.node_type = lookup_op_type(o2.value)
+                            opee_stack.append(o2)
+                        else:
+                            break
+                    op_stack.append(n)
+            #self.pdebug("====ops====")
+            #[print_tree(n) for n in op_stack]
+            #self.pdebug("----opees-----")
+            #[print_tree(n) for n in opee_stack]
+            #self.pdebug("---------")
+        while len(op_stack) != 0:
+            o2 = op_stack.pop()
+            args = [opee_stack.pop() for i in range(0, o2.arrity)]
+            [o2.children.append(a) for a in args]
+            o2.node_type = lookup_op_type(o2.value)
+            opee_stack.append(o2)
+        if len(opee_stack) > 1:
+            self.pdebug("========opee_stack > 1========")
+            [print_tree(n) for n in op_stack]
+            self.pdebug("----ops-----")
+            [print_tree(n) for n in opee_stack]
+            self.pdebug("----opees-----")
+            raise ParseError("Shit")
+        ex.append(opee_stack[0])
+        self.pdebug("Expression ended at")
+        self.pdebug(self.tokens.position()[0])
+        self.pdebug(self.tokens.position()[1])
+        self.debug_indent -= 4
+        return ex
+
+    def parse_expression_group(self, start_token, node_type="EXPRESSIONGROUP"):
+        eg = self.parse_comma_list(node_type)
+        self.assert_next("ENDBRACE", ")")
+        return eg
+
+    def parse_comma_list(self, node_type="COMMALIST"):
+        self.pdebug("COMMA LIST", 4)
+        cl = self.pt.new(node_type)
+        self.pdebug(self.peek())
+        for t in self.peek_until(ENDGROUP):
+            cl.append(self.parse_expression())
+            if self.peek().kind == "COMMA":
+                self.next()
             else:
                 break
-        return t
+        self.pdebug("Reached end of comma list at")
+        self.pdebug(repr(self.peek().val))
+        self.pdebug(self.tokens.position()[0])
+        self.pdebug(self.tokens.position()[1])
+        self.debug_indent -= 4
+        return cl
+
+    def parse_variable(self, var_token):
+        t = "VAR"
+        v = var_token.val[1:]
+        if self.scope_is("GLOBAL") or self.is_global(v):
+            t = "GLOBALVAR"
+        var = self.pt.new(t, v)
+        return var
+
+    def parse_string(self, string_token):
+        self.pdebug("STRING:", 4)
+        self.pdebug("String is {}".format(string_token))
+        s = string_token.val[1:-1]
+        self.pdebug("String contents are " + s)
+
+        #st = tokeniser.tokens(iter([s]), keep_white=True)
+        #out = ""
+        #format_vars = []
+        #while True:
+            #print("tokens")
+            #try:
+                #t = st.next()
+                #self.pdebug("{} found in string".format(t))
+            #except StopIteration:
+                #break
+            #if t.kind == "ESCAPE":
+                #out.append(t.next().val)
+            #if t.kind != "VARIABLE":
+                #out.append(t.val)
+            #else:
+                #out.append("{}")
+                #format_vars.append(self.pt.new("VARIABLE", t.val))
+        string = self.pt.new("STRING", s)
+        #string.children = format_vars
+        self.debug_indent -= 4
+        return string
 
     def parse_return(self):
-        return self.parse_expression()
+        r = self.pt.new("RETURN", "return")
+        r.append(self.parse_expression())
+        if self.peek().val == ";":
+            self.next()
+        return r
 
-    def parse_new(self):
-        if self.debug:
-            print("NEW")
-        self.next_non_white()
-        match = self.match_for(callable_search)
-        return self.parse_callable(match)
-
-    def parse_global(self):
-        g = self.parse_comma_list("GLOBALLIST", start=self.cursor)
-        for var in g:
-            self.add_global(var.value)
-        return g
-
-    def parse_cast(self, keyword):
-        start = self.cursor - len(keyword)
-        cast = self.pt.new("CAST", cast_map[keyword.lower()], start=start)
-        self.next_non_white()
-        cast.append(self.parse_expression())
-        cast.end_cursor = self.cursor
-        return cast
-
-    def parse_special(self, keyword):
-        start = self.cursor - len(keyword)
-        special = self.pt.new("CALL", keyword.lower(), start=start)
-        if keyword in ("new", "return", "global"):
-            special.append(getattr(self, "parse_" + keyword.lower())())
-            special.node_type = keyword.upper()
+    def parse_special(self, keyword_token):
+        special = self.pt.new("CALL", keyword_token.val.lower())
+        if self.peek().val == "(":
+            args = self.parse_expression_group(self.next(), "ARGSLIST")
         else:
-            self.next_non_white()
-            args = None
-            if self.check_for("("):
-                args = self.parse_expression_group()
-            else:
-                args = self.parse_comma_list("ARGLIST")
-            for a in args:
-                special.append(a)
-        special.end_cursor = self.cursor
+            args = self.parse_comma_list("ARGLIST")
+        special.append(args)
+        #print("EXIT SPECIAL")
         return special
 
-    def parse_basic(self, node_type, value):
-        return self.pt.new(node_type, value, start=self.start_marker, end=self.cursor)
+    #def parse_assignment(self):
+        #ass_token = self.next()
+        #return self.pt.new("ASSIGNMENT", ass_token.val)
 
-    def parse_operator(self, o):
-        start = self.cursor - len(o)
-        #TODO: Move these transforms into transform
-        if o == ".":
-            o = "+"
-        elif o == "!":
-            o = "not"
-        elif o == "&&":
-            o = "and"
-        elif o == "||":
-            o = "or"
-        elif o == "=>":
-            o == ":"
-        return self.pt.new("OPERATOR", o, start=start, end=self.cursor)
+    #def parse_comparator(self):
+        #comp_token = self.next()
+        #return self.pt.new("COMPARATOR", comp_token.val)
 
-    def parse_callable(self, c):
-        sm = self.start_marker
-        # Matched the "(" too...
-        if self.debug:
-            print("CALLABLE")
-        self.cursor -= 1
-        self.next_non_white()
-        call = self.parse_expression_group()
-        call.node_type = "CALL"
-        call.trim_childless_children("EXPRESSION")
-        #TODO: Move to transform?
-        c = c.replace("::", ".")
-        if c[0] == "$":
-            call.value = c[1:-1]
+    def parse_operator(self, op_token):
+        #if op_token.val == "[":
+            #return self.parse_index(op_token)
+        arrity, prec, assoc = operator_map[op_token.val]
+        op_node = self.pt.new("OPERATOR", op_token.val)
+        op_node.arrity = arrity
+        op_node.precedence = prec
+        op_node.assoc = assoc
+        if op_token.val == "new":
+            op_node.append(self.parse_ident(self.next()))
+        return op_node
+
+    def parse_int(self, int_token):
+        return self.pt.new("INT", int(int_token.val))
+
+    def parse_newline(self):
+        self.next()
+        return self.pt.new("NEWLINE", "\n")
+
+    def parse_ident(self, ident):
+        if self.peek().val == "(":
+            # Function call
+            self.pdebug("Function call", 4)
+            call = self.pt.new("CALL", ident.val)
+            call.append(self.parse_expression_group(self.next(), "ARGSLIST"))
+            self.debug_indent -= 4
+            return call
         else:
-            call.value = c[:-1]
-        call.start_cursor = sm - self.cursor
-        self.next_non_white()
-        return call
+            return self.pt.new("IDENT", ident.val)
+
+    def parse_unknown(self):
+        raise UnexpectedCharError()
+
+    def parse_index(self, t):
+        """
+        Args:
+            item: The item to index
+        """
+        i = self.pt.new("INDEX", t.val)
+        i.append(self.parse_expression())
+        i.precedence = 130
+        i.arrity = 1
+        i.assoc = "left"
+        self.assert_next("ENDBRACE", "]")
+        return i
+
+    def parse_comment(self, comment_token):
+        #TODO: change to chop off first chars
+        if comment_token.kind == "COMMENTLINE":
+            return self.pt.new("COMMENTLINE", value=comment_token.val[2:])
+        else:
+            return self.pt.new("COMMENTBLOCK", value=comment_token.val)

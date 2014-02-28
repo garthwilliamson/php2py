@@ -20,17 +20,21 @@ class CompileError(Exception):
 
 
 class Compiler(object):
-    def __init__(self, tree, strip_comments=False):
+    def __init__(self, tree=None, strip_comments=False):
         self.strip_comments = strip_comments
         self.imports = collections.defaultdict(list)
         self.imports["php2py"].append(("php"))
         self.results = []
         self.indent = 0
+        self.tree = tree
 
-        transformer.transform(tree)
+    def compile(self, tree=None):
+        if tree is None:
+            tree = self.tree
+        tree = transformer.transform(tree)
 
         self.generic_header_compile()
-        for c in tree:
+        for c in self.tree:
             self.marshal(c)
         self.generic_footer_compile()
 
@@ -88,7 +92,7 @@ class Compiler(object):
             print("Tried to compile...")
             parsetree.print_tree(node)
             print("...but failed")
-            raise CompileError("Probably something isn't returning a string when it should", e)
+            raise # CompileError("Probably something isn't returning a string when it should", e)
         except AttributeError as e:
             print("Tried to compile...")
             parsetree.print_tree(node)
@@ -209,7 +213,7 @@ class Compiler(object):
         return " {}".format(node.value)
 
     def operator_compile(self, node):
-        return " {}".format(node.value)
+        return "({} {} {})".format(self.marshal(node.children[1]), node.value, self.marshal(node.children[0]))
 
     def statement_compile(self, node):
         if len(node.children) != 0:
@@ -218,7 +222,7 @@ class Compiler(object):
             self.append(" ".join([self.marshal(c) for c in node]))
 
     def int_compile(self, node):
-        return " " + str(node.value)
+        return str(node.value)
 
     def phpconstant_compile(self, node):
         return constant_map[node.value]
