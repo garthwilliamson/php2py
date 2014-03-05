@@ -4,14 +4,14 @@ import unittest
 import php2py.compiler as c
 import php2py.parser as p
 from php2py.parsetree import print_tree
-from php2py.transformer import transform_node
+from php2py.transformer import transform_php
 from php2py import parse_and_compile
 
 from pprint import pprint
 
 
 def parse_string(s, debug=False):
-    parser = p.PhpParser(iter(s.split("\n")))
+    parser = p.PhpParser(iter(s.split("\n")), debug=True)
     parser.parse()
     if debug:
         parser.pt.print_()
@@ -19,23 +19,6 @@ def parse_string(s, debug=False):
 
 
 html = "<div>hello</div>"
-
-assign = """<?php $a = 1 ?>;"""
-
-while_eg = """<?php
-$a = 0;
-$b = 0;
-while($a == $b) {
-    echo "Hi there";
-    $b++;
-}
-echo "world"
-"""
-
-function_simple = """<?php
-function foo() {
-    return 0;
-}"""
 
 function = """<?php
 function foo($arg1, $arg2) {
@@ -77,7 +60,7 @@ $b = 2;
 function Sum()
 {
     global $a, $b;
-    $b = $a + $b;
+    $b = $a;
 }
 Sum();
 echo $b;
@@ -170,6 +153,9 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(node[0][0][0][0][0].node_type, node_type)
         self.assertEqual(node[0][0][0][0][0].value, string)
 
+    def assertLastCompiled(self, comparison, distance=1):
+        self.assertEqual(self.compiler.functions[-1][-distance], comparison)
+
     def test_html(self):
         p = parse_string(html)
         res = p.get_tree()
@@ -185,6 +171,10 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(php.node_type, "PHP")
         self.assertEcho(php[0], "Hello World")
 
+        transform_php(php)
+        self.compiler.statement_compile(php[0])
+        self.assertLastCompiled("    p.f.echo(p, u'Hello World')")
+
     @php_t
     def test_hello_no_end(self, php):
         """ Echo without an end tag
@@ -193,8 +183,15 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(php.node_type, "PHP")
         self.assertEcho(php[0], "Hello World")
 
-    def test_assign(self):
-        php_node = parse_string(assign).get_tree()[0]
+        transform_php(php)
+        self.compiler.statement_compile(php[0])
+        self.assertLastCompiled("    p.f.echo(p, u'Hello World')")
+
+    @php_t
+    def test_assign(self, php_node):
+        """Simple assignment
+        <?php $a = 1; ?>
+        """
         print_tree(php_node)
         statement = php_node[0]
         self.assertEqual(statement.node_type, "STATEMENT")
@@ -207,28 +204,56 @@ class SimpleTests(unittest.TestCase):
         assign_to = assignment[1]
         self.assertEqual(assign_to.value, "a")
 
-    def test_while(self):
-        p = parse_string(while_eg)
-        res = p.get_tree()
-        php_node = res[0]
+        transform_php(php_node)
+        self.compiler.statement_compile(php_node[0])
+        print(self.compiler)
+        self.assertLastCompiled("    p.g.a = 1")
+
+    @php_t
+    def test_while(self, php_node):
+        """ Simple while loop
+        <?php
+        while($a == $b) {
+            echo "Hi there";
+            $b++;
+        }
+        echo "world"
+        """
         self.assertEqual(php_node.node_type, "PHP")
-        while_node = php_node[2]
+        while_node = php_node[0]
         self.assertEqual(while_node.node_type, "WHILE")
-        echo_world_statement = php_node[3]
+        echo_world_statement = php_node[1]
         self.assertEcho(echo_world_statement, "world")
 
-    def test_function_simple(self):
-        php_node = parse_string(function_simple).get_tree()[0]
+        transform_php(php_node)
+        self.compiler.while_compile(while_node)
+        print(self.compiler)
+        self.assertLastCompiled("        (p.g.b += 1)")
+
+    @php_t
+    def test_function_simple(self, php_node):
+        """Simple function
+        <?php
+        function foo() {
+            return 0;
+        }"""
         function_node = php_node[0]
-        print_tree(function_node)
         self.assertEqual(function_node.node_type, "FUNCTION")
         arg_list = function_node[0]
         self.assertEqual(len(arg_list.children), 0)
         function_block = function_node[1]
         self.assertEqual(function_block.node_type, "BLOCK")
-        return_operation = function_block[0][0][0]
-        self.assertEqual(return_operation.node_type, "RETURN")
-        self.assertEqual(return_operation[0].node_type, "INT")
+        return_statement = function_block[0]
+        self.assertEqual(return_statement.node_type, "RETURN")
+        return_expression = return_statement.get("EXPRESSION")
+        self.assertEqual(return_expression[0].node_type, "INT")
+
+        transform_php(php_node)
+        print_tree(php_node)
+        self.compiler.php_compile(php_node)
+        #TODO: Check the body function for the following
+        #self.assertLastCompiled("p.f.foo = foo")
+        self.assertLastCompiled("    return 0")
 
     def test_function(self):
         p = parse_string(function)
@@ -265,14 +290,15 @@ class SimpleTests(unittest.TestCase):
         block_node = php_node.get("FUNCTION").get("BLOCK")
         self.assertEcho(block_node[0], "a", node_type="VAR")
 
-    def ttest_scopes_global(self):
+    def test_scopes_global(self):
         php_node = parse_string(scope_globalled).get_tree()[0]
         function_node = php_node[2]
-        self.assertEqual(function_node.value, "Sum")
+        self.assertEqual(function_node.value, "sum")
         # We don't actually output the global node anywhere
-        assignment_statement = function_node[1][1]
-        self.assertEqual(assignment_statement[0].node_type, "EXPRESSION")
-        self.assertEqual(assignment_statement[0][0].value, "b")
+        assignment_expression = function_node.get("BLOCK")[1].get("EXPRESSION")
+        self.assertEqual(assignment_expression[0].node_type, "ASSIGNMENT")
+        self.assertEqual(assignment_expression[0][0].value, "a")
+        self.assertEqual(assignment_expression[0][0].node_type, "GLOBALVAR")
 
     @php_t
     def test_comments(self, php_node):
@@ -438,7 +464,7 @@ class SimpleTests(unittest.TestCase):
         }
         """
         print_tree(php_node)
-        transform_node(php_node)
+        transform_php(php_node)
         print_tree(php_node)
         assign_statement = php_node[0]
         if_statement = php_node[1]
@@ -449,7 +475,7 @@ class SimpleTests(unittest.TestCase):
     def test_assign_in_if2(self):
         php_node = parse_string(assign_in_if2).get_tree()[0]
         print_tree(php_node)
-        transform_node(php_node)
+        transform_php(php_node)
         print_tree(php_node)
         #self.assertTrue(False)
 

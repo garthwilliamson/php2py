@@ -30,7 +30,7 @@ class Tokeniser(object):
         return self
 
     def position(self):
-        return self.line, " " * self.cursor + "^----"
+        return self.line, " " * self.cursor + "^---- column {}, line {}".format(self.cursor, self.line_number)
 
     def next(self):
         if self.peeked is not None:
@@ -44,8 +44,7 @@ class Tokeniser(object):
                 return Token(self.line_number + 1, 0, "EOF", "PHPEND")
             #return Token(self.line_number, self.cursor, "\n", "NEWLINE")
         if self.state == "html":
-            php_start_index = self.line.find("<?php", self.cursor)
-            print(self.line)
+            php_start_index = self.line.lower().find("<?php", self.cursor)
             if php_start_index >= 0:
                 # Found a <?php token in this line
                 if php_start_index > self.cursor:
@@ -171,6 +170,7 @@ keyword_table = {
     "catch": "CATCH",
     "while": "CONTROL",
     "return": "RETURN",
+    "global": "GLOBAL",
     "echo": "SPECIAL",
     "if": "CONTROL",
     "function": "FUNCTION",

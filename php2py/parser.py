@@ -144,68 +144,6 @@ class Parser(object):
             raise ExpectedCharError(kind + ":" + value, self.current)
 
 
-def create_pattern(items):
-    pattern = "|".join([re.escape(i) for i in items])
-    return re.compile(pattern, flags=re.IGNORECASE)
-
-
-cast_map = {
-    "(int)": "int",
-    "(integer)": "int",
-    "(bool)": "bool",
-    "(boolean)": "bool",
-    "(float)": "float",
-    "(double)": "float",
-    "(real)": "float",
-    "(string)": "str",
-    "(array)": "list",
-    "(object)": "object",
-    "(unset)": None,    #TODO: unset should be not so shit
-}
-
-
-# REMEMBER BIGGEST TO SMALLEST
-PHP_START = ("<?php",)
-html_search = create_pattern(PHP_START)
-IDENTIFIERS = "[a-z_][a-z_1-9:]*"
-ident_search = re.compile(IDENTIFIERS, flags=re.IGNORECASE)
-# Have to do these all at once because of sizing issues
-COMPARATORS = ["===", "!==", "==", "!=", "<>", "<=", ">=", "<", ">"]
-OPERATORS = ["and", "xor",
-             "=>",        # Here because I don't know where else to put it
-             "<<", ">>", "||", "&&", "or", "++", "--",
-             "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!", "?", ":"]
-ASSIGNMENTS = ["<<=", ">>=",
-              "+=", "-=", "*=", "/=", "|=", "^=", "="]
-MAGIC_CONSTANTS = ["__line__", "__file__", "__dir__", "__function__", "__class__",
-                   "__trait__", "__method__", "__namespace__"]
-CONSTANTS = ["true", "false"]
-SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + MAGIC_CONSTANTS
-SYMBOLS.sort(key=len, reverse=True)
-symbol_search = create_pattern(SYMBOLS)
-whitespace_search = re.compile("\\s+")
-CONTROLS = "function return switch while catch class call try for if do".split()
-SPECIAL_STATEMENTS = "echo new die require_once require include global return case".split()
-cast_search = create_pattern(cast_map.keys())
-special_search = create_pattern(SPECIAL_STATEMENTS)
-control_search = re.compile("(" + "|".join([re.escape(w) for w in CONTROLS]) + ")([ \\(])")
-int_search = re.compile("[0-9]+")
-callable_search = re.compile("\\@?\\$?" + IDENTIFIERS + "\\s*\\(", flags=re.IGNORECASE)
-endline_search = re.compile("(\\r)?\\n|$")
-endstatement_search = create_pattern(("?>", ";", "}"))
-
-else_search = re.compile("else( |\\{)")
-elif_search = re.compile("else\\s+if")
-
-open_brace_search = re.compile("\\(")
-close_brace_search = re.compile(re.escape(")"))
-
-comma_search = re.compile(re.escape(","))
-space_tab_search = re.compile("[\t ]*")
-
-open_curly_search = re.compile(re.escape("{"))
-close_curly_search = re.compile(re.escape("}"))
-
 operator_map = {
     #OP:        (ARITY,    PREC, ASSOC)
 #   "[":        (2,        120,  "left"),
@@ -274,7 +212,7 @@ ENDEXPRESSION = [",", "]"] + ENDGROUP
 
 def lookup_op_type(op_value):
     #print("LOOKING UP " + op_value)
-    if op_value in ASSIGNMENTS:
+    if op_value in tokeniser.ASSIGNMENTS:
         return "ASSIGNMENT"
     elif op_value == "[":
         return "INDEX"
@@ -299,6 +237,9 @@ class PhpParser(Parser):
             self.parse()
         except ExpectedCharError as e:
             self.print_cur_location(str(e))
+            raise
+        except:
+            print("\n".join(self.tokens.position()))
             raise
 
     def next_non_white(self):
@@ -354,6 +295,8 @@ class PhpParser(Parser):
             statement = self.parse_function()
         elif self.peek().kind == "RETURN":
             statement = self.parse_return()
+        elif self.peek().kind == "GLOBAL":
+            statement = self.parse_global()
         else:
             statement = self.pt.new("STATEMENT", None)
             if self.peek().kind == "COMMENTLINE":
@@ -407,7 +350,7 @@ class PhpParser(Parser):
         self.pdebug("Doing a function call", 4)
         self.push_scope("LOCAL")
         self.next()
-        f = self.pt.new("FUNCTION", self.next().val)
+        f = self.pt.new("FUNCTION", self.next().val.lower())
         f.append(self.parse_expression_group(self.next(), "ARGSLIST"))
         f.append(self.parse_block())
         self.pdebug("At end of function")
@@ -550,6 +493,7 @@ class PhpParser(Parser):
         return string
 
     def parse_return(self):
+        self.next()
         r = self.pt.new("RETURN", "return")
         r.append(self.parse_expression())
         if self.peek().val == ";":
@@ -566,13 +510,16 @@ class PhpParser(Parser):
         #print("EXIT SPECIAL")
         return special
 
-    #def parse_assignment(self):
-        #ass_token = self.next()
-        #return self.pt.new("ASSIGNMENT", ass_token.val)
-
-    #def parse_comparator(self):
-        #comp_token = self.next()
-        #return self.pt.new("COMPARATOR", comp_token.val)
+    def parse_global(self):
+        self.next()
+        g = self.pt.new("GLOBAL", "global")
+        args = self.parse_comma_list("GLOBALS")
+        for v in args:
+            g.append(v[0])
+            self.globals[-1].append(v[0].value)
+        if self.peek().val == ";":
+            self.next()
+        return g
 
     def parse_operator(self, op_token):
         #if op_token.val == "[":
@@ -587,6 +534,8 @@ class PhpParser(Parser):
         return op_node
 
     def parse_int(self, int_token):
+        if len(int_token.val) > 1 and int_token.val[0] == "0":
+            return self.pt.new("OCT", int_token.val[1:])
         return self.pt.new("INT", int(int_token.val))
 
     def parse_newline(self):

@@ -20,42 +20,50 @@ class CompileError(Exception):
 
 
 class Compiler(object):
+    """ Compiler for a parse tree
+
+    Uses the transformer to convert and optimise? the tree
+
+    Compiles statement by statement
+
+    """
     def __init__(self, tree=None, strip_comments=False):
         self.strip_comments = strip_comments
         self.imports = collections.defaultdict(list)
         self.imports["php2py"].append(("php"))
-        self.results = []
+        self.functions = []
         self.indent = 0
         self.tree = tree
+        body = ["def body(p):"]
+        self.cur_function = body
+        self.functions.append(body)
+        self.indent += 4
 
     def compile(self, tree=None):
         if tree is None:
             tree = self.tree
         tree = transformer.transform(tree)
 
-        self.generic_header_compile()
         for c in self.tree:
             self.marshal(c)
+
+        self.results = []
+        for f in self.functions:
+            self.blank_lines(2)
+            self.results += f
         self.generic_footer_compile()
 
         for i, v in self.imports.items():
             self.add_import(i, v)
-
-    def __str__(self):
         return "\n".join(self.results)
 
-    def generic_header_compile(self):
-        self.blank_lines(2)
-        self.append("def body(p):")
-        self.indent += 4
+    def __str__(self):
+        return "\n".join(["\n".join(f) for f in self.functions])
 
     def generic_footer_compile(self):
-        self.indent -= 4
-        self.append("""\n\nif __name__ == "__main__":""")
-        self.indent += 4
-        self.append("""import os.path""")
-        self.append("""php.serve_up(body, root_dir=os.path.abspath(os.path.dirname(__file__)))""")
-        self.indent -= 4
+        self.results.append("""\n\nif __name__ == "__main__":""")
+        self.results.append("""    import os.path""")
+        self.results.append("""    php.serve_up(body, root_dir=os.path.abspath(os.path.dirname(__file__)))""")
 
     def add_import(self, module, els=None):
         module = self.python_safe(module)
@@ -69,7 +77,7 @@ class Compiler(object):
         self.append("php.write({0})".format(value))
 
     def append(self, line):
-        self.results.append(' ' * self.indent + line)
+        self.cur_function.append(' ' * self.indent + line)
 
     def prepend(self, line):
         self.results.insert(0, line)
@@ -120,19 +128,15 @@ class Compiler(object):
         #TODO: Think about elif
 
     def function_compile(self, node):
+        old_function = self.cur_function
         args = ["p"]
         for v in node[0]:
             args.append(self.var_compile(v[0]))
-        self.append("@phpfunc")
-        self.append("def {0}({1}):".format(node.value, ", ".join(args)))
-        self.indent += 4
+        self.cur_function = ["@phpfunc", "def {0}({1}):".format(node.value, ", ".join(args))]
         self.marshal(node[1])
-        self.indent -= 4
+        self.functions.append(self.cur_function)
+        self.cur_function = old_function
         self.append("p.f.{0} = {0}".format(node.value))
-        if self.indent == 0:
-            self.blank_lines(2)
-        else:
-            self.blank_lines(1)
 
     def call_compile(self, node):
         # Process args
@@ -151,7 +155,7 @@ class Compiler(object):
             kwargs = "**{" + ", ".join(kwarg_list) + "}"
             arg_list.append(kwargs)
         args = ", ".join(arg_list)
-        return " p.f.{0}({1})".format(node.value, args, kwargs)
+        return "p.f.{0}({1})".format(node.value, args, kwargs)
 
     def keyvalue_compile(self, node, assign=": "):
         if len(node.children) != 2:
@@ -163,7 +167,7 @@ class Compiler(object):
         return self.call_compile(node[0])
 
     def return_compile(self, node):
-        return "return " + self.expression_compile(node[0])
+        self.append("return " + self.expression_compile(node[0]))
 
     def pass_compile(self, node):
         self.append("pass")
@@ -178,20 +182,26 @@ class Compiler(object):
         sub_var = ""
         if len(node.children) > 0:
             sub_var = self.subvar_compile(node.children[0])
-        return " " + self.python_safe(node.value) + sub_var
+        return self.python_safe(node.value) + sub_var
 
     def subvar_compile(self, node):
         return '.{0}'.format(node.value)
 
     def globalvar_compile(self, node):
-        return " p.g." + self.var_compile(node).lstrip()
+        return "p.g." + self.var_compile(node).lstrip()
+
+    def ident_compile(self, node):
+        return node.value
 
     def index_compile(self, node):
-        return "[{}]".format(self.expression_compile(node).lstrip())
+        return "{}[{}]".format(self.marshal(node[1]), self.marshal(node[0]))
+
+    def attr_compile(self, node):
+        return "{}.{}".format(self.marshal(node.children[1]), self.marshal(node.children[0]))
 
     def constant_compile(self, node):
         #TODO: Contants might need further thought
-        return " " + node.value
+        return node.value
 
     def comparator_compile(self, node):
         return node.value
@@ -207,10 +217,10 @@ class Compiler(object):
         fmt = ""
         if len(node.children) > 0:
             fmt = ".format({})".format(", ".join([v.value for v in node]))
-        return " " + repr(node.value) + fmt
+        return repr(node.value) + fmt
 
     def assignment_compile(self, node):
-        return " {}".format(node.value)
+        return "{} {} {}".format(self.marshal(node.children[1]), node.value, self.marshal(node.children[0]))
 
     def operator_compile(self, node):
         return "({} {} {})".format(self.marshal(node.children[1]), node.value, self.marshal(node.children[0]))
@@ -224,6 +234,8 @@ class Compiler(object):
     def int_compile(self, node):
         return str(node.value)
 
+    def oct_compile(self, node):
+        return "0o" + node.value
     def phpconstant_compile(self, node):
         return constant_map[node.value]
 
@@ -258,7 +270,7 @@ class Compiler(object):
         return (", ".join(out))
 
     def expressiongroup_compile(self, node):
-        return " ({})".format([self.marshal(c) for c in node.children])
+        return "({})".format([self.marshal(c) for c in node.children])
 
     def try_compile(self, node):
         self.append("try:")
@@ -278,4 +290,4 @@ class Compiler(object):
         pass
 
     def cast_compile(self, node):
-        return " {}({})".format(node.value, self.marshal(node[0]))
+        return "{}({})".format(node.value, self.marshal(node[0]))
