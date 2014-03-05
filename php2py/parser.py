@@ -427,7 +427,8 @@ class PhpParser(Parser):
             [print_tree(n) for n in opee_stack]
             self.pdebug("----opees-----")
             raise ParseError("Shit")
-        ex.append(opee_stack[0])
+        elif len(opee_stack) == 1:
+            ex.append(opee_stack[0])
         self.pdebug("Expression ended at")
         self.pdebug(self.tokens.position()[0])
         self.pdebug(self.tokens.position()[1])

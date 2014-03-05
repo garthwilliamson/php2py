@@ -19,11 +19,12 @@ py_filename = os.path.join(dir_name, file_name + ".py")
 
 
 debug_deep = args.debug > 1
-parser = PhpParser("".join(open(args.file).readlines()), args.file, debug_deep)
+parser = PhpParser(open(args.file), debug_deep)
 parser.parse()
 if args.debug:
     parser.pt.print_()
 c = Compiler(parser.get_tree(), strip_comments=args.strip)
+results = c.compile()
 py_file = open(py_filename, "w")
-py_file.write(str(c))
+py_file.write(str(results))
 py_file.close()

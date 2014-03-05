@@ -11,7 +11,7 @@ from pprint import pprint
 
 
 def parse_string(s, debug=False):
-    parser = p.PhpParser(iter(s.split("\n")), debug=True)
+    parser = p.PhpParser(iter(s.split("\n")), debug=False)
     parser.parse()
     if debug:
         parser.pt.print_()
@@ -71,13 +71,6 @@ $a = new B();
 $c = new D("e", "f");
 """
 
-multiline_call2 = """<?php
-F(  $a,
-    $b,
-//Commenting is horrid
-    $c
-);
-"""
 
 more_keywords = """<?php
 die;
@@ -348,12 +341,38 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(fcall.value, "F")
         self.assertEqual(fcall.get("ARGSLIST")[0][0].value, "a")
 
-    def test_multiline_call2(self):
-        php_node = parse_string(multiline_call2, True).get_tree()[0]
+    @php_t
+    def test_multiline_call2(self, php_node):
+        """ Multi line call with comments
+        <?php
+        F(  $a,
+            $b,
+        //Commenting is horrid
+            $c
+        );
+        """
         fcall = php_node[0][0][0]
         self.assertEqual(fcall.node_type, "CALL")
         self.assertEqual(fcall.value, "F")
         self.assertEqual(fcall.get("ARGSLIST")[0][0].value, "a")
+
+    @php_t
+    def test_multiline_call3(self, php_node):
+        """ Multi line call with an extra comma (empty expression)
+        <?php
+        c(
+            'd'=> '',  // comment
+        );
+        """
+        fcall = php_node.get("STATEMENT").get("EXPRESSION")[0]
+        self.assertEqual(fcall.node_type, "CALL")
+        self.assertEqual(fcall.value, "c")
+        self.assertEqual(fcall.get("ARGSLIST").get("EXPRESSION")[0].node_type, "OPERATOR")
+        self.assertEqual(fcall.get("ARGSLIST").get("EXPRESSION")[0][1].value, "d")
+
+        transform_php(php_node)
+        self.compiler.php_compile(php_node)
+        self.assertTrue(False)
 
     @php_t
     def test_nested(self, php_node):
