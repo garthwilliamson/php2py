@@ -199,9 +199,9 @@ cast_map = {
 
 CASTERS = [c for c in cast_map]
 COMPARATORS = ["===", "!==", "==", "!=", "<>", "<=", ">=", "<", ">"]
-OPERATORS = ["new",
+OPERATORS = ["new", "and", "xor" "or",
              "=>", "->", "::",        # Here because I don't know where else to put it
-             "<<", ">>", "||", "&&", "or", "++", "--",
+             "<<", ">>", "||", "&&", "++", "--",
              "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!", "?", ":"]
 ASSIGNMENTS = ["<<=", ">>=",
               "+=", "-=", "*=", "/=", "|=", "^=", "="]
