@@ -202,6 +202,7 @@ operator_map = {
     "and":      (2,        30,   "left"),
     "xor":      (2,        29,   "left"),
     "or":       (2,        28,   "left"),
+    "as":       (2,        20,   "right"),
     "EX":       (1,       -1000, "right")
 }
 
@@ -211,7 +212,7 @@ PHPEND = EOF + ["?>"]
 ENDBLOCK = PHPEND + ["}"]
 ENDSTATEMENT = [";"] + ENDBLOCK
 ENDGROUP = ENDSTATEMENT + [")"]
-ENDEXPRESSION = [",", "]"] + ENDGROUP
+ENDEXPRESSION = [",", "]", ":"] + ENDGROUP
 
 
 def lookup_op_type(op_value):
@@ -303,6 +304,8 @@ class PhpParser(Parser):
             statement = self.parse_return()
         elif self.peek().kind == "GLOBAL":
             statement = self.parse_global()
+        elif self.peek().kind == "CASE":
+            statement = self.parse_case()
         else:
             statement = self.pt.new("STATEMENT", None)
             if self.peek().kind in ("COMMENTLINE", "BLOCKCOMMENT"):
@@ -348,6 +351,29 @@ class PhpParser(Parser):
                 e.append(self.parse_block())
             i.append(e)
         return i
+
+    #def parse_switch(self):
+        #self.next()
+        #s = self.pt.new("SWITCH", "switch")
+        #s.append(self.parse_expression_group(self.next()))
+        #s.append(self.parse_block())
+
+    def parse_case(self):
+        self.next()
+        case = self.pt.new("CASE", "case")
+        case.append(self.parse_expression())
+        while self.peek().kind not in ("CASE", "BREAK", "DEFAULT", "ENDBRACE"):
+            self.assert_next("COLON", ":")
+            case.append(self.parse_statement())
+        if self.peek().kind != "BREAK":
+            self.next()
+            case.node_type = "CASEFALLTHROUGH"
+        else:
+            self.assert_next("BREAK")
+        return case
+
+    def parse_default(self):
+        pass
 
     def parse_control(self):
         control_token = self.next()

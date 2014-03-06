@@ -11,7 +11,7 @@ from pprint import pprint
 
 
 def parse_string(s, debug=False):
-    parser = p.PhpParser(iter(s.split("\n")), debug=False)
+    parser = p.PhpParser(iter(s.split("\n")), debug=True)
     parser.parse()
     if debug:
         parser.pt.print_()
@@ -401,6 +401,15 @@ class SimpleTests(unittest.TestCase):
 
     def test_complex_if(self):
         php_node = parse_string(complex_if).get_tree()[0]
+
+    @php_t
+    def test_ident_starts_new(self, php_node):
+        """ If with a comment attached and an ident starting with new
+        <?php
+        if ($SITE->newsitems) { // Print forums only when needed
+        }
+        """
+        print_tree(php_node)
 
     @php_t
     def test_else(self, php_node):

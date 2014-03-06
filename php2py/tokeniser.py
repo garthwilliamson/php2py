@@ -94,6 +94,7 @@ class Tokeniser(object):
             t = self.match_for(self.tokens)
             if t is None:
                 return Token(self.line_number + 1, 0, "EOF", "PHPEND")
+            t = t.rstrip()
             kind = lookup_kind(t)
             return Token(self.line_number, self.cursor, t, kind)
 
@@ -167,8 +168,12 @@ def full_matcher(s):
 
 keyword_table = {
     "try": "TRY",
+    "case": "CASE",
     "catch": "CATCH",
+    "break": "BREAK",
     "while": "CONTROL",
+    "foreach": "CONTROL",
+    "switch": "CONTROL",
     "return": "RETURN",
     "global": "GLOBAL",
     "echo": "SPECIAL",
@@ -176,6 +181,7 @@ keyword_table = {
     "else": "ELSE",
     "function": "FUNCTION",
     ",": "COMMA",
+    ":": "COLON",
 }
 
 
@@ -199,16 +205,16 @@ cast_map = {
 
 CASTERS = [c for c in cast_map]
 COMPARATORS = ["===", "!==", "==", "!=", "<>", "<=", ">=", "<", ">"]
-OPERATORS = ["new", "and", "xor" "or",
+OPERATORS = ["new ", "and ", "xor " "or ", "as ",
              "=>", "->", "::",        # Here because I don't know where else to put it
              "<<", ">>", "||", "&&", "++", "--",
-             "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!", "?", ":"]
+             "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!", "?"]
 ASSIGNMENTS = ["<<=", ">>=",
               "+=", "-=", "*=", "/=", "|=", "^=", "="]
 STARTBRACES = ["(", "{", "["]
 ENDBRACES = [")", "}", "]"]
 BRACES = STARTBRACES + ENDBRACES
-EXTRA = [";", ","]
+EXTRA = [";", ",", ":"]
 SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + BRACES + EXTRA + CASTERS
 
 SYMBOLS.sort(key=len, reverse=True)
