@@ -99,6 +99,7 @@ class Parser(object):
 
     def next(self):
         self.current = self.tokens.next()
+        #print("NEXT:" + str(self.current))
         self.pdebug("^^^^^^^" + str(self.current))
         return self.current
 
@@ -239,7 +240,7 @@ class PhpParser(Parser):
         try:
             self.parse()
         except ExpectedCharError as e:
-            self.print_cur_location(str(e))
+            print("\n".join(self.tokens.position()))
             raise
         except:
             print("\n".join(self.tokens.position()))
@@ -341,7 +342,10 @@ class PhpParser(Parser):
         if self.peek().kind == "ELSE":
             self.next()
             e = self.pt.new("ELSE", "else")
-            e.append(self.parse_block())
+            if self.peek().kind == "IF":
+                e.append(self.parse_if())
+            else:
+                e.append(self.parse_block())
             i.append(e)
         return i
 

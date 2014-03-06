@@ -181,6 +181,21 @@ class SimpleTests(unittest.TestCase):
         self.assertLastCompiled("    p.f.echo(p, u'Hello World')")
 
     @php_t
+    def test_string_with_quote(self, php_node):
+        """ String with an escaped quote in it
+        <?php "quoted\\"string";
+        """
+        self.assertEqual(php_node.get("STATEMENT").get("EXPRESSION")[0].node_type, "STRING")
+
+    @php_t
+    def test_complex_echo(self, php_node):
+        """ A complex echo statement
+        <?php
+        echo "$asdfasdfa(<a hreaaaaaaaf=\\"b/a.d?aaaaaaaaaaae=f&g;h=".i()."\\">aaaaaaaaaaaaaa". j('afasdfsdfsdk') .'</a>)';
+        """
+        self.assertEqual(php_node[0][0][0].value, "echo")
+
+    @php_t
     def test_assign(self, php_node):
         """Simple assignment
         <?php $a = 1; ?>

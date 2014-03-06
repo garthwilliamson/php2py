@@ -10,10 +10,10 @@ class Token(object):
         self.kind = kind
 
     def __str__(self):
-        return '"{}" ({}) at col {} of line {}'.format(self.val, self.kind, self.col, self.line)
+        return '{} ({}) at col {} of line {}'.format(repr(self.val), self.kind, self.col, self.line)
 
     def __repr__(self):
-        return "Token(line={}, column={}, value=\"{!r}\", kind={})".format(self.line, self.col, self.val, self.kind)
+        return "Token(line={}, column={}, value=\"{!r}\", kind={})".format(self.line, self.col, repr(self.val), self.kind)
 
 
 class Tokeniser(object):
@@ -213,7 +213,15 @@ SYMBOLS = COMPARATORS + OPERATORS + ASSIGNMENTS + BRACES + EXTRA + CASTERS
 
 SYMBOLS.sort(key=len, reverse=True)
 
-STRINGS = "\"(\\.|[^\"])*\"|'(\\.|[^'])*'"
+DOUBLEQUOTE = re.escape('"')
+SINGLEQUOTE = re.escape("'")
+BACKEDDOUBLE = '\\"'
+BACKEDSINGLE = "\\'"
+DOUBLEQUOTED = DOUBLEQUOTE + "(.|[^" + BACKEDDOUBLE + "])+?" + DOUBLEQUOTE
+SINGLEQUOTED = SINGLEQUOTE + "(.|[^" + BACKEDSINGLE + "])+?" + SINGLEQUOTE
+EMPTYSTRING = "\"\"|''"
+#STRINGS = EMPTYSTRING + "|" + DOUBLEQUOTED + "|" + SINGLEQUOTED
+STRINGS = '"(?:[^"\\\\]|\\\\.)*"|' + "'(?:[^'\\\\]|\\\\.)*'"
 NUMBERS = "[0-9]+\\.?[0-9]*"
 STARTBLOCKCOMMENT = re.escape("/*")
 ENDBLOCKCOMMENT = re.escape("*/")
