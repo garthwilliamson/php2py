@@ -52,6 +52,9 @@ class ParseNode(object):
     def __iter__(self):
         return iter(self.children)
 
+    def __len__(self):
+        return len(self.children)
+
     def get(self, node_type):
         for c in self.children:
             if c.node_type == node_type:

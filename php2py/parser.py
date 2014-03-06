@@ -223,10 +223,12 @@ def lookup_op_type(op_value):
         return "INDEX"
     elif op_value == "->":
         return "ATTR"
+    elif operator_map[op_value][0] == 1:
+        return "OPERATOR1"
     elif op_value in ("return", "new"):
         return op_value.upper()
     else:
-        return "OPERATOR"
+        return "OPERATOR2"
 
 
 class PhpParser(Parser):
@@ -362,8 +364,8 @@ class PhpParser(Parser):
         self.next()
         case = self.pt.new("CASE", "case")
         case.append(self.parse_expression())
+        self.assert_next("COLON", ":")
         while self.peek().kind not in ("CASE", "BREAK", "DEFAULT", "ENDBRACE"):
-            self.assert_next("COLON", ":")
             case.append(self.parse_statement())
         if self.peek().kind != "BREAK":
             self.next()

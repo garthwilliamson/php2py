@@ -274,7 +274,7 @@ class SimpleTests(unittest.TestCase):
         function_body = function_node[1]
         return_statement = function_body[1]
         self.assertEqual(return_statement.node_type, "RETURN")
-        self.assertEqual(return_statement.get("EXPRESSION").get("OPERATOR")[0].value, "True")
+        self.assertEqual(return_statement.get("EXPRESSION").get("OPERATOR2")[0].value, "True")
 
     def test_double_function(self):
         t = parse_string(double_function, True).get_tree()
@@ -382,7 +382,7 @@ class SimpleTests(unittest.TestCase):
         fcall = php_node.get("STATEMENT").get("EXPRESSION")[0]
         self.assertEqual(fcall.node_type, "CALL")
         self.assertEqual(fcall.value, "c")
-        self.assertEqual(fcall.get("ARGSLIST").get("EXPRESSION")[0].node_type, "OPERATOR")
+        self.assertEqual(fcall.get("ARGSLIST").get("EXPRESSION")[0].node_type, "OPERATOR2")
         self.assertEqual(fcall.get("ARGSLIST").get("EXPRESSION")[0][1].value, "d")
 
         transform_php(php_node)
@@ -395,7 +395,7 @@ class SimpleTests(unittest.TestCase):
         require_once(dirname(1) . '/lib/setup.php');
         """
         require_once = php_node.get("STATEMENT").get("EXPRESSION").get("CALL")
-        dirname = require_once.get("ARGSLIST").get("EXPRESSION").get("OPERATOR").get("CALL")
+        dirname = require_once.get("ARGSLIST").get("EXPRESSION").get("OPERATOR2").get("CALL")
         self.assertEqual(dirname.node_type, "CALL")
         self.assertEqual(dirname.get("ARGSLIST").get("EXPRESSION").get("INT").value, 1)
 

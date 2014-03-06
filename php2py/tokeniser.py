@@ -228,7 +228,7 @@ SINGLEQUOTED = SINGLEQUOTE + "(.|[^" + BACKEDSINGLE + "])+?" + SINGLEQUOTE
 EMPTYSTRING = "\"\"|''"
 #STRINGS = EMPTYSTRING + "|" + DOUBLEQUOTED + "|" + SINGLEQUOTED
 STRINGS = '"(?:[^"\\\\]|\\\\.)*"|' + "'(?:[^'\\\\]|\\\\.)*'"
-NUMBERS = "[0-9]+\\.?[0-9]*"
+NUMBERS = "-?[0-9]+\\.?[0-9]*"
 STARTBLOCKCOMMENT = re.escape("/*")
 ENDBLOCKCOMMENT = re.escape("*/")
 start_block_comment = re.compile("{}(.|[^*/])*".format(STARTBLOCKCOMMENT, ENDBLOCKCOMMENT))
@@ -240,7 +240,7 @@ INDENTIFIERS = "[a-z_][a-z_1-9]*"
 TOKENS = COMMENTS + "|" + NUMBERS + "|" + escape_and_join(SYMBOLS) + "|" + STRINGS + "|"+ VARIABLES + "|" + INDENTIFIERS
 
 more_table = {
-    "INT": full_matcher("[0-9]+"),
+    "INT": full_matcher("-?[0-9]+"),
     "STRING": full_matcher(STRINGS),
     "IDENT": full_matcher(INDENTIFIERS),
 }

@@ -127,6 +127,12 @@ class Compiler(object):
         self.indent -= 4
         #TODO: Think about elif
 
+    def pyfor_compile(self, node):
+        self.append("for {} in {}".format(self.marshal(node[0]), self.marshal(node[1])))
+        self.indent += 4
+        self.marshal(node[2])
+        self.indent -= 4
+
     def function_compile(self, node):
         old_function = self.cur_function
         args = ["p"]
@@ -220,10 +226,16 @@ class Compiler(object):
         return repr(node.value) + fmt
 
     def assignment_compile(self, node):
-        return "{} {} {}".format(self.marshal(node.children[1]), node.value, self.marshal(node.children[0]))
+        return "{} {} {}".format(self.marshal(node[1]), node.value, self.marshal(node[0]))
 
-    def operator_compile(self, node):
-        return "({} {} {})".format(self.marshal(node.children[1]), node.value, self.marshal(node.children[0]))
+    def operator2_compile(self, node):
+        try:
+            return "({} {} {})".format(self.marshal(node[1]), node.value, self.marshal(node[0]))
+        except IndexError:
+            raise CompileError("Expected two children for {}".format(node))
+
+    def operator1_compile(self, node):
+        return "{} ({})".format(node.value, self.marshal(node[0]))
 
     def statement_compile(self, node):
         if len(node.children) != 0:
@@ -270,7 +282,7 @@ class Compiler(object):
         return (", ".join(out))
 
     def expressiongroup_compile(self, node):
-        return "({})".format([self.marshal(c) for c in node.children])
+        return "({})".format(", ".join([self.marshal(c) for c in node.children]))
 
     def try_compile(self, node):
         self.append("try:")
