@@ -307,11 +307,11 @@ class SimpleTests(unittest.TestCase):
         print_tree(php_node)
         comment_node = php_node[0]
         self.assertEqual(comment_node.comments[0].value, " Out of band comment")
-        comment_node2 = php_node[2].comments[0]
+        comment_node2 = php_node[1].comments[0]
         self.assertEqual(comment_node2.value, "In band comment")
-        comment_node3 = php_node[3].comments[0]
+        comment_node3 = php_node[2].comments[0]
         self.assertEqual(comment_node3.value, "/* Big groupy comment")
-        comment_node4 = php_node[3].comments[1]
+        comment_node4 = php_node[2].comments[1]
         self.assertEqual(comment_node4.value[-2:], "*/")
         comment_node5 = php_node[4].comments[0]
         self.assertEqual(comment_node5.value, "/* groupy comment on line */")
@@ -372,7 +372,6 @@ class SimpleTests(unittest.TestCase):
 
         transform_php(php_node)
         self.compiler.php_compile(php_node)
-        self.assertTrue(False)
 
     @php_t
     def test_nested(self, php_node):
@@ -516,46 +515,27 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(try_node[1][0].node_type, "EXCEPTION")
         self.assertEqual(try_node[1][1].node_type, "BLOCK")
 
+    @php_t
+    def if_again(self, php_node):
+        """If with stuff and things
+        <?php
+            if (!file_exists('./config.php')) {
+            header('Location: install.php');
+            die;
+        }
+        """
+        print_tree(php_node)
+    #@php_t
+    #def test_blockcomment2(self, php_node):
+        #""" A big block comment with possibly shit performance
+        #<?php
 
-"""
-class CompileTest(unittest.TestCase):
-    # TODO: These tests should work out why eval is failing
-    def test_while(self):
-        parse_and_compile(while_eg)
+        #/**
+         #* aaaaa aaaaaaaa
+         #*/
 
-    def test_hello(self):
-        parse_and_compile(hello)
-
-    def test_function(self):
-        parse_and_compile(function)
-
-    def test_double_function(self):
-        parse_and_compile(double_function)
-
-    def test_recurse(self):
-        parse_and_compile(recurse, debug=True)
-
-    def test_scope(self):
-        parse_and_compile(scopes)
-
-    def test_scope_global(self):
-        parse_and_compile(scope_globalled)
-
-    def test_comments(self):
-        parse_and_compile(comments)
-
-    def test_new(self):
-        parse_and_compile(new_eg)
-
-    def test_multiline_call(self):
-        parse_and_compile(multiline_call)
-
-    def test_multiline_call2(self):
-        parse_and_compile(multiline_call2, debug=True)
-
-    def test_array_lookups(self):
-        print(parse_and_compile(array_lookups, debug=True))
-"""
+        #"""
+        #self.assertTrue(False)
 
 
 if __name__ == "__main__":

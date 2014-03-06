@@ -299,13 +299,18 @@ class PhpParser(Parser):
             statement = self.parse_global()
         else:
             statement = self.pt.new("STATEMENT", None)
-            if self.peek().kind == "COMMENTLINE":
-                self.comments.append(self.parse_comment(self.next()))
+            if self.peek().kind in ("COMMENTLINE", "BLOCKCOMMENT"):
+                while self.peek().kind in ("COMMENTLINE", "BLOCKCOMMENT"):
+                    self.comments.append(self.parse_comment(self.next()))
             else:
                 statement.append(self.parse_expression())
+                cur_line = self.tokens.line_number
                 if self.peek().val == ";":
                     self.next()
+                if self.peek().kind == "COMMENTLINE" and self.tokens.line_number == cur_line:
+                    self.comments.append(self.parse_comment(self.next()))
         statement.comments = self.comments
+        self.pdebug("STATEMENT END")
         self.debug_indent -= 4
         return statement
 
