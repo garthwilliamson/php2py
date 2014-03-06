@@ -291,6 +291,8 @@ class PhpParser(Parser):
             statement = self.parse_control()
         elif self.peek().kind == "TRY":
             statement = self.parse_try()
+        elif self.peek().kind == "IF":
+            statement = self.parse_if()
         elif self.peek().kind == "FUNCTION":
             statement = self.parse_function()
         elif self.peek().kind == "RETURN":
@@ -327,6 +329,18 @@ class PhpParser(Parser):
         self.assert_next("ENDBRACE", "}")
         self.debug_indent -= 4
         return block
+
+    def parse_if(self):
+        self.next()
+        i = self.pt.new("IF", "if")
+        i.append(self.parse_expression_group(self.next()))
+        i.append(self.parse_block())
+        if self.peek().kind == "ELSE":
+            self.next()
+            e = self.pt.new("ELSE", "else")
+            e.append(self.parse_block())
+            i.append(e)
+        return i
 
     def parse_control(self):
         control_token = self.next()

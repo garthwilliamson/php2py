@@ -387,6 +387,26 @@ class SimpleTests(unittest.TestCase):
     def test_complex_if(self):
         php_node = parse_string(complex_if).get_tree()[0]
 
+    @php_t
+    def test_else(self, php_node):
+        """ If with else
+        <?php
+        if (1) {
+            echo "1"
+        } else {
+            echo "2"
+        }
+        """
+        print_tree(php_node)
+        if_s = php_node[0]
+        eg = if_s[0]
+        self.assertEqual(eg.get("EXPRESSION")[0].node_type, "INT")
+        if_b = if_s[1]
+        self.assertEqual(if_b.node_type, "BLOCK")
+        self.assertEcho(if_b.get("STATEMENT"), "1")
+        else_s = if_s[2]
+        self.assertEqual(else_s.node_type, "ELSE")
+
     def test_multi_space_comment(self):
         php_node = parse_string(multi_space_comment).get_tree()[0]
 

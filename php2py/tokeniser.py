@@ -172,7 +172,8 @@ keyword_table = {
     "return": "RETURN",
     "global": "GLOBAL",
     "echo": "SPECIAL",
-    "if": "CONTROL",
+    "if": "IF",
+    "else": "ELSE",
     "function": "FUNCTION",
     ",": "COMMA",
 }
