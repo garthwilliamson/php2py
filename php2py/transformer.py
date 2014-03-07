@@ -4,7 +4,7 @@ from __future__ import print_function
 from .parsetree import ParseNode, print_tree
 
 
-DEBUG = True
+DEBUG = False
 
 
 def pdebug(*s):
@@ -41,12 +41,15 @@ def transform_statement(statement_node):
         return transform_while(statement_node)
     elif statement_node.node_type == "FOREACH":
         return transform_foreach(statement_node)
+    elif statement_node.node_type == "SWITCH":
+        return transform_switch(statement_node)
     elif len(statement_node.children) == 0:
         return [statement_node]
     elif statement_node[0].node_type =="EXPRESSION":
         transform_expression(statement_node[0])
         return [statement_node]
     else:
+        pdebug("UNKNOWN STATEMENT", statement_node)
         return [statement_node]
 
 
@@ -62,42 +65,50 @@ op_map = {
 
 
 def transform_node(node):
-    if node.node_type.startswith("OPERATOR"):
-        return transform_operator(node)
+    if node.node_type in transform_map:
+        return transform_map[node.node_type](node)
     else:
+        print("UNKNOWN TRANSFORM", node)
         return node
 
 
 def transform_operator(operator_node):
     pdebug("T OPERATOR", operator_node)
-    print_tree(operator_node)
     if operator_node.value == "++":
         operator_node.value = "+="
         operator_node.children.insert(0, ParseNode("INT", 1))
         operator_node.node_type = "OPERATOR2"
     elif operator_node.value in op_map:
         operator_node.value = op_map[operator_node.value]
-    print_tree(operator_node)
     for i in range(len(operator_node)):
         operator_node[i] = transform_node(operator_node[i])
-    print_tree(operator_node)
     return operator_node
 
+
+def transform_attr(attr_node):
+    if attr_node[0].node_type == "CALL":
+        call_node = attr_node[0]
+        object_node = attr_node[1]
+        call_node.node_type = "METHODCALL"
+        call_node.append(object_node)
+        return call_node
+    return attr_node
 
 def transform_if(if_statement):
     pdebug("T IF", if_statement)
     out = []
-    if_expression = if_statement[0][0]
-    if_expression = transform_expression(if_expression)
+    if_op = if_statement.get("EXPRESSIONGROUP").get("EXPRESSION")[0]
+    if_op = transform_node(if_op)
+    if_block = transform_node(if_statement.get("BLOCK"))
     #TODO: This probably only deals with the most basic cases
-    if if_expression[0].node_type == "ASSIGNMENT":
-        assign_statement = ParseNode("STATEMENT", None)
-        assign_ex = ParseNode("EXPRESSION", None)
-        assign_ex.append(if_expression[0])
+    if if_op.node_type == "ASSIGNMENT":
+        assign_statement = ParseNode("STATEMENT", None, token=if_op.token)
+        assign_ex = ParseNode("EXPRESSION", None, token=if_op.token)
+        assign_ex.append(if_op)
         assign_statement.append(assign_ex)
         out.append(assign_statement)
-        var_node = if_expression[0][1]
-        if_expression[0] = var_node
+        if_op = if_op[1]
+    if_statement.children = [if_op, if_block]
     out.append(if_statement)
     return out
 
@@ -112,11 +123,44 @@ def transform_foreach(foreach_statement):
     as_ = foreach_statement.get("EXPRESSIONGROUP").get("EXPRESSION").get("OPERATOR2")
     var = as_[0]
     in_ = as_[1]
-    for_node = ParseNode("PYFOR", "for")
+    for_node = ParseNode("PYFOR", "for", token=foreach_statement.token)
     for_node.append(var)
     for_node.append(in_)
     for_node.append(transform_php(foreach_statement[1]))
     return [for_node]
+
+
+def transform_switch(switch_statement):
+    out = []
+    # Rearrange to have _switch_choice = <expression> so expression is only run once
+    decide_ex = switch_statement.get("EXPRESSIONGROUP").get("EXPRESSION")
+    assign_ex = ParseNode("ASSIGNMENT", "=")
+    switch_var = ParseNode("VAR", "_switch_choice")
+    assign_ex.append(decide_ex)
+    assign_ex.append(switch_var)
+    out.append(assign_ex)
+
+    # The contents of the switch will be rearranged into a whole series of elif
+    contents = switch_statement.get("BLOCK")
+    # We are going to ignore "STATEMENT" nodes directly in block for now - these are comments
+    for c in contents:
+        if c.node_type == "CASE":
+            out.append(transform_case(switch_var, c))
+        elif c.node_type == "DEFAULT":
+            raise TransformException("Implement default")
+        elif c.node_type.startswith("CASE"):
+            raise TransformException("Implement new case type for " + c.node_type)
+    return out
+
+
+def transform_case(switch_var, case_node):
+    if_statement = ParseNode("IF", "if", token=case_node.token)
+    if_ex = ParseNode("COMPARATOR", "==", token=case_node.token)
+    if_ex.append(switch_var)
+    if_ex.append(case_node.get("EXPRESSION"))
+    if_statement.append(if_ex)
+    if_statement.append(case_node.get("BLOCK"))
+    return if_statement
 
 
 cast_map = {
@@ -136,3 +180,11 @@ cast_map = {
 
 MAGIC_CONSTANTS = ["__line__", "__file__", "__dir__", "__function__", "__class__",
                    "__trait__", "__method__", "__namespace__"]
+
+
+transform_map = {
+    "OPERATOR1": transform_operator,
+    "OPERATOR2": transform_operator,
+    "BLOCK": transform_php,
+    "ATTR": transform_attr,
+}

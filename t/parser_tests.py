@@ -531,8 +531,7 @@ class SimpleTests(unittest.TestCase):
         assign_statement = php_node[0]
         if_statement = php_node[1]
         self.assertEqual(assign_statement.get("EXPRESSION").get("ASSIGNMENT")[1].value, "a")
-        self.assertEqual(if_statement.get("EXPRESSIONGROUP").get("EXPRESSION").get("GLOBALVAR").value, "a")
-        self.assertEqual(len(if_statement.get("EXPRESSIONGROUP").children), 1)
+        self.assertEqual(if_statement.get("GLOBALVAR").value, "a")
 
     def test_assign_in_if2(self):
         php_node = parse_string(assign_in_if2).get_tree()[0]

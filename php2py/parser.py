@@ -148,7 +148,7 @@ class Parser(object):
 operator_map = {
     #OP:        (ARITY,    PREC, ASSOC)
 #   "[":        (2,        120,  "left"),
-    ".":        (2,        170,  "left"),
+    ".":        (2,        90,  "left"),
     "::":       (2,        160,  "right"),
     "return":   (1,        150,  "none"),
     "new":      (0,        150,  "right"),
@@ -340,8 +340,7 @@ class PhpParser(Parser):
         return block
 
     def parse_if(self):
-        self.next()
-        i = self.pt.new("IF", "if")
+        i = self.pt.new("IF", "if", self.next())
         i.append(self.parse_expression_group(self.next()))
         i.append(self.parse_block())
         if self.peek().kind == "ELSE":
@@ -361,17 +360,18 @@ class PhpParser(Parser):
         #s.append(self.parse_block())
 
     def parse_case(self):
-        self.next()
-        case = self.pt.new("CASE", "case")
+        case = self.pt.new("CASE", "case", self.next())
         case.append(self.parse_expression())
         self.assert_next("COLON", ":")
+        block = self.pt.new("BLOCK", None)
         while self.peek().kind not in ("CASE", "BREAK", "DEFAULT", "ENDBRACE"):
-            case.append(self.parse_statement())
+            block.append(self.parse_statement())
         if self.peek().kind != "BREAK":
             self.next()
             case.node_type = "CASEFALLTHROUGH"
         else:
             self.assert_next("BREAK")
+        case.append(block)
         return case
 
     def parse_default(self):
@@ -380,14 +380,13 @@ class PhpParser(Parser):
     def parse_control(self):
         control_token = self.next()
         keyword = control_token.val.upper()
-        c = self.pt.new(keyword, None)
+        c = self.pt.new(keyword, None, control_token)
         c.append(self.parse_expression_group(self.next()))
         c.append(self.parse_block())
         return c
 
     def parse_try(self):
-        self.next()
-        try_node = self.pt.new("TRY", None)
+        try_node = self.pt.new("TRY", None, self.next())
         try_node.append(self.parse_block())
         for t in self.next_while(("catch",)):
             c = self.pt.new("CATCH", None)

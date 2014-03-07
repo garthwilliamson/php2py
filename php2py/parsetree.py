@@ -13,7 +13,7 @@ def get_next_id():
 
 
 class ParseNode(object):
-    def __init__(self, node_type, value=None, parent=None):
+    def __init__(self, node_type, value=None, parent=None, token=None):
         if not isinstance(node_type, basestring):
             raise ParseTreeError("node_type must be a string, not {}".format(node_type))
         self.node_type = node_type
@@ -21,6 +21,7 @@ class ParseNode(object):
         self.value = value
         self.children = []
         self.id_ = get_next_id()
+        self.token = token
 
     def append(self, node):
         if not isinstance(node, ParseNode):
@@ -79,6 +80,7 @@ class ParseNode(object):
                 new_children.append(self.children[i])
         self.children = new_children
 
+
 class ParseTree(object):
     def __init__(self, name):
         self.root_node = ParseNode("ROOT", value=name)
@@ -117,8 +119,8 @@ class ParseTree(object):
                     print_tree(c, indent + 4)
         print_tree(node, 0)
 
-    def new(self, node_type=None, value=None):
-        n = ParseNode(node_type, value=value)
+    def new(self, node_type=None, value=None, token=None):
+        n = ParseNode(node_type, value=value, token=token)
         #print("New node: {}".format(n))
         return n
 

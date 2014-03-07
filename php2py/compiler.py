@@ -121,9 +121,13 @@ class Compiler(object):
         self.indent -= 4
 
     def if_compile(self, node):
-        self.append("if {0}:".format(self.marshal(node[0][0])))
+        try:
+            self.append("if {0}:".format(self.marshal(node[0])))
+        except IndexError:
+            print("Compile Error at ", node.token)
+            raise
         self.indent += 4
-        self.marshal(node[1])
+        self.marshal(node.get("BLOCK"))
         self.indent -= 4
         #TODO: Think about elif
 
@@ -149,19 +153,35 @@ class Compiler(object):
         # TODO: Deal with possitional and other args combined
         arg_list = ["p"]
         kwarg_list = []
-        kwargs = ""
-        if len(node.children) > 0:
+        if len(node) > 0:
             for e in node:
                 if e.node_type == "KEYVALUE":
                     kwarg_list.append(self.keyvalue_compile(e))
                 else:
                     arg_list.append(self.expression_compile(e))
-
+        kwargs = ""
         if len(kwarg_list) != 0:
             kwargs = "**{" + ", ".join(kwarg_list) + "}"
             arg_list.append(kwargs)
         args = ", ".join(arg_list)
-        return "p.f.{0}({1})".format(node.value, args, kwargs)
+        return "p.f.{0}({1})".format(node.value, args)
+
+    def methodcall_compile(self, node):
+        # Don't like that this is a repeat of above, but oh well
+        arg_list = ["p"]
+        kwarg_list = []
+        if len(node.get("ARGSLIST")) > 0:
+            for e in node.get("ARGSLIST"):
+                if e.node_type == "KEYVALUE":
+                    kwarg_list.append(self.keyvalue_compile(e))
+                else:
+                    arg_list.append(self.expression_compile(e))
+        kwargs = ""
+        if len(kwarg_list) != 0:
+            kwargs = "**{" + ", ".join(kwarg_list) + "}"
+            arg_list.append(kwargs)
+        args = ", ".join(arg_list)
+        return "{}.{}({})".format(self.marshal(node[1]), node.value, args)
 
     def keyvalue_compile(self, node, assign=": "):
         if len(node.children) != 2:
