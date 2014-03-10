@@ -223,12 +223,17 @@ def lookup_op_type(op_value):
         return "INDEX"
     elif op_value == "->":
         return "ATTR"
+    elif op_value == "::":
+        return "STATICATTR"
     elif operator_map[op_value][0] == 1:
         return "OPERATOR1"
     elif op_value in ("return", "new"):
         return op_value.upper()
     else:
         return "OPERATOR2"
+
+
+PYTHON_KEYWORDS = ["continue"]
 
 
 class PhpParser(Parser):
@@ -308,6 +313,8 @@ class PhpParser(Parser):
             statement = self.parse_global()
         elif self.peek().kind == "CASE":
             statement = self.parse_case()
+        elif self.peek().kind == "DEFAULT":
+            statement = self.parse_default()
         else:
             statement = self.pt.new("STATEMENT", None)
             if self.peek().kind in ("COMMENTLINE", "BLOCKCOMMENT"):
@@ -367,7 +374,7 @@ class PhpParser(Parser):
         while self.peek().kind not in ("CASE", "BREAK", "DEFAULT", "ENDBRACE"):
             block.append(self.parse_statement())
         if self.peek().kind != "BREAK":
-            self.next()
+            # self.next()
             case.node_type = "CASEFALLTHROUGH"
         else:
             self.assert_next("BREAK")
@@ -375,7 +382,14 @@ class PhpParser(Parser):
         return case
 
     def parse_default(self):
-        pass
+        default = self.pt.new("DEFAULT", "default", self.next())
+        self.assert_next("COLON", ":")
+        block = self.pt.new("BLOCK", None)
+        while self.peek().kind not in ("BREAK", "ENDBRACE"):
+            block.append(self.parse_statement())
+        default.append(block)
+        return default
+
 
     def parse_control(self):
         control_token = self.next()
@@ -513,6 +527,8 @@ class PhpParser(Parser):
     def parse_variable(self, var_token):
         t = "VAR"
         v = var_token.val[1:]
+        if v in PYTHON_KEYWORDS:
+            v = v + "_"
         if self.scope_is("GLOBAL") or self.is_global(v):
             t = "GLOBALVAR"
         var = self.pt.new(t, v)
@@ -555,11 +571,11 @@ class PhpParser(Parser):
         return r
 
     def parse_special(self, keyword_token):
-        special = self.pt.new("CALL", keyword_token.val.lower())
+        special = self.pt.new("CALLSPECIAL", keyword_token.val.lower())
         if self.peek().val == "(":
             args = self.parse_expression_group(self.next(), "ARGSLIST")
         else:
-            args = self.parse_comma_list("ARGLIST")
+            args = self.parse_comma_list("ARGSLIST")
         special.append(args)
         #print("EXIT SPECIAL")
         return special

@@ -140,8 +140,8 @@ class SimpleTests(unittest.TestCase):
 
     def assertEcho(self, node, string, node_type="STRING"):
         self.assertEqual(node[0].node_type, "EXPRESSION")
-        self.assertEqual(node[0][0].node_type, "CALL")
-        self.assertEqual(node[0][0][0].node_type, "ARGLIST")
+        self.assertEqual(node[0][0].node_type, "CALLSPECIAL")
+        self.assertEqual(node[0][0][0].node_type, "ARGSLIST")
         self.assertEqual(node[0][0][0][0].node_type, "EXPRESSION")
         self.assertEqual(node[0][0][0][0][0].node_type, node_type)
         self.assertEqual(node[0][0][0][0][0].value, string)
@@ -166,7 +166,7 @@ class SimpleTests(unittest.TestCase):
 
         transform_php(php)
         self.compiler.statement_compile(php[0])
-        self.assertLastCompiled("    p.f.echo(p, u'Hello World')")
+        self.assertLastCompiled("    echo(p, u'Hello World')")
 
     @php_t
     def test_hello_no_end(self, php):
@@ -178,7 +178,7 @@ class SimpleTests(unittest.TestCase):
 
         transform_php(php)
         self.compiler.statement_compile(php[0])
-        self.assertLastCompiled("    p.f.echo(p, u'Hello World')")
+        self.assertLastCompiled("    echo(p, u'Hello World')")
 
     @php_t
     def test_string_with_quote(self, php_node):
@@ -215,7 +215,7 @@ class SimpleTests(unittest.TestCase):
         transform_php(php_node)
         self.compiler.statement_compile(php_node[0])
         print(self.compiler)
-        self.assertLastCompiled("    p.g.a = 1")
+        self.assertLastCompiled("    g.a = 1")
 
     @php_t
     def test_while(self, php_node):
@@ -236,7 +236,7 @@ class SimpleTests(unittest.TestCase):
         transform_php(php_node)
         self.compiler.while_compile(while_node)
         print(self.compiler)
-        self.assertLastCompiled("        (p.g.b += 1)")
+        self.assertLastCompiled("        (g.b += 1)")
 
     @php_t
     def test_function_simple(self, php_node):
@@ -394,7 +394,7 @@ class SimpleTests(unittest.TestCase):
         <?php
         require_once(dirname(1) . '/lib/setup.php');
         """
-        require_once = php_node.get("STATEMENT").get("EXPRESSION").get("CALL")
+        require_once = php_node.get("STATEMENT").get("EXPRESSION").get("CALLSPECIAL")
         dirname = require_once.get("ARGSLIST").get("EXPRESSION").get("OPERATOR2").get("CALL")
         self.assertEqual(dirname.node_type, "CALL")
         self.assertEqual(dirname.get("ARGSLIST").get("EXPRESSION").get("INT").value, 1)
@@ -531,7 +531,7 @@ class SimpleTests(unittest.TestCase):
         assign_statement = php_node[0]
         if_statement = php_node[1]
         self.assertEqual(assign_statement.get("EXPRESSION").get("ASSIGNMENT")[1].value, "a")
-        self.assertEqual(if_statement.get("GLOBALVAR").value, "a")
+        self.assertEqual(if_statement.get("EXPRESSION").get("GLOBALVAR").value, "a")
 
     def test_assign_in_if2(self):
         php_node = parse_string(assign_in_if2).get_tree()[0]
@@ -559,7 +559,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(try_node[1][1].node_type, "BLOCK")
 
     @php_t
-    def if_again(self, php_node):
+    def test_if_again(self, php_node):
         """If with stuff and things
         <?php
             if (!file_exists('./config.php')) {
@@ -579,6 +579,39 @@ class SimpleTests(unittest.TestCase):
 
         #"""
         #self.assertTrue(False)
+
+    @php_t
+    def test_call(self, php_node):
+        """ Simple multi argument call
+        <?php
+        a('B', C, $d)
+        """
+        print_tree(php_node)
+        transform_php(php_node)
+        self.compiler.statement_compile(php_node[0])
+        self.assertLastCompiled('    p.f.a(p, u\'B\', C, g.d)')
+
+
+    @php_t
+    def test_switch(self, php_node):
+        """ Switch statement without fallthrough
+        <?php
+        switch($a) {
+            case 1:
+                echo "case1";
+                break;
+            case 2:
+                echo "case2";
+                break;
+            default:
+                echo "default";
+        }
+        """
+        print_tree(php_node)
+        transform_php(php_node)
+        print_tree(php_node)
+        switch_assign_s = php_node[0]
+        self.assertEqual(switch_assign_s.get("EXPRESSION").get("ASSIGNMENT").value, "=")
 
 
 if __name__ == "__main__":

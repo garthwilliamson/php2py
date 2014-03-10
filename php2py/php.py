@@ -17,7 +17,7 @@ def php_func(f):
         """ The wrapper function. Instantiates a subscope of p (the calling scope)
 
         """
-        p2 = PhpContext(p.g, p.f, p.c, i=p.i)
+        p2 = PhpContext(p.f, p.c, i=p.i)
         try:
             return f(p2, *args, **kwargs)
         except PhpWarning as e:
@@ -29,7 +29,7 @@ def php_func(f):
 
 ########## in php.py
 class PhpContext(object):
-    def __init__(self, g, f, c, l=None, i=None):
+    def __init__(self, f, c, l=None, i=None):
         """ Initialise a new php context
 
         Args:
@@ -45,7 +45,6 @@ class PhpContext(object):
         if i is None:
             i = {}
         self.f = f
-        self.g = g
         self.c = c
         self.l = l
         self.i = i
@@ -80,7 +79,12 @@ class PhpClasses(PhpVars):
     #This be where the classes go
 
 
+# g stores the php global variables - hopefully someone sets it to something valid before it is used
+g = None
+
+
 def serve_up(body, root_dir):
+    global g
     g = PhpGlobals(root_dir=root_dir)
     f = PhpFunctions()
     f._add_php_functions()

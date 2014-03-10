@@ -54,13 +54,17 @@ def transform_statement(statement_node):
 
 
 def transform_expression(expression_node):
+    if len(expression_node) == 0:
+        return ParseNode("NOOP", "")
     expression_node[0] = transform_node(expression_node[0])
     return expression_node
 
 
 op_map = {
     "!": "not ",
-    ".": "+"
+    ".": "+",
+    "&&": "and",
+    "===": "==",     # TODO: Do we need to use a function here?
 }
 
 
@@ -69,6 +73,8 @@ def transform_node(node):
         return transform_map[node.node_type](node)
     else:
         print("UNKNOWN TRANSFORM", node)
+        for i in range(len(node)):
+            node[i] = transform_node(node[i])
         return node
 
 
@@ -108,7 +114,9 @@ def transform_if(if_statement):
         assign_statement.append(assign_ex)
         out.append(assign_statement)
         if_op = if_op[1]
-    if_statement.children = [if_op, if_block]
+    if_ex = ParseNode("EXPRESSION", None)
+    if_ex.append(if_op)
+    if_statement.children = [if_ex, if_block]
     out.append(if_statement)
     return out
 
@@ -134,33 +142,65 @@ def transform_switch(switch_statement):
     out = []
     # Rearrange to have _switch_choice = <expression> so expression is only run once
     decide_ex = switch_statement.get("EXPRESSIONGROUP").get("EXPRESSION")
-    assign_ex = ParseNode("ASSIGNMENT", "=")
+
+    assign = ParseNode("ASSIGNMENT", "=")
     switch_var = ParseNode("VAR", "_switch_choice")
-    assign_ex.append(decide_ex)
-    assign_ex.append(switch_var)
-    out.append(assign_ex)
+    assign.append(decide_ex[0])
+    assign.append(switch_var)
+
+    assign_ex = ParseNode("EXPRESSION", None)
+    assign_ex.append(assign)
+
+    assign_statement = ParseNode("STATEMENT", None)
+    assign_statement.append(assign_ex)
+    out.append(assign_statement)
 
     # The contents of the switch will be rearranged into a whole series of elif
     contents = switch_statement.get("BLOCK")
     # We are going to ignore "STATEMENT" nodes directly in block for now - these are comments
+    i = 0
     for c in contents:
+        #print("??")
+        #print_tree(c)
+        #print("??")
         if c.node_type == "CASE":
-            out.append(transform_case(switch_var, c))
+            #print("FOUND CASE")
+            out.append(transform_case(switch_var, c, i))
+            i += 1
         elif c.node_type == "DEFAULT":
-            raise TransformException("Implement default")
+            out.append(transform_default(c, i))
+            i += 1
         elif c.node_type.startswith("CASE"):
             raise TransformException("Implement new case type for " + c.node_type)
+            i += 1
+        elif c.node_type == "STATEMENT":
+            # Probably a statement with a comment
+            pass
+    print_tree(out[1])
     return out
 
 
-def transform_case(switch_var, case_node):
-    if_statement = ParseNode("IF", "if", token=case_node.token)
-    if_ex = ParseNode("COMPARATOR", "==", token=case_node.token)
-    if_ex.append(switch_var)
-    if_ex.append(case_node.get("EXPRESSION"))
+def transform_case(switch_var, case_node, i):
+    if i > 0:
+        if_statement = ParseNode("ELIF", "elif", token=case_node.token)
+    else:
+        if_statement = ParseNode("IF", "if", token=case_node.token)
+    orig_ex = case_node.get("EXPRESSION")
+    if_ex = ParseNode("EXPRESSION", None, token=orig_ex.token)
+    comp = ParseNode("COMPARATOR", "==", token=case_node.token)
+    comp.append(switch_var)
+    comp.append(orig_ex[0])
+    if_ex.append(comp)
     if_statement.append(if_ex)
-    if_statement.append(case_node.get("BLOCK"))
+    if_statement.append(transform_php(case_node.get("BLOCK")))
     return if_statement
+
+
+def transform_default(default_node, i):
+    if i > 0:
+        else_statement = ParseNode("ELSE", "else", token=default_node.token)
+    else_statement.append(transform_php(default_node.get("BLOCK")))
+    return else_statement
 
 
 cast_map = {
@@ -187,4 +227,5 @@ transform_map = {
     "OPERATOR2": transform_operator,
     "BLOCK": transform_php,
     "ATTR": transform_attr,
+    "EXPRESSION": transform_expression,
 }

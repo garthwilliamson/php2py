@@ -30,7 +30,9 @@ class Compiler(object):
     def __init__(self, tree=None, strip_comments=False):
         self.strip_comments = strip_comments
         self.imports = collections.defaultdict(list)
-        self.imports["php2py"].append(("php"))
+        self.imports["php2py"].append("php")
+        self.imports["php2py.php"].append("g")
+        self.imports["php2py.specials"].append("*")
         self.functions = []
         self.indent = 0
         self.tree = tree
@@ -122,7 +124,7 @@ class Compiler(object):
 
     def if_compile(self, node):
         try:
-            self.append("if {0}:".format(self.marshal(node[0])))
+            self.append("if {0}:".format(self.expression_compile(node.get("EXPRESSION"))))
         except IndexError:
             print("Compile Error at ", node.token)
             raise
@@ -131,8 +133,14 @@ class Compiler(object):
         self.indent -= 4
         #TODO: Think about elif
 
+    def elif_compile(self, node):
+        self.append("elif {}:".format(self.expression_compile(node.get("EXPRESSION"))))
+        self.indent += 4
+        self.marshal(node.get("BLOCK"))
+        self.indent -= 4
+
     def pyfor_compile(self, node):
-        self.append("for {} in {}".format(self.marshal(node[0]), self.marshal(node[1])))
+        self.append("for {} in {}:".format(self.marshal(node[0]), self.marshal(node[1])))
         self.indent += 4
         self.marshal(node[2])
         self.indent -= 4
@@ -148,26 +156,9 @@ class Compiler(object):
         self.cur_function = old_function
         self.append("p.f.{0} = {0}".format(node.value))
 
-    def call_compile(self, node):
+    def _call_inner_compile(self, node):
         # Process args
         # TODO: Deal with possitional and other args combined
-        arg_list = ["p"]
-        kwarg_list = []
-        if len(node) > 0:
-            for e in node:
-                if e.node_type == "KEYVALUE":
-                    kwarg_list.append(self.keyvalue_compile(e))
-                else:
-                    arg_list.append(self.expression_compile(e))
-        kwargs = ""
-        if len(kwarg_list) != 0:
-            kwargs = "**{" + ", ".join(kwarg_list) + "}"
-            arg_list.append(kwargs)
-        args = ", ".join(arg_list)
-        return "p.f.{0}({1})".format(node.value, args)
-
-    def methodcall_compile(self, node):
-        # Don't like that this is a repeat of above, but oh well
         arg_list = ["p"]
         kwarg_list = []
         if len(node.get("ARGSLIST")) > 0:
@@ -181,7 +172,17 @@ class Compiler(object):
             kwargs = "**{" + ", ".join(kwarg_list) + "}"
             arg_list.append(kwargs)
         args = ", ".join(arg_list)
-        return "{}.{}({})".format(self.marshal(node[1]), node.value, args)
+        return "{0}({1})".format(node.value, args)
+
+    def call_compile(self, node):
+        return "p.f." + self._call_inner_compile(node)
+
+    def methodcall_compile(self, node):
+        # Don't like that this is a repeat of above, but oh well
+        return "{}.{}".format(self.marshal(node[1]), self._call_inner_compile(node))
+
+    def callspecial_compile(self, node):
+        return self._call_inner_compile(node)
 
     def keyvalue_compile(self, node, assign=": "):
         if len(node.children) != 2:
@@ -214,7 +215,7 @@ class Compiler(object):
         return '.{0}'.format(node.value)
 
     def globalvar_compile(self, node):
-        return "p.g." + self.var_compile(node).lstrip()
+        return "g." + self.var_compile(node).lstrip()
 
     def ident_compile(self, node):
         return node.value
@@ -224,6 +225,10 @@ class Compiler(object):
 
     def attr_compile(self, node):
         return "{}.{}".format(self.marshal(node.children[1]), self.marshal(node.children[0]))
+
+    def staticattr_compile(self, node):
+        """ Static attr should change references to self etc to the proper class name..."""
+        return "p.c.{}.{}".format(self.marshal(node.children[1]), self.marshal(node.children[0]))
 
     def constant_compile(self, node):
         #TODO: Contants might need further thought
