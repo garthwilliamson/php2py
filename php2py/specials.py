@@ -1,5 +1,6 @@
 import sys
 import os.path
+from collections import OrderedDict
 
 from .exceptions import *
 
@@ -86,3 +87,7 @@ def include(p, fullpath):
 
     # Run it in the local context
     mod.body(p)
+
+
+def array(p, l):
+    return OrderedDict(l)

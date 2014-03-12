@@ -11,7 +11,7 @@ from pprint import pprint
 
 
 def parse_string(s, debug=False):
-    parser = p.PhpParser(iter(s.split("\n")), debug=True)
+    parser = p.PhpParser(iter(s.split("\n")), debug=False)
     parser.parse()
     if debug:
         parser.pt.print_()
@@ -83,13 +83,6 @@ if (!empty($CFG->a) && ($CFG->a == CONS) && optional_param('b', 1, PARAM_BOOL) =
 }
 """
 
-array_keyvalue = """<?php
-$CFG->dboptions = array (
-  'dbpersist' => 0,
-  'dbsocket' => 0,
-);
-"""
-
 multi_space_comment = """<?php
 if ($a) {
     $a;   // Comment with exta spaces
@@ -129,7 +122,6 @@ def php_t(f):
 
         """
         tree = parse_string(f.__doc__).get_tree()
-        #print_tree(tree)
         f(self, tree[1], *args, **kwargs)
     return wrapper
 
@@ -496,6 +488,28 @@ class SimpleTests(unittest.TestCase):
         indexer = index_node[0]
         self.assertEqual(indexee.node_type, "CALL")
         self.assertEqual(indexer[0].node_type, "STRING")
+
+    @php_t
+    def test_array_keyvalue(self, php_node):
+        """ Array creation with key value assigments
+        <?php
+        $a = array (
+          'b' => 1,
+          'c' => 2,
+        );
+        """
+        transform_php(php_node)
+        print_tree(php_node)
+        ex = php_node.get("STATEMENT").get("EXPRESSION")
+        od = ex.get("ASSIGNMENT")[0]
+        self.assertEqual(od.node_type, "CALLSPECIAL")
+        self.assertEqual(od.value, "array")
+        l = od.get("ARGSLIST").get("EXPRESSION")[0]
+        self.assertEqual(l.node_type, "LIST")
+        self.assertEqual(l[0].node_type, "TUPLE")
+        self.assertEqual(l[0][0].node_type, "STRING")
+        self.assertEqual(l[0][1].node_type, "INT")
+        self.assertEqual(self.compiler.expression_compile(ex), "g.a = array(p, [(u'b', 1), (u'c', 2)])")
 
     @php_t
     def test_statement_comment(self, php_node):

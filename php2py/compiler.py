@@ -124,6 +124,9 @@ class Compiler(object):
 
     def if_compile(self, node):
         try:
+            #print("Compiled " + "if {0}:".format(self.expression_compile(node.get("EXPRESSION"))))
+            #print("from")
+            #parsetree.print_tree(node.get("EXPRESSION"))
             self.append("if {0}:".format(self.expression_compile(node.get("EXPRESSION"))))
         except IndexError:
             print("Compile Error at ", node.token)
@@ -200,6 +203,9 @@ class Compiler(object):
         self.append("pass")
 
     def expression_compile(self, node):
+        #print("Compiling expression")
+        #print("from")
+        #parsetree.print_tree(node)
         if len(node.children) == 0:
             return ""
         r = "".join([self.marshal(c) for c in node]).lstrip()
@@ -235,7 +241,7 @@ class Compiler(object):
         return node.value
 
     def comparator_compile(self, node):
-        return node.value
+        return self.operator2_compile(node)
 
     def global_compile(self, node):
         return ""
@@ -305,6 +311,12 @@ class Compiler(object):
             if len(c.children) == 3:
                 out.append(self.marshal(c[0]) + ": " + self.marshal(c[2]))
         return (", ".join(out))
+
+    def tuple_compile(self, node):
+        return "(" + ", ".join(self.marshal(c) for c in node) + ")"
+
+    def list_compile(self, node):
+        return "[" + ", ".join(self.marshal(c) for c in node) + "]"
 
     def expressiongroup_compile(self, node):
         return "({})".format(", ".join([self.marshal(c) for c in node.children]))

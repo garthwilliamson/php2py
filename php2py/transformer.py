@@ -4,7 +4,7 @@ from __future__ import print_function
 from .parsetree import ParseNode, print_tree
 
 
-DEBUG = False
+DEBUG = True
 
 
 def pdebug(*s):
@@ -72,7 +72,7 @@ def transform_node(node):
     if node.node_type in transform_map:
         return transform_map[node.node_type](node)
     else:
-        print("UNKNOWN TRANSFORM", node)
+        pdebug("UNKNOWN TRANSFORM", node)
         for i in range(len(node)):
             node[i] = transform_node(node[i])
         return node
@@ -176,7 +176,6 @@ def transform_switch(switch_statement):
         elif c.node_type == "STATEMENT":
             # Probably a statement with a comment
             pass
-    print_tree(out[1])
     return out
 
 
@@ -201,6 +200,34 @@ def transform_default(default_node, i):
         else_statement = ParseNode("ELSE", "else", token=default_node.token)
     else_statement.append(transform_php(default_node.get("BLOCK")))
     return else_statement
+
+
+def transform_callspecial(cs_node):
+    print("ASDFS")
+    if cs_node.value == "array":
+        return transform_array(cs_node)
+    else:
+        return cs_node
+
+
+def transform_array(array_node):
+    i = 0
+    list_node = ParseNode("LIST", "[", token=array_node.token)
+    for e in array_node.get("ARGSLIST"):
+        c = e[0]
+        tuple_node = ParseNode("TUPLE", "(", token=c.token)
+        if c.value == "=>":
+            tuple_node.append(transform_node(c[1]))
+            tuple_node.append(transform_node(c[0]))
+        else:
+            tuple_node.append(ParseNode("INT", i, token=c.token))
+            tuple_node.append(c)
+            i += 1
+        list_node.append(tuple_node)
+    l_e = ParseNode("EXPRESSION", None)
+    l_e.append(list_node)
+    array_node.get("ARGSLIST").children = [l_e]
+    return array_node
 
 
 cast_map = {
@@ -228,4 +255,5 @@ transform_map = {
     "BLOCK": transform_php,
     "ATTR": transform_attr,
     "EXPRESSION": transform_expression,
+    "CALLSPECIAL": transform_callspecial,
 }

@@ -9,6 +9,7 @@ from php2py.parser import PhpParser
 ap = argparse.ArgumentParser()
 ap.add_argument("-d", "--debug", type=int, default=0, help="Enable basic debugging")
 ap.add_argument("-s", "--strip", type=int, default=0, help="Strip comments and crap")
+ap.add_argument("-c", "--compile", type=bool, default=True, help="Compile to file.py")
 ap.add_argument("file", help="file to compile")
 args = ap.parse_args()
 
@@ -23,8 +24,10 @@ parser = PhpParser(open(args.file), debug_deep)
 parser.parse()
 if args.debug:
     parser.pt.print_()
-c = Compiler(parser.get_tree(), strip_comments=args.strip)
-results = c.compile()
-py_file = open(py_filename, "w")
-py_file.write(str(results))
-py_file.close()
+
+if args.compile:
+    c = Compiler(parser.get_tree(), strip_comments=args.strip)
+    results = c.compile()
+    py_file = open(py_filename, "w")
+    py_file.write(str(results))
+    py_file.close()
