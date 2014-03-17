@@ -10,6 +10,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-d", "--debug", type=int, default=0, help="Enable basic debugging")
 ap.add_argument("-s", "--strip", type=int, default=0, help="Strip comments and crap")
 ap.add_argument("-c", "--compile", type=bool, default=True, help="Compile to file.py")
+ap.add_argument("--tree", type=bool, default=False, help="Display the parse tree")
 ap.add_argument("file", help="file to compile")
 args = ap.parse_args()
 
@@ -22,7 +23,7 @@ py_filename = os.path.join(dir_name, file_name + ".py")
 debug_deep = args.debug > 1
 parser = PhpParser(open(args.file), debug_deep)
 parser.parse()
-if args.debug:
+if args.debug or args.tree:
     parser.pt.print_()
 
 if args.compile:

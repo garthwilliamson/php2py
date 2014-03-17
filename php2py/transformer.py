@@ -203,11 +203,18 @@ def transform_default(default_node, i):
 
 
 def transform_callspecial(cs_node):
-    print("ASDFS")
     if cs_node.value == "array":
         return transform_array(cs_node)
     else:
-        return cs_node
+        return transform_call(cs_node)
+
+
+def transform_call(call_node):
+    new_args = ParseNode("ARGSLIST", None, token=call_node.get("ARGSLIST").token)
+    for e in call_node.get("ARGSLIST"):
+        new_args.append(transform_expression(e))
+    call_node[0] = new_args
+    return call_node
 
 
 def transform_array(array_node):

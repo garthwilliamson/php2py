@@ -172,6 +172,7 @@ keyword_table = {
     "default": "DEFAULT",
     "catch": "CATCH",
     "break": "BREAK",
+    "throw": "THROW",
     "while": "CONTROL",
     "foreach": "CONTROL",
     "switch": "CONTROL",

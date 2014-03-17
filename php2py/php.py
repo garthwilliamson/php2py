@@ -33,7 +33,6 @@ class PhpContext(object):
         """ Initialise a new php context
 
         Args:
-            g: A php_var object which contains the globals
             f: A php_var object which contains the functions - initialise this please!
             c: A php_var object for containing classes
             l: A php_var object for containing locals
@@ -48,6 +47,8 @@ class PhpContext(object):
         self.c = c
         self.l = l
         self.i = i
+        global g
+        self.g = g
 
 
 class PhpVars(object):
@@ -65,13 +66,10 @@ class PhpFunctions(PhpVars):
 
 
 class PhpGlobals(PhpVars):
-    def __init__(self, root_dir):
+    def __init__(self):
         # Sets the super-global variables
         # $_POST etc
-        self.__rootdir__ = root_dir
-
-    pass
-    #This be where the globals go
+        pass
 
 
 class PhpClasses(PhpVars):
@@ -79,16 +77,17 @@ class PhpClasses(PhpVars):
     #This be where the classes go
 
 
-# g stores the php global variables - hopefully someone sets it to something valid before it is used
-g = None
+# g stores the php global variables
+g = PhpGlobals()
 
 
 def serve_up(body, root_dir):
     global g
-    g = PhpGlobals(root_dir=root_dir)
+    g.__rootdir__ = root_dir
+    print(g)
     f = PhpFunctions()
     f._add_php_functions()
     c = PhpClasses()
     # Globals and locals are the same for the entry point
-    p = PhpContext(g, f, c, l=g)
+    p = PhpContext(f, c, l=g)
     body(p)

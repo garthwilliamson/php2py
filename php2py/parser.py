@@ -207,6 +207,13 @@ operator_map = {
 }
 
 
+indent_map = {
+    "true": "True",
+    "false": "False",
+    "__FILE__": "__file__"
+}
+
+
 EOF = ["EOF"]
 PHPEND = EOF + ["?>"]
 ENDBLOCK = PHPEND + ["}"]
@@ -229,6 +236,8 @@ def lookup_op_type(op_value):
         return "OPERATOR1"
     elif op_value in ("return", "new"):
         return op_value.upper()
+    elif operator_map[op_value][0] == 3:
+        return "OPERATOR3"
     else:
         return "OPERATOR2"
 
@@ -308,7 +317,9 @@ class PhpParser(Parser):
         elif self.peek().kind == "FUNCTION":
             statement = self.parse_function()
         elif self.peek().kind == "RETURN":
-            statement = self.parse_return()
+            statement = self.parse_simple_control("RETURN", "return")
+        elif self.peek().kind == "THROW":
+            statement = self.parse_simple_control("THROW", "throw")
         elif self.peek().kind == "GLOBAL":
             statement = self.parse_global()
         elif self.peek().kind == "CASE":
@@ -431,11 +442,14 @@ class PhpParser(Parser):
         ex = self.pt.new("EXPRESSION", "EX")
         self.pdebug("\033[94m########Starting new expression##########", 4)
         full_ex = []
+        tern = False
         for t in self.next_until(ENDEXPRESSION):
             self.pdebug("Current token is {}".format(t))
             if t.val in operator_map:
                 full_ex.append(self.parse_operator(t))
                 self.pdebug("Appended an operator")
+                if t.val == "?":
+                    tern = True
             elif t.kind in ("BLOCKCOMMENT", "COMMENTLINE"):
                 # Get rid of block comments for the meantime - too hard to deal with
                 self.comments.append(self.parse_comment(t))
@@ -451,6 +465,8 @@ class PhpParser(Parser):
                     full_ex.append(getattr(self, "parse_" + t.kind.lower())(t))
                 except AttributeError:
                     raise ParseError("function for parsing {} not yet implemented".format(t))
+            if tern and self.peek().val == ":":
+                self.next()
         self.pdebug("Expresion nodes")
         self.pdebug([str(n) for n in full_ex])
         op_stack = []
@@ -562,9 +578,10 @@ class PhpParser(Parser):
         self.debug_indent -= 4
         return string
 
-    def parse_return(self):
+
+    def parse_simple_control(self, name, value):
         self.next()
-        r = self.pt.new("RETURN", "return")
+        r = self.pt.new(name, value)
         r.append(self.parse_expression())
         if self.peek().val == ";":
             self.next()
@@ -621,6 +638,8 @@ class PhpParser(Parser):
             self.debug_indent -= 4
             return call
         else:
+            if ident.val in indent_map:
+                ident.val = indent_map[ident.val]
             return self.pt.new("IDENT", ident.val)
 
     def parse_unknown(self):

@@ -279,6 +279,7 @@ class Compiler(object):
 
     def oct_compile(self, node):
         return "0o" + node.value
+
     def phpconstant_compile(self, node):
         return constant_map[node.value]
 
