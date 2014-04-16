@@ -104,10 +104,10 @@ class Compiler(object):
             print("...but failed")
             raise # CompileError("Probably something isn't returning a string when it should", e)
         except AttributeError as e:
-            print("Tried to compile...")
+            print("Tried to compile {}...".format(node.token))
             parsetree.print_tree(node)
             print("...but failed")
-            raise CompileError("Unimplemented method " + node.node_type.lower() + "_compile", e)
+            raise CompileError("Unimplemented method " + node.node_type.lower() + "_compile")
 
     def php_compile(self, node):
         for c in node:
@@ -130,6 +130,7 @@ class Compiler(object):
             self.append("if {0}:".format(self.expression_compile(node.get("EXPRESSION"))))
         except IndexError:
             print("Compile Error at ", node.token)
+            parsetree.print_tree(node)
             raise
         self.indent += 4
         self.marshal(node.get("BLOCK"))
@@ -325,9 +326,12 @@ class Compiler(object):
     def try_compile(self, node):
         self.append("try:")
         self.indent += 4
-        self.marshal(node[0])
+        self.marshal(node.get("BLOCK"))
         self.indent -= 4
-        catch = node[1]
+        for c in node[1:]:
+            if c.node_type != "CATCH":
+                raise CompileError("Expected catch block as child of try {}".format(c.token))
+        catch = node.get()
         catch_match = catch[0]
         catch_block = catch[1]
         self.append("except {} as {}:".format(self.marshal(catch_match[0][0]), self.marshal(catch_match[0][1])))

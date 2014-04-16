@@ -361,9 +361,14 @@ class PhpParser(Parser):
         i = self.pt.new("IF", "if", self.next())
         i.append(self.parse_expression_group(self.next()))
         i.append(self.parse_block())
-        if self.peek().kind == "ELSE":
+        while self.peek().kind == "ELSEIF":
             self.next()
-            e = self.pt.new("ELSE", "else")
+            e = self.pt.new("ELIF", "elseif", self.next())
+            e.append(self.parse_expression_group(self.next()))
+            e.append(self.parse_block())
+            i.append(e)
+        if self.peek().kind == "ELSE":
+            e = self.pt.new("ELSE", "else", self.next())
             if self.peek().kind == "IF":
                 e.append(self.parse_if())
             else:
@@ -398,6 +403,9 @@ class PhpParser(Parser):
         block = self.pt.new("BLOCK", None)
         while self.peek().kind not in ("BREAK", "ENDBRACE"):
             block.append(self.parse_statement())
+        if self.peek().kind == "BREAK":
+            # Skip the break, we are at the end anyway I hope
+            self.next()
         default.append(block)
         return default
 
@@ -414,7 +422,7 @@ class PhpParser(Parser):
         try_node = self.pt.new("TRY", None, self.next())
         try_node.append(self.parse_block())
         for t in self.next_while(("catch",)):
-            c = self.pt.new("CATCH", None)
+            c = self.pt.new("CATCH", None, t)
             self.assert_next("STARTBRACE", "(")
             catchmatch = self.pt.new("EXCEPTION", self.next().val)
             catchmatch.append(self.parse_variable(self.next()))
@@ -443,13 +451,23 @@ class PhpParser(Parser):
         self.pdebug("\033[94m########Starting new expression##########", 4)
         full_ex = []
         tern = False
+        noo1a = True # We expect that the next item is a non-operator or an arrity 1 operator
         for t in self.next_until(ENDEXPRESSION):
             self.pdebug("Current token is {}".format(t))
             if t.val in operator_map:
-                full_ex.append(self.parse_operator(t))
+                op_node = self.parse_operator(t)
+                if noo1a and op_node.arrity > 1:
+                    if op_node.value == "&":
+                        op_node.node_type = "REFERENCE"
+                        op_node.arrity = 1
+                        op_node.assoc = "right"
+                    else:
+                        raise ParseError("Expected to see a 1-ary operator or a non-operator here")
+                full_ex.append(op_node)
                 self.pdebug("Appended an operator")
                 if t.val == "?":
                     tern = True
+                noo1a = True
             elif t.kind in ("BLOCKCOMMENT", "COMMENTLINE"):
                 # Get rid of block comments for the meantime - too hard to deal with
                 self.comments.append(self.parse_comment(t))
@@ -458,23 +476,27 @@ class PhpParser(Parser):
                 full_ex.append(self.parse_expression_group("("))
                 #print_tree(full_ex[-1])
                 self.pdebug("Finished with expression group")
+                noo1a = False
             else:
-                self.pdebug("Appended notoperator")
                 try:
                     self.pdebug("Going to try to run parse_" + t.kind.lower())
                     full_ex.append(getattr(self, "parse_" + t.kind.lower())(t))
                 except AttributeError:
                     raise ParseError("function for parsing {} not yet implemented".format(t))
+                self.pdebug("Appended notoperator")
+                noo1a = False
             if tern and self.peek().val == ":":
                 self.next()
         self.pdebug("Expresion nodes")
         self.pdebug([str(n) for n in full_ex])
+
+        # Here follows the shunting algorithm(ish)
         op_stack = []
         opee_stack = []
         for n in full_ex:
             if n is None:
                 continue
-            if n.node_type not in ("OPERATOR", "INDEX"):
+            if n.node_type not in ("OPERATOR", "INDEX", "REFERENCE"):
                 opee_stack.append(n)
             else:
                 if len(op_stack) == 0:

@@ -194,6 +194,7 @@ keyword_table = {
     "include": "SPECIAL",
     "if": "IF",
     "else": "ELSE",
+    "elseif": "ELSEIF",
     "function": "FUNCTION",
     ",": "COMMA",
     ":": "COLON",
@@ -223,7 +224,7 @@ COMPARATORS = ["===", "!==", "==", "!=", "<>", "<=", ">=", "<", ">"]
 OPERATORS = ["new ", "and ", "xor " "or ", "as ",
              "=>", "->", "::",        # Here because I don't know where else to put it
              "<<", ">>", "||", "&&", "++", "--",
-             "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!", "?"]
+             "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!", "?", "@"]
 ASSIGNMENTS = ["<<=", ">>=",
               "+=", "-=", "*=", "/=", "|=", "^=", "="]
 STARTBRACES = ["(", "{", "["]

@@ -43,6 +43,8 @@ def transform_statement(statement_node):
         return transform_foreach(statement_node)
     elif statement_node.node_type == "SWITCH":
         return transform_switch(statement_node)
+    elif statement_node.node_type == "TRY":
+        return transform_try(statement_node)
     elif len(statement_node.children) == 0:
         return [statement_node]
     elif statement_node[0].node_type =="EXPRESSION":
@@ -100,6 +102,7 @@ def transform_attr(attr_node):
         return call_node
     return attr_node
 
+
 def transform_if(if_statement):
     pdebug("T IF", if_statement)
     out = []
@@ -118,6 +121,13 @@ def transform_if(if_statement):
     if_ex.append(if_op)
     if_statement.children = [if_ex, if_block]
     out.append(if_statement)
+    return out
+
+
+def transform_try(try_statement):
+    out = []
+    for c in try_statement:
+        out.append(transform_php(c))
     return out
 
 
@@ -159,19 +169,24 @@ def transform_switch(switch_statement):
     contents = switch_statement.get("BLOCK")
     # We are going to ignore "STATEMENT" nodes directly in block for now - these are comments
     i = 0
+    extras = []
     for c in contents:
         #print("??")
         #print_tree(c)
         #print("??")
         if c.node_type == "CASE":
             #print("FOUND CASE")
-            out.append(transform_case(switch_var, c, i))
+            out.append(transform_case(switch_var, c, i, extras))
             i += 1
+            extras = []
         elif c.node_type == "DEFAULT":
             out.append(transform_default(c, i))
             i += 1
-        elif c.node_type.startswith("CASE"):
-            raise TransformException("Implement new case type for " + c.node_type)
+        elif c.node_type == "CASEFALLTHROUGH":
+            ctf_node = transform_case(switch_var, c, i, extras)
+            out.append(ctf_node)
+            extras.append(ctf_node.get("EXPRESSION").get("COMPARATOR"))
+            #raise TransformException("Implement new case type for " + c.node_type)
             i += 1
         elif c.node_type == "STATEMENT":
             # Probably a statement with a comment
@@ -179,7 +194,7 @@ def transform_switch(switch_statement):
     return out
 
 
-def transform_case(switch_var, case_node, i):
+def transform_case(switch_var, case_node, i, extras):
     if i > 0:
         if_statement = ParseNode("ELIF", "elif", token=case_node.token)
     else:
@@ -189,7 +204,20 @@ def transform_case(switch_var, case_node, i):
     comp = ParseNode("COMPARATOR", "==", token=case_node.token)
     comp.append(switch_var)
     comp.append(orig_ex[0])
-    if_ex.append(comp)
+    if len(extras) > 0:
+        # Add the extras to a tree of or nodes like:
+        # or(extras[0], or(extras[1], ... or(extras[-2], extras[-1])))
+        or_node = ParseNode("OPERATOR2", "or")
+        or_node.append(comp)
+        for e in extras[:-1]:
+            new_or_node = ParseNode("OPERATOR2", "or")
+            new_or_node.append(e)
+            or_node.append(new_or_node)
+            or_node = new_or_node
+        or_node.append(extras[-1])
+        if_ex.append(or_node)
+    else:
+        if_ex.append(comp)
     if_statement.append(if_ex)
     if_statement.append(transform_php(case_node.get("BLOCK")))
     return if_statement
