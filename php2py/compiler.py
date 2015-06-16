@@ -1,4 +1,5 @@
 from __future__ import unicode_literals
+from __future__ import print_function
 
 import collections
 
@@ -63,11 +64,24 @@ class Compiler(object):
         return "\n".join(["\n".join(f) for f in self.functions])
 
     def generic_footer_compile(self):
+        """ Adds the __name__ == __main__ magic to the bottom of the file
+
+        """
         self.results.append("""\n\nif __name__ == "__main__":""")
         self.results.append("""    import os.path""")
         self.results.append("""    php.serve_up(body, root_dir=os.path.abspath(os.path.dirname(__file__)))""")
 
     def add_import(self, module, els=None):
+        """ Add a python import at the top of the file.
+
+        Capable of both import foo and from foo import baz style imports, depending on the optional parameter
+        els.
+
+        Args:
+            module: The module name to import
+            els: An optional list of items to import from that module
+
+        """
         module = self.python_safe(module)
         if els is None or els[0] is None:
             self.prepend("import {0}".format(module))
@@ -79,9 +93,20 @@ class Compiler(object):
         self.append("php.write({0})".format(value))
 
     def append(self, line):
+        """ Normal method to add another line of code to the current function
+
+        Will add the current indentation level to the start of the line.
+
+        Args:
+            line: A text representation of the code to add
+
+        """
         self.cur_function.append(' ' * self.indent + line)
 
     def prepend(self, line):
+        """ Puts the line at the top of the file
+
+        """
         self.results.insert(0, line)
 
     def blank_lines(self, number):
@@ -90,20 +115,35 @@ class Compiler(object):
             self.results.append("")
 
     def python_safe(self, ident):
+        """ Not implemented yet - depends if we ever get unsafe idents
+
+        """
         return ident
 
     def python_escape(self, string):
         return string
 
     def marshal(self, node):
+        """ Tries to find the correct function from a given node from the parse tree
+
+        When given a node, tries to find a compile<node_name> function.
+
+        Args:
+            node: The node to try to compile
+
+        Raises:
+            CompileError: A common error to be returned is the CompileError when a given node type doesn't
+                          have an appropriate compile method defined yet.
+
+        """
         try:
             return getattr(self, node.node_type.lower() + "_compile")(node)
-        except TypeError as e:
+        except TypeError:
             print("Tried to compile...")
             parsetree.print_tree(node)
             print("...but failed")
-            raise # CompileError("Probably something isn't returning a string when it should", e)
-        except AttributeError as e:
+            raise  # CompileError("Probably something isn't returning a string when it should", e)
+        except AttributeError:
             print("Tried to compile {}...".format(node.token))
             parsetree.print_tree(node)
             print("...but failed")
@@ -134,8 +174,8 @@ class Compiler(object):
             raise
         self.indent += 4
         self.marshal(node.get("BLOCK"))
+        #TODO: We should catch failure to get somewhere at the top level. IndexError maybe?
         self.indent -= 4
-        #TODO: Think about elif
 
     def elif_compile(self, node):
         self.append("elif {}:".format(self.expression_compile(node.get("EXPRESSION"))))
@@ -255,7 +295,7 @@ class Compiler(object):
         fmt = ""
         if len(node.children) > 0:
             fmt = ".format({})".format(", ".join([v.value for v in node]))
-        return repr(node.value) + fmt
+        return 'u"' + node.value + '"' + fmt
 
     def assignment_compile(self, node):
         return "{} {} {}".format(self.marshal(node[1]), node.value, self.marshal(node[0]))
@@ -294,7 +334,8 @@ class Compiler(object):
             self.append("#" + node.value)
 
     def commentblock_compile(self, node):
-        # TODO: Note that we don't deal with comments inline very well. Should strip them if they are in the wrong place
+        # TODO: Note that we don't deal with comments inline very well. Should strip them if they are in the
+        # wrong place
         if self.strip_comments:
             return ""
         if node.parent.node_type in("STATEMENT", "EXPRESSION"):
@@ -334,13 +375,17 @@ class Compiler(object):
         catch = node.get()
         catch_match = catch[0]
         catch_block = catch[1]
-        self.append("except {} as {}:".format(self.marshal(catch_match[0][0]), self.marshal(catch_match[0][1])))
+        self.append(
+            "except {} as {}:".format(
+                self.marshal(catch_match[0][0]),
+                self.marshal(catch_match[0][1])
+            ))
         self.indent += 4
         self.marshal(catch_block)
         self.indent -= 4
 
     def switch_compile(self, node):
-        #TODO: Transform switch statements
+        #TODO: Transform switch statements. Probably mostly already done.
         pass
 
     def cast_compile(self, node):

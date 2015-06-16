@@ -1,5 +1,4 @@
-from __future__ import unicode_literals
-from __future__ import print_function
+from __future__ import absolute_import, unicode_literals, print_function
 
 from .parsetree import ParseNode, print_tree
 
@@ -66,7 +65,8 @@ op_map = {
     "!": "not ",
     ".": "+",
     "&&": "and",
-    "===": "==",     # TODO: Do we need to use a function here?
+    "===": "==",     # TODO: Do we need to use a function here? I think the == case is the naughty one...
+    "!==": "!=",
 }
 
 
@@ -90,6 +90,8 @@ def transform_operator(operator_node):
         operator_node.value = op_map[operator_node.value]
     for i in range(len(operator_node)):
         operator_node[i] = transform_node(operator_node[i])
+    # Check if the second argument is now "False" - then we should use the "blah is false" pattern.
+    # Same True and None. I think "is" should be treated as an operator in this regard.
     return operator_node
 
 
@@ -276,7 +278,7 @@ cast_map = {
     "(string)": "str",
     "(array)": "list",
     "(object)": "object",
-    "(unset)": None,    #TODO: unset should be not so shit
+    "(unset)": None,    #TODO: unset should be not so shit. Use "del"
 }
 
 

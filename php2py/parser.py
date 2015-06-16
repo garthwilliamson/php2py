@@ -4,9 +4,6 @@ from __future__ import print_function
 from .parsetree import ParseTree, ParseTreeError, print_tree
 from . import tokeniser
 
-import re
-from functools import wraps
-
 
 class ParseException(Exception):
     pass
@@ -45,7 +42,7 @@ class Parser(object):
         self.debug = debug
 
     def to_list(self, ):
-        return self.pt.root_node.to_list()
+        return self.get_tree().to_list()
 
     def get_tree(self):
         return self.pt.root_node
@@ -256,7 +253,7 @@ class PhpParser(Parser):
 
         try:
             self.parse()
-        except ExpectedCharError as e:
+        except ExpectedCharError:
             print("\n".join(self.tokens.position()))
             raise
         except:
@@ -451,7 +448,7 @@ class PhpParser(Parser):
         self.pdebug("\033[94m########Starting new expression##########", 4)
         full_ex = []
         tern = False
-        noo1a = True # We expect that the next item is a non-operator or an arrity 1 operator
+        noo1a = True  # We expect that the next item is a non-operator or an arrity 1 operator
         for t in self.next_until(ENDEXPRESSION):
             self.pdebug("Current token is {}".format(t))
             if t.val in operator_map:

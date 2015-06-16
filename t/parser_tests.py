@@ -158,7 +158,7 @@ class SimpleTests(unittest.TestCase):
 
         transform_php(php)
         self.compiler.statement_compile(php[0])
-        self.assertLastCompiled("    echo(p, u'Hello World')")
+        self.assertLastCompiled('    echo(p, u"Hello World")')
 
     @php_t
     def test_hello_no_end(self, php):
@@ -170,7 +170,7 @@ class SimpleTests(unittest.TestCase):
 
         transform_php(php)
         self.compiler.statement_compile(php[0])
-        self.assertLastCompiled("    echo(p, u'Hello World')")
+        self.assertLastCompiled('    echo(p, u"Hello World")')
 
     @php_t
     def test_string_with_quote(self, php_node):
@@ -509,7 +509,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(l[0].node_type, "TUPLE")
         self.assertEqual(l[0][0].node_type, "STRING")
         self.assertEqual(l[0][1].node_type, "INT")
-        self.assertEqual(self.compiler.expression_compile(ex), "g.a = array(p, [(u'b', 1), (u'c', 2)])")
+        self.assertEqual(self.compiler.expression_compile(ex), 'g.a = array(p, [(u"b", 1), (u"c", 2)])')
 
     @php_t
     def test_statement_comment(self, php_node):
@@ -517,7 +517,7 @@ class SimpleTests(unittest.TestCase):
         <?php
         if ($a) {
             // comment b
-            if (!defined('c')) {
+            if (!defined("c")) {
                 $e;
             }
         }
@@ -576,7 +576,7 @@ class SimpleTests(unittest.TestCase):
     def test_if_again(self, php_node):
         """If with stuff and things
         <?php
-            if (!file_exists('./config.php')) {
+            if (!file_exists("./config.php")) {
             header('Location: install.php');
             die;
         }
@@ -598,12 +598,12 @@ class SimpleTests(unittest.TestCase):
     def test_call(self, php_node):
         """ Simple multi argument call
         <?php
-        a('B', C, $d)
+        a("B", C, $d)
         """
         print_tree(php_node)
         transform_php(php_node)
         self.compiler.statement_compile(php_node[0])
-        self.assertLastCompiled('    p.f.a(p, u\'B\', C, g.d)')
+        self.assertLastCompiled('    p.f.a(p, u"B", C, g.d)')
 
 
     @php_t
