@@ -83,7 +83,7 @@ def include_once(p, filename):
 
 
 def include(p, fullpath):
-    file_dir, file_name = os.path.split(fullpath)
+    # Remember, because the fullpath is calculated dynamically, this shouldn't break things on other machines
     abspath = os.path.abspath(fullpath)
     if abspath.endswith(".php"):
         abspath = abspath[0:-4] + ".py"

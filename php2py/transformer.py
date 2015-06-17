@@ -65,6 +65,7 @@ op_map = {
     "!": "not ",
     ".": "+",
     "&&": "and",
+    "||": "or",
     "===": "==",     # TODO: Do we need to use a function here? I think the == case is the naughty one...
     "!==": "!=",
 }

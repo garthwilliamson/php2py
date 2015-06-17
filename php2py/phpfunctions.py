@@ -61,6 +61,20 @@ def define(p, name: str, value):
     setattr(p.constants, name, value)
 
 
+def error_reporting(p, level: int) -> int:
+    ol = p.app.error_level
+    p.app.error_level = level
+    return ol
+
+
+def ini_set(p, name: str, value: str) -> str:
+    old = None
+    if name in p.app.ini:
+        old = p.app.ini[name]
+    p.app.ini[name] = value
+    return old
+
+
 functionlist = [
     ("isset", isset),
     ("stdClass", stdClass),
@@ -70,4 +84,6 @@ functionlist = [
     ("get__file__", get__file__),
     ("header", header), # http://php.net/manual/en/function.header.php
     ("define", define),
+    ("error_reporting", error_reporting), # http://php.net/manual/en/function.error-reporting.php
+    ("ini_set", ini_set), # http://php.net/manual/en/function.ini-set.php
 ]
