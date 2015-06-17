@@ -66,6 +66,7 @@ functionlist = [
     ("stdClass", stdClass),
     ("dirname", py_func(os.path.dirname)),
     ("abspath", py_func(os.path.abspath)),
+    ("file_exists", py_func(os.path.isfile)), # http://php.net/manual/en/function.file-exists.php
     ("get__file__", get__file__),
     ("header", header), # http://php.net/manual/en/function.header.php
     ("define", define),
