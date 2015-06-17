@@ -207,7 +207,7 @@ class SimpleTests(unittest.TestCase):
         transform_php(php_node)
         self.compiler.statement_compile(php_node[0])
         print(self.compiler)
-        self.assertLastCompiled("    g.a = 1")
+        self.assertLastCompiled("    p.g.a = 1")
 
     @php_t
     def test_while(self, php_node):
@@ -228,7 +228,7 @@ class SimpleTests(unittest.TestCase):
         transform_php(php_node)
         self.compiler.while_compile(while_node)
         print(self.compiler)
-        self.assertLastCompiled("        (g.b += 1)")
+        self.assertLastCompiled("        (p.g.b += 1)")
 
     @php_t
     def test_function_simple(self, php_node):
@@ -509,7 +509,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(l[0].node_type, "TUPLE")
         self.assertEqual(l[0][0].node_type, "STRING")
         self.assertEqual(l[0][1].node_type, "INT")
-        self.assertEqual(self.compiler.expression_compile(ex), 'g.a = array(p, [(u"b", 1), (u"c", 2)])')
+        self.assertEqual(self.compiler.expression_compile(ex), 'p.g.a = array(p, [(u"b", 1), (u"c", 2)])')
 
     @php_t
     def test_statement_comment(self, php_node):
@@ -603,7 +603,7 @@ class SimpleTests(unittest.TestCase):
         print_tree(php_node)
         transform_php(php_node)
         self.compiler.statement_compile(php_node[0])
-        self.assertLastCompiled('    p.f.a(p, u"B", C, g.d)')
+        self.assertLastCompiled('    p.f.a(p, u"B", p.constants.C, p.g.d)')
 
 
     @php_t
