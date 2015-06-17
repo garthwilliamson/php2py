@@ -1,7 +1,7 @@
 import sys
 import os.path
 from collections import OrderedDict
-import importlib
+import importlib.machinery
 
 from .exceptions import *
 
@@ -84,23 +84,18 @@ def include_once(p, filename):
 
 def include(p, fullpath):
     file_dir, file_name = os.path.split(fullpath)
-    print(1)
-    print(file_dir, file_name)
-    file_n, file_ext = os.path.splitext(file_name)
-    print(file_dir, p.g.__rootdir__)
-    print(p.g)
-    relative_path = os.path.relpath(file_dir, p.g.__rootdir__)
-    path = os.path.join(relative_path, file_n)
-    iname = path.replace("/", ".")
-    print(iname)
+    abspath = os.path.abspath(fullpath)
+    if abspath.endswith(".php"):
+        abspath = abspath[0:-4] + ".py"
     try:
-        p.i[file_name] = importlib.import_module(iname)
+        p.i[abspath] = importlib.machinery.SourceFileLoader(abspath, abspath).load_module()
     except ImportError:
-        raise PhpImportWarning("Couldn't import {} as {}".format(fullpath, iname))
+        raise PhpImportWarning("Couldn't import {} as {}".format(abspath, abspath))
+    except FileNotFoundError:
+        raise PhpImportWarning("Couldn't import {} as {}".format(abspath, abspath))
 
     # Run it in the local context
-    mod = p.i[file_name]
-    p.i[file_name].body(p)
+    p.i[abspath].body(p)
 
 
 def array(p, l):
