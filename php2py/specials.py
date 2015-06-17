@@ -34,7 +34,14 @@ def eval(p, s):
 
 
 def exit(p, m=0):
-    sys.exit(m)
+    # http://php.net/manual/en/function.exit.php
+    # TODO: Check functionality
+    # TODO: Run shutdown functions etc
+    if isinstance(m, int):
+        sys.exit(m)
+    else:
+        print(m)
+        sys.exit(-2)
 
 
 def isset(p, variable):

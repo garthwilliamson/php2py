@@ -9,3 +9,7 @@ class PhpWarning(PhpException):
 
 class PhpImportWarning(PhpWarning):
     pass
+
+class HttpRedirect(Exception):
+    def __init__(self, response_code):
+        self.response_code = response_code

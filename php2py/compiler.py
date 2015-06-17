@@ -32,7 +32,6 @@ class Compiler(object):
         self.strip_comments = strip_comments
         self.imports = collections.defaultdict(list)
         self.imports["php2py"].append("php")
-        self.imports["php2py.php"].append("g")
         self.imports["php2py.specials"].append("*")
         self.functions = []
         self.indent = 0
@@ -201,8 +200,13 @@ class Compiler(object):
         self.append("p.f.{0} = {0}".format(node.value))
 
     def _call_inner_compile(self, node):
+        """ Compile a function or method call
+
+        Deals with the function name and arg list but not the scoping.
+
+        """
         # Process args
-        # TODO: Deal with possitional and other args combined
+        # TODO: Deal with positional and other args combined
         arg_list = ["p"]
         kwarg_list = []
         if len(node.get("ARGSLIST")) > 0:
@@ -262,7 +266,7 @@ class Compiler(object):
         return '.{0}'.format(node.value)
 
     def globalvar_compile(self, node):
-        return "g." + self.var_compile(node).lstrip()
+        return "p.g." + self.var_compile(node).lstrip()
 
     def ident_compile(self, node):
         return node.value
