@@ -75,6 +75,19 @@ def ini_set(p, name: str, value: str) -> str:
     return old
 
 
+def str_replace(p, search, replace, subject, count=0):
+    """ Replaces instances of a string
+
+    Note that this can accept either arrays of strings...........
+
+    TODO: Implement arrays, check functionality
+
+    """
+    if not isinstance(subject, str):
+        raise NotImplementedError
+    return subject.replace(search, replace, count)
+
+
 functionlist = [
     ("isset", isset),
     ("stdClass", stdClass),
@@ -86,4 +99,5 @@ functionlist = [
     ("define", define),
     ("error_reporting", error_reporting), # http://php.net/manual/en/function.error-reporting.php
     ("ini_set", ini_set), # http://php.net/manual/en/function.ini-set.php
+    ("str_replace", str_replace), # http://php.net/manual/en/function.str-replace.php
 ]
