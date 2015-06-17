@@ -283,7 +283,7 @@ class Compiler(object):
 
     def constant_compile(self, node):
         #TODO: Contants might need further thought
-        return node.value
+        return "p.constants.{}".format(node.value)
 
     def comparator_compile(self, node):
         return self.operator2_compile(node)

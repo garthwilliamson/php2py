@@ -198,6 +198,7 @@ keyword_table = {
     "function": "FUNCTION",
     ",": "COMMA",
     ":": "COLON",
+    "__DIR__": "SPECIAL",
 }
 
 

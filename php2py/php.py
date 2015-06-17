@@ -1,5 +1,6 @@
 from functools import wraps
 from collections import OrderedDict
+import os.path
 
 from . import phpfunctions
 from .exceptions import *
@@ -46,6 +47,7 @@ class PhpContext(object):
         If l is set to something other than None,
         """
         self.g = app.g
+        self.constants = app.constants
         self.app = app
 
         if f is None:
@@ -70,6 +72,8 @@ class PhpVars(object):
     def __getattr__(self, name):
         """ Apparently getattr is called after first searching to see if there is already an attribute attr
 
+        I think we have to do this because php eats undefined variables for breakfast
+
         """
         return None
 
@@ -90,6 +94,11 @@ class PhpGlobals(PhpVars):
 class PhpClasses(PhpVars):
     pass
     # This be where the classes go
+
+
+class PhpConstants(PhpVars):
+    def __init__(self):
+        self.DIRECTORY_SEPARATOR = os.path.sep
 
 
 class PhpApp(object):
@@ -151,6 +160,7 @@ class PhpApp(object):
 
     def _initialise_context(self):
         self.g = PhpGlobals()
+        self.constants = PhpConstants()
         self.p = PhpContext(self)
 
     def http_headers_str(self):

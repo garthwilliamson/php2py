@@ -57,6 +57,10 @@ def py_func(f):
     return unwrapper
 
 
+def define(p, name: str, value):
+    setattr(p.constants, name, value)
+
+
 functionlist = [
     ("isset", isset),
     ("stdClass", stdClass),
@@ -64,4 +68,5 @@ functionlist = [
     ("abspath", py_func(os.path.abspath)),
     ("get__file__", get__file__),
     ("header", header), # http://php.net/manual/en/function.header.php
+    ("define", define),
 ]

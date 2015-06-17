@@ -232,9 +232,15 @@ def transform_default(default_node, i):
     return else_statement
 
 
-def transform_callspecial(cs_node):
+def transform_callspecial(cs_node: ParseNode):
     if cs_node.value == "array":
         return transform_array(cs_node)
+    elif cs_node.value == "__dir__":
+        # We don't need to transform_call if we are generating the argslist entirely ourselves
+        cs_node.node_type = "CALL"
+        cs_node.value = "dirname"
+        add_argument(cs_node, ParseNode("IDENT", "__file__", token=cs_node.token))
+        return cs_node
     else:
         return transform_call(cs_node)
 
@@ -265,6 +271,18 @@ def transform_array(array_node):
     l_e.append(list_node)
     array_node.get("ARGSLIST").children = [l_e]
     return array_node
+
+
+def add_argument(node: ParseNode, argument: ParseNode):
+    """ Add an expression or another node as an argument to a call function
+
+    Will wrap a non-expression argument up in an expression
+    """
+    if argument.node_type != "EXPRESSION":
+        e = ParseNode("EXPRESSION", token=argument.token)
+        e.append(argument)
+        argument = e
+    node.get("ARGSLIST").append(argument)
 
 
 cast_map = {

@@ -474,6 +474,10 @@ class PhpParser(Parser):
                 #print_tree(full_ex[-1])
                 self.pdebug("Finished with expression group")
                 noo1a = False
+            elif t.kind == "IDENT":
+                # Hopefully we haven't missed too many ident cases
+                full_ex.append(self.parse_ident(t, bare=True))
+                noo1a = False
             else:
                 try:
                     self.pdebug("Going to try to run parse_" + t.kind.lower())
@@ -648,7 +652,12 @@ class PhpParser(Parser):
         self.next()
         return self.pt.new("NEWLINE", "\n")
 
-    def parse_ident(self, ident):
+    def parse_ident(self, ident, bare=False):
+        """ Parse an identifier. bare indicates that this isn't part of a variable or anything.
+
+        TODO: Refactor to work out if bare is actually needed.
+
+        """
         if self.peek().val == "(":
             # Function call
             self.pdebug("Function call", 4)
@@ -656,10 +665,12 @@ class PhpParser(Parser):
             call.append(self.parse_expression_group(self.next(), "ARGSLIST"))
             self.debug_indent -= 4
             return call
-        else:
-            if ident.val in indent_map:
-                ident.val = indent_map[ident.val]
-            return self.pt.new("IDENT", ident.val)
+        elif ident.val in indent_map:
+            ident.val = indent_map[ident.val]
+        elif bare:
+            # Assume all bare idents which aren't message calls and are bare  are constants
+            return self.pt.new("CONSTANT", ident.val)
+        return self.pt.new("IDENT", ident.val)
 
     def parse_unknown(self):
         raise UnexpectedCharError()
