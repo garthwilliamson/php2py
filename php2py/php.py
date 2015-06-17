@@ -88,6 +88,7 @@ class PhpGlobals(PhpVars):
     def __init__(self):
         # Sets the super-global variables
         # $_POST etc
+        self._SERVER = {}
         pass
 
 
@@ -153,6 +154,11 @@ class PhpApp(object):
 
         self.error_level = self.constants.E_ALL
         self.ini = {}
+
+        # Set POST, GET, SERVER etc variables
+        # TODO: SERVER and at least some others are reserved. Should probably treat them specially.
+        self.g._SERVER["HTTP_HOST"] = "TODO"
+        self.g._SERVER["SCRIPT_NAME"] = "TODO"
 
     # TODO: You are doing this wrong?
     @property
