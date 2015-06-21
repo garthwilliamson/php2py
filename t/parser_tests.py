@@ -5,7 +5,6 @@ import php2py.compiler as c
 import php2py.parser as p
 from php2py.parsetree import print_tree
 from php2py.transformer import transform_php, transform_class
-from php2py import parse_and_compile
 
 from pprint import pprint
 
@@ -71,7 +70,6 @@ $a = new B();
 $c = new D("e", "f");
 """
 
-
 more_keywords = """<?php
 die;
 
@@ -98,7 +96,6 @@ casting = """<?php
 $a = (array)$B;
 """
 
-
 from functools import wraps
 
 
@@ -106,6 +103,7 @@ def php_t(f):
     """ Wrap a function to parse a php string given as a docstring
 
     """
+
     @wraps(f)
     def wrapper(self, *args, **kwargs):
         """ The wrapper
@@ -113,6 +111,7 @@ def php_t(f):
         """
         tree = parse_string(f.__doc__).get_tree()
         f(self, tree[1], *args, **kwargs)
+
     return wrapper
 
 
@@ -132,8 +131,8 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(comparison, self.compiler.functions[-1][-distance])
 
     def test_html(self):
-        p = parse_string(html)
-        res = p.get_tree()
+        parsed = parse_string(html)
+        res = parsed.get_tree()
         self.assertEqual(res.node_type, "ROOT")
         self.assertEqual(res[0].node_type, "HTML")
         self.assertEqual(res[0].value, html)
@@ -173,7 +172,7 @@ class SimpleTests(unittest.TestCase):
     def test_complex_echo(self, php_node):
         """ A complex echo statement
         <?php
-        echo "$asdfasdfa(<a hreaaaaaaaf=\\"b/a.d?aaaaaaaaaaae=f&g;h=".i()."\\">aaaaaaaaaaaaaa". j('afasdfsdfsdk') .'</a>)';
+        echo "$asdfasdfa(<a hreaaaaaaaf=\\"b/a.d?aaaaae=f&g;h=".i()."\\">aaaaaaaaaaaaaa". j('afasdfsdfsdk') .'</a>)';
         """
         self.assertEqual(php_node[0][0][0].value, "echo")
 
@@ -241,13 +240,13 @@ class SimpleTests(unittest.TestCase):
         transform_php(php_node)
         # print_tree(php_node)
         self.compiler.php_compile(php_node)
-        #TODO: Check the body function for the following
-        #self.assertLastCompiled("p.f.foo = foo")
+        # TODO: Check the body function for the following
+        # self.assertLastCompiled("p.f.foo = foo")
         self.assertLastCompiled("    return 0")
 
     def test_function(self):
-        p = parse_string(function)
-        res = p.get_tree()
+        parsed = parse_string(function)
+        res = parsed.get_tree()
         php_node = res[0]
         function_node = php_node[0]
         self.assertEqual(function_node.value, "foo")
@@ -381,9 +380,6 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(dirname.node_type, "CALL")
         self.assertEqual(dirname.get("ARGSLIST").get("EXPRESSION").get("INT").value, 1)
 
-    def test_complex_if(self):
-        php_node = parse_string(complex_if).get_tree()[0]
-
     @php_t
     def test_ident_starts_new(self, php_node):
         """ If with a comment attached and an ident starting with new
@@ -413,8 +409,10 @@ class SimpleTests(unittest.TestCase):
         else_s = if_s[2]
         self.assertEqual(else_s.node_type, "ELSE")
 
+    """
     def test_multi_space_comment(self):
         php_node = parse_string(multi_space_comment).get_tree()[0]
+    """
 
     @php_t
     def test_arith(self, php_node):
@@ -517,10 +515,10 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(comment_s.comments[0].node_type, "COMMENTLINE")
 
     def test_dynamic_class_creation(self):
-        php_node = parse_string(dynamic_class_creation, False).get_tree()[0]
+        parse_string(dynamic_class_creation, False).get_tree()
 
     def test_casting(self):
-        php_node = parse_string(casting, False).get_tree()[0]
+        parse_string(casting, False).get_tree()
 
     @php_t
     def test_assign_in_if(self, php_node):
@@ -536,7 +534,6 @@ class SimpleTests(unittest.TestCase):
         if_statement = php_node[1]
         self.assertEqual(assign_statement.get("EXPRESSION").get("ASSIGNMENT")[1].value, "a")
         self.assertEqual(if_statement.get("EXPRESSION").get("GLOBALVAR").value, "a")
-
 
     @php_t
     def test_try_catch(self, php_node):
@@ -566,17 +563,18 @@ class SimpleTests(unittest.TestCase):
         }
         """
         # print_tree(php_node)
-    #@php_t
-    #def test_blockcomment2(self, php_node):
-        #""" A big block comment with possibly shit performance
-        #<?php
+        # @php_t
 
-        #/**
-         #* aaaaa aaaaaaaa
-         #*/
+        # def test_blockcomment2(self, php_node):
+        # """ A big block comment with possibly shit performance
+        # <?php
 
-        #"""
-        #self.assertTrue(False)
+        # /**
+        # * aaaaa aaaaaaaa
+        # */
+
+        # """
+        # self.assertTrue(False)
 
     @php_t
     def test_call(self, php_node):
@@ -679,10 +677,10 @@ class SimpleTests(unittest.TestCase):
             }
         }
         """
-        #print_tree(php_node)
+        # print_tree(php_node)
 
-        #r = self.compiler.compile(php_node)
-        #print(r)
+        # r = self.compiler.compile(php_node)
+        # print(r)
         pass
 
 
