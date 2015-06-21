@@ -313,6 +313,21 @@ class PhpParser(Parser):
             statement = self.parse_if()
         elif self.peek().kind == "FUNCTION":
             statement = self.parse_function()
+        elif self.peek().kind == "CLASS":
+            statement = self.parse_class()
+        elif self.peek().kind == "METHODMOD":
+            static = False
+            visibility = "public"
+            while self.peek().kind == "METHODMOD":
+                mm = self.next()
+                if mm.val == "static":
+                    static = True
+                elif mm.val in ("public", "protected", "private"):
+                    visibility = mm.val
+            if self.peek().kind == "FUNCTION":
+                statement = self.parse_method(static, visibility)
+            else:
+                raise ExpectedCharError("function", self.peek().val)
         elif self.peek().kind == "RETURN":
             statement = self.parse_simple_control("RETURN", "return")
         elif self.peek().kind == "THROW":
@@ -441,6 +456,26 @@ class PhpParser(Parser):
         self.pdebug("=-=-=-=-=-")
         self.debug_indent -= 4
         self.pop_scope()
+        return f
+
+    def parse_class(self):
+        self.pdebug("Doing a class call", 4)
+        self.push_scope("CLASS")
+        self.next()
+        c = self.pt.new("CLASS", self.next().val.lower())
+        c.append(self.parse_block())
+        self.pop_scope()
+        self.debug_indent -= 4
+        return c
+
+    def parse_method(self, static=False, visibility=None):
+        # For now, methods are functions with visibility
+        f = self.parse_function()
+        if static:
+            f.node_type = "CLASSMETHOD"
+        else:
+            f.node_type = "METHOD"
+        f.append(self.pt.new("VISIBILITY",visibility))
         return f
 
     def parse_expression(self):

@@ -36,10 +36,19 @@ class ParseNode(object):
             return self.node_type, self.value
 
     def __getitem__(self, key):
-        return self.children[key]
+        if isinstance(key, int):
+            return self.children[key]
+        return self.get(key)
 
     def __setitem__(self, key, value):
-        self.children[key] = value
+        if isinstance(key, int):
+            return self.children[key]
+        i = 0
+        while i < len(self.children):
+            if self.children[i].node_type == key:
+                self.children[i] = value
+                return
+        self.append(value)
 
     def __delitem__(self, key):
         del(self.children[key])
@@ -56,7 +65,7 @@ class ParseNode(object):
     def __len__(self):
         return len(self.children)
 
-    def get(self, node_type):
+    def get(self, node_type) -> 'ParseNode':
         for c in self.children:
             if c.node_type == node_type:
                 return c
@@ -111,7 +120,7 @@ class ParseTree(object):
             s = str(tree)
             if len(s) > 50:
                 s = s[0:51]
-            print(indent * " " + str(tree))
+            print(indent * " " + s)
             for c in tree:
                 if indent > 50:
                     print_tree(c, indent)

@@ -4,14 +4,14 @@ import unittest
 import php2py.compiler as c
 import php2py.parser as p
 from php2py.parsetree import print_tree
-from php2py.transformer import transform_php
+from php2py.transformer import transform_php, transform_class
 from php2py import parse_and_compile
 
 from pprint import pprint
 
 
 def parse_string(s, debug=False):
-    parser = p.PhpParser(iter(s.split("\n")), debug=False)
+    parser = p.PhpParser(iter(s.split("\n")), debug=True)
     parser.parse()
     if debug:
         parser.pt.print_()
@@ -98,16 +98,6 @@ casting = """<?php
 $a = (array)$B;
 """
 
-assign_in_if = """<?php
-if ($a = 3) {
-}
-"""
-
-assign_in_if2 = """<?php
-if ($a = $B->c('d', 'e', array('f'=>'g'))) {
-    h::i();
-}
-"""
 
 from functools import wraps
 
@@ -139,7 +129,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(node[0][0][0][0][0].value, string)
 
     def assertLastCompiled(self, comparison, distance=1):
-        self.assertEqual(self.compiler.functions[-1][-distance], comparison)
+        self.assertEqual(comparison, self.compiler.functions[-1][-distance])
 
     def test_html(self):
         p = parse_string(html)
@@ -192,7 +182,7 @@ class SimpleTests(unittest.TestCase):
         """Simple assignment
         <?php $a = 1; ?>
         """
-        print_tree(php_node)
+        # print_tree(php_node)
         statement = php_node[0]
         self.assertEqual(statement.node_type, "STATEMENT")
         expression = statement[0]
@@ -249,7 +239,7 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(return_expression[0].node_type, "INT")
 
         transform_php(php_node)
-        print_tree(php_node)
+        # print_tree(php_node)
         self.compiler.php_compile(php_node)
         #TODO: Check the body function for the following
         #self.assertLastCompiled("p.f.foo = foo")
@@ -311,7 +301,7 @@ class SimpleTests(unittest.TestCase):
         $a = 2; /* groupy comment on line */ $b=3;
 
         """
-        print_tree(php_node)
+        # print_tree(php_node)
         comment_node = php_node[0]
         self.assertEqual(comment_node.comments[0].value, " Out of band comment")
         comment_node2 = php_node[1].comments[0]
@@ -401,7 +391,7 @@ class SimpleTests(unittest.TestCase):
         if ($SITE->newsitems) { // Print forums only when needed
         }
         """
-        print_tree(php_node)
+        # print_tree(php_node)
 
     @php_t
     def test_else(self, php_node):
@@ -413,7 +403,7 @@ class SimpleTests(unittest.TestCase):
             echo "2"
         }
         """
-        print_tree(php_node)
+        # print_tree(php_node)
         if_s = php_node[0]
         eg = if_s[0]
         self.assertEqual(eg.get("EXPRESSION")[0].node_type, "INT")
@@ -434,7 +424,7 @@ class SimpleTests(unittest.TestCase):
         //((1 + (2 * 3)) ^ ((4 / 5) + 6))
         //    a    b     c     d    e
         """
-        print_tree(php_node)
+        # print_tree(php_node)
         ex = php_node.get("STATEMENT").get("EXPRESSION")
         c = ex[0]
         self.assertEqual(c.value, "^")
@@ -547,12 +537,6 @@ class SimpleTests(unittest.TestCase):
         self.assertEqual(assign_statement.get("EXPRESSION").get("ASSIGNMENT")[1].value, "a")
         self.assertEqual(if_statement.get("EXPRESSION").get("GLOBALVAR").value, "a")
 
-    def test_assign_in_if2(self):
-        php_node = parse_string(assign_in_if2).get_tree()[0]
-        print_tree(php_node)
-        transform_php(php_node)
-        print_tree(php_node)
-        #self.assertTrue(False)
 
     @php_t
     def test_try_catch(self, php_node):
@@ -564,7 +548,7 @@ class SimpleTests(unittest.TestCase):
             0;
         }
         """
-        print_tree(php_node)
+        # print_tree(php_node)
         try_node = php_node[0]
         self.assertEqual(try_node.node_type, "TRY")
         self.assertEqual(try_node[0].node_type, "BLOCK")
@@ -581,7 +565,7 @@ class SimpleTests(unittest.TestCase):
             die;
         }
         """
-        print_tree(php_node)
+        # print_tree(php_node)
     #@php_t
     #def test_blockcomment2(self, php_node):
         #""" A big block comment with possibly shit performance
@@ -600,11 +584,24 @@ class SimpleTests(unittest.TestCase):
         <?php
         a("B", C, $d)
         """
-        print_tree(php_node)
+        # print_tree(php_node)
         transform_php(php_node)
         self.compiler.statement_compile(php_node[0])
         self.assertLastCompiled('    p.f.a(p, u"B", p.constants.C, p.g.d)')
 
+    @php_t
+    def test_switch_simple(self, php_node):
+        """ Switch statement as simple as possible
+        <?php
+        switch($a) {
+            case 1:
+                break;
+        }
+        """
+        print_tree(php_node)
+        transform_php(php_node)
+        print_tree(php_node)
+        self.assertEqual(php_node[0].get("EXPRESSION").get("ASSIGNMENT").value, "=")
 
     @php_t
     def test_switch(self, php_node):
@@ -626,6 +623,67 @@ class SimpleTests(unittest.TestCase):
         print_tree(php_node)
         switch_assign_s = php_node[0]
         self.assertEqual(switch_assign_s.get("EXPRESSION").get("ASSIGNMENT").value, "=")
+
+    @php_t
+    def test_class_simple(self, php_node):
+        """ A simple class with no content
+        <?php
+        class TestClass
+        {
+
+        }
+        """
+        # print_tree(php_node)
+        class_node = php_node[0]
+        self.assertEqual(class_node.node_type, "CLASS")
+        self.assertEqual(class_node[0].node_type, "BLOCK")
+
+    @php_t
+    def test_class_with_method(self, php_node):
+        """ A class with a static classmethod in it
+        <?php
+        class TestClass2
+        {
+            static public function blah() {
+                return "class,blah";
+            }
+            private function baz() {
+                return "object,baz";
+            }
+        }
+        """
+        print_tree(php_node)
+        class_node = php_node[0]
+        self.assertEqual(class_node.node_type, "CLASS")
+        classmethod_node = class_node.get("BLOCK").get("CLASSMETHOD")
+        self.assertEqual(classmethod_node.value, "blah")
+        self.assertEqual(classmethod_node.get("VISIBILITY").value, "public")
+
+        method_node = class_node.get("BLOCK").get("METHOD")
+        self.assertEqual(method_node.value, "baz")
+        self.assertEqual(method_node.get("VISIBILITY").value, "private")
+        fixed_class = transform_class(class_node)
+        self.assertEqual(next(fixed_class).get("BLOCK").get("METHOD").get("ARGSLIST")[0].value, "self")
+
+    @php_t
+    def test_class_compilation(self, php_node):
+        """ A class with a static classmethod in it
+        <?php
+        class TestClass2
+        {
+            static public function blah() {
+                return "class,blah";
+            }
+            private function baz() {
+                return "object,baz";
+            }
+        }
+        """
+        #print_tree(php_node)
+
+        #r = self.compiler.compile(php_node)
+        #print(r)
+        pass
 
 
 if __name__ == "__main__":

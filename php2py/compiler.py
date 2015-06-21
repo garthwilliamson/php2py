@@ -199,6 +199,20 @@ class Compiler(object):
         self.cur_function = old_function
         self.append("p.f.{0} = {0}".format(node.value))
 
+    def class_compile(self, node):
+        old_function = self.cur_function
+        self.cur_function = ["class {}(PhpClass):"]
+        self.marshal(node.get("BLOCK"))
+        self.functions.append(self.cur_function)
+        self.cur_function = old_function
+        self.append("p.c.{0} = {0}".format(node.value))
+
+    def classmethod_compile(self, node):
+        return self.function_compile(node)
+
+    def method_compile(self, node):
+        return self.function_compile(node)
+
     def _call_inner_compile(self, node):
         """ Compile a function or method call
 

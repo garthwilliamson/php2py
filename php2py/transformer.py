@@ -5,6 +5,16 @@ from .parsetree import ParseNode, print_tree
 
 DEBUG = True
 
+transform_map = {}
+
+
+def transforms(*args):
+    def wrap(f):
+        for node_type in args:
+            transform_map[node_type] = f
+        return f
+    return wrap
+
 
 def pdebug(*s):
     if DEBUG:
@@ -21,44 +31,52 @@ def transform(root_node):
             transform_php(n)
 
 
+def transform_node(node):
+    if node.node_type in transform_map:
+        yield from transform_map[node.node_type](node)
+    else:
+        pdebug("UNKNOWN TRANSFORM", node)
+        transform_children(node)
+        yield node
+
+
+def transform_single_node(node):
+    return next(transform_node(node))
+
+
+def transform_children(node):
+    new_children = []
+    for c in node:
+        for n in transform_node(c):
+            new_children.append(n)
+    node.children = new_children
+
+
+@transforms("PHP", "BLOCK")
 def transform_php(php_node):
     pdebug("T PHP", php_node)
-    out_statements = []
-    for s in php_node:
-        statements = transform_statement(s)
-        for s_o in statements:
-            out_statements.append(s_o)
-    php_node.children = out_statements
+    transform_children(php_node)
     return php_node
 
 
-def transform_statement(statement_node):
+def transform_statement(statement_node: ParseNode):
     pdebug("T STATEMENT", statement_node)
-    if statement_node.node_type == "IF":
-        return transform_if(statement_node)
-    elif statement_node.node_type == "WHILE":
-        return transform_while(statement_node)
-    elif statement_node.node_type == "FOREACH":
-        return transform_foreach(statement_node)
-    elif statement_node.node_type == "SWITCH":
-        return transform_switch(statement_node)
-    elif statement_node.node_type == "TRY":
-        return transform_try(statement_node)
-    elif len(statement_node.children) == 0:
-        return [statement_node]
+    if statement_node.node_type in transform_map:
+        yield from transform_map[statement_node.node_type](statement_node)
     elif statement_node[0].node_type =="EXPRESSION":
         transform_expression(statement_node[0])
-        return [statement_node]
+        yield statement_node
     else:
         pdebug("UNKNOWN STATEMENT", statement_node)
-        return [statement_node]
+        yield statement_node
 
 
+@transforms("EXPRESSION")
 def transform_expression(expression_node):
     if len(expression_node) == 0:
-        return ParseNode("NOOP", "")
-    expression_node[0] = transform_node(expression_node[0])
-    return expression_node
+        yield ParseNode("NOOP", "")
+    transform_children(expression_node)
+    yield expression_node
 
 
 op_map = {
@@ -71,16 +89,7 @@ op_map = {
 }
 
 
-def transform_node(node):
-    if node.node_type in transform_map:
-        return transform_map[node.node_type](node)
-    else:
-        pdebug("UNKNOWN TRANSFORM", node)
-        for i in range(len(node)):
-            node[i] = transform_node(node[i])
-        return node
-
-
+@transforms("OPERATOR1", "OPERATOR2")
 def transform_operator(operator_node):
     pdebug("T OPERATOR", operator_node)
     if operator_node.value == "++":
@@ -89,13 +98,13 @@ def transform_operator(operator_node):
         operator_node.node_type = "OPERATOR2"
     elif operator_node.value in op_map:
         operator_node.value = op_map[operator_node.value]
-    for i in range(len(operator_node)):
-        operator_node[i] = transform_node(operator_node[i])
+    transform_children(operator_node)
     # Check if the second argument is now "False" - then we should use the "blah is false" pattern.
     # Same True and None. I think "is" should be treated as an operator in this regard.
-    return operator_node
+    yield operator_node
 
 
+@transforms("ATTR")
 def transform_attr(attr_node):
     if attr_node[0].node_type == "CALL":
         call_node = attr_node[0]
@@ -103,43 +112,44 @@ def transform_attr(attr_node):
         call_node.node_type = "METHODCALL"
         call_node.append(object_node)
         return call_node
-    return attr_node
+    yield attr_node
 
 
+@transforms("IF")
 def transform_if(if_statement):
     pdebug("T IF", if_statement)
-    out = []
+    transform_children(if_statement["BLOCK"])
+
     if_op = if_statement.get("EXPRESSIONGROUP").get("EXPRESSION")[0]
-    if_op = transform_node(if_op)
-    if_block = transform_node(if_statement.get("BLOCK"))
-    #TODO: This probably only deals with the most basic cases
+    if_op = transform_single_node(if_op)
+    #TODO: This probably only deals with the most basic cases. Need to go down tree and extract all assignments.
     if if_op.node_type == "ASSIGNMENT":
         assign_statement = ParseNode("STATEMENT", None, token=if_op.token)
         assign_ex = ParseNode("EXPRESSION", None, token=if_op.token)
         assign_ex.append(if_op)
         assign_statement.append(assign_ex)
-        out.append(assign_statement)
+        yield assign_statement
         if_op = if_op[1]
     if_ex = ParseNode("EXPRESSION", None)
     if_ex.append(if_op)
-    if_statement.children = [if_ex, if_block]
-    out.append(if_statement)
-    return out
+    if_statement.children = [if_ex, if_statement["BLOCK"]]
+    yield if_statement
 
 
+@transforms("TRY")
 def transform_try(try_statement):
-    out = []
-    for c in try_statement:
-        out.append(transform_php(c))
-    return out
+    transform_children(try_statement)
+    yield try_statement
 
 
+@transforms("WHILE")
 def transform_while(while_statement):
     pdebug("T WHILE", while_statement)
-    out = []
-    return transform_php(while_statement[1])
+    transform_children(while_statement[1])
+    yield while_statement
 
 
+@transforms("FOREACH")
 def transform_foreach(foreach_statement):
     as_ = foreach_statement.get("EXPRESSIONGROUP").get("EXPRESSION").get("OPERATOR2")
     var = as_[0]
@@ -148,11 +158,11 @@ def transform_foreach(foreach_statement):
     for_node.append(var)
     for_node.append(in_)
     for_node.append(transform_php(foreach_statement[1]))
-    return [for_node]
+    yield for_node
 
 
+@transforms("SWITCH")
 def transform_switch(switch_statement):
-    out = []
     # Rearrange to have _switch_choice = <expression> so expression is only run once
     decide_ex = switch_statement.get("EXPRESSIONGROUP").get("EXPRESSION")
 
@@ -166,7 +176,7 @@ def transform_switch(switch_statement):
 
     assign_statement = ParseNode("STATEMENT", None)
     assign_statement.append(assign_ex)
-    out.append(assign_statement)
+    yield assign_statement
 
     # The contents of the switch will be rearranged into a whole series of elif
     contents = switch_statement.get("BLOCK")
@@ -179,22 +189,22 @@ def transform_switch(switch_statement):
         #print("??")
         if c.node_type == "CASE":
             #print("FOUND CASE")
-            out.append(transform_case(switch_var, c, i, extras))
+            yield transform_case(switch_var, c, i, extras)
             i += 1
             extras = []
         elif c.node_type == "DEFAULT":
-            out.append(transform_default(c, i))
+            yield transform_default(c, i)
             i += 1
         elif c.node_type == "CASEFALLTHROUGH":
             ctf_node = transform_case(switch_var, c, i, extras)
-            out.append(ctf_node)
+            yield ctf_node
             extras.append(ctf_node.get("EXPRESSION").get("COMPARATOR"))
             #raise TransformException("Implement new case type for " + c.node_type)
             i += 1
         elif c.node_type == "STATEMENT":
             # Probably a statement with a comment
+            # TODO: check for non comment
             pass
-    return out
 
 
 def transform_case(switch_var, case_node, i, extras):
@@ -233,51 +243,69 @@ def transform_default(default_node, i):
     return else_statement
 
 
+@transforms("CALLSPECIAL")
 def transform_callspecial(cs_node: ParseNode):
     if cs_node.value == "array":
-        return transform_array(cs_node)
+        yield from transform_array(cs_node)
     elif cs_node.value == "__dir__":
         # We don't need to transform_call if we are generating the argslist entirely ourselves
         cs_node.node_type = "CALL"
         cs_node.value = "dirname"
         add_argument(cs_node, ParseNode("IDENT", "__file__", token=cs_node.token))
-        return cs_node
+        yield cs_node
     else:
-        return transform_call(cs_node)
+        yield from transform_call(cs_node)
 
 
 def transform_call(call_node):
-    new_args = ParseNode("ARGSLIST", None, token=call_node.get("ARGSLIST").token)
-    for e in call_node.get("ARGSLIST"):
-        new_args.append(transform_expression(e))
-    call_node[0] = new_args
-    return call_node
+    transform_children(call_node.get("ARGSLIST"))
+    yield call_node
 
 
 def transform_array(array_node):
     i = 0
-    list_node = ParseNode("LIST", "[", token=array_node.token)
+    list_node = ParseNode("LIST", "[", token=array_node.token, parent=array_node)
     for e in array_node.get("ARGSLIST"):
         c = e[0]
         tuple_node = ParseNode("TUPLE", "(", token=c.token)
         if c.value == "=>":
-            tuple_node.append(transform_node(c[1]))
-            tuple_node.append(transform_node(c[0]))
+            tuple_node.append(transform_single_node(c[1]))
+            tuple_node.append(transform_single_node(c[0]))
         else:
             tuple_node.append(ParseNode("INT", i, token=c.token))
             tuple_node.append(c)
             i += 1
         list_node.append(tuple_node)
-    l_e = ParseNode("EXPRESSION", None)
+    l_e = ParseNode("EXPRESSION", "_list expression")
     l_e.append(list_node)
+    print("GOT ALIST NODE HOHOHO")
     array_node.get("ARGSLIST").children = [l_e]
-    return array_node
+    yield array_node
+
+
+@transforms("CLASS")
+def transform_class(class_node: ParseNode):
+    pdebug("T CLASS", class_node)
+
+    # TODO: Fix the inheritance etc for the class
+
+    # Fix the class contents up
+    class_node["BLOCK"] = transform_php(class_node["BLOCK"])
+    yield class_node
+
+
+@transforms("METHOD", "CLASSMETHOD")
+def transform_method(node):
+    args = node.get("ARGSLIST")
+    args.children.insert(0, ParseNode("VAR", value="self", parent=args, token=args.token))
+    yield node
 
 
 def add_argument(node: ParseNode, argument: ParseNode):
     """ Add an expression or another node as an argument to a call function
 
     Will wrap a non-expression argument up in an expression
+
     """
     if argument.node_type != "EXPRESSION":
         e = ParseNode("EXPRESSION", token=argument.token)
@@ -301,15 +329,5 @@ cast_map = {
 }
 
 
-MAGIC_CONSTANTS = ["__line__", "__file__", "__dir__", "__function__", "__class__",
-                   "__trait__", "__method__", "__namespace__"]
-
-
-transform_map = {
-    "OPERATOR1": transform_operator,
-    "OPERATOR2": transform_operator,
-    "BLOCK": transform_php,
-    "ATTR": transform_attr,
-    "EXPRESSION": transform_expression,
-    "CALLSPECIAL": transform_callspecial,
-}
+#MAGIC_CONSTANTS = ["__line__", "__file__", "__dir__", "__function__", "__class__",
+#                   "__trait__", "__method__", "__namespace__"]
