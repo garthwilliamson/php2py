@@ -16,6 +16,7 @@ magic_map = {
     "__file__": "p.f.get__file__(p, __file__)",
 }
 
+
 class CompileError(Exception):
     pass
 
@@ -44,9 +45,9 @@ class Compiler(object):
     def compile(self, tree=None):
         if tree is None:
             tree = self.tree
-        tree = transformer.transform(tree)
+        transformer.transform(tree)
 
-        for c in self.tree:
+        for c in tree:
             self.marshal(c)
 
         self.results = []
@@ -191,8 +192,9 @@ class Compiler(object):
     def function_compile(self, node):
         old_function = self.cur_function
         args = ["p"]
-        for v in node[0]:
-            args.append(self.var_compile(v[0]))
+        parsetree.print_tree(node)
+        for v in node["ARGSLIST"]:
+            args.append(self.marshal(v))
         self.cur_function = ["@phpfunc", "def {0}({1}):".format(node.value, ", ".join(args))]
         self.marshal(node[1])
         self.functions.append(self.cur_function)

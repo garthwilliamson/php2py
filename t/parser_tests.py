@@ -115,6 +115,23 @@ def php_t(f):
     return wrapper
 
 
+def compiled_class(f):
+    """ Wraps a function to parse and compile a class definition given as a doc string
+
+    Runs the class as a python object and supplies the parsetree as the first arg
+    and the class as the second it as the second argument of the function.
+
+    """
+
+    @wraps(f)
+    def wrapper(self, *args, **kwargs):
+        tree = parse_string(f.__doc__).get_tree()
+        compiled = self.compiler.compile(tree)
+        f(self, tree["PHP"]["CLASS"], compiled, *args, **kwargs)
+
+    return wrapper
+
+
 class SimpleTests(unittest.TestCase):
     def setUp(self):
         self.compiler = c.Compiler()
@@ -420,15 +437,15 @@ class SimpleTests(unittest.TestCase):
         <?php
         1 + 2 * 3 ^ 4 / 5 + 6;
         //((1 + (2 * 3)) ^ ((4 / 5) + 6))
-        //    a    b     c     d    e
+        //    a    b     cc    d    e
         """
         # print_tree(php_node)
         ex = php_node.get("STATEMENT").get("EXPRESSION")
-        c = ex[0]
-        self.assertEqual(c.value, "^")
-        e = c[0]
+        cc = ex[0]
+        self.assertEqual(cc.value, "^")
+        e = cc[0]
         self.assertEqual(e.value, "+")
-        a = c[1]
+        a = cc[1]
         self.assertEqual(a.value, "+")
         b = a[0]
         self.assertEqual(b.value, "*")
@@ -663,8 +680,8 @@ class SimpleTests(unittest.TestCase):
         fixed_class = transform_class(class_node)
         self.assertEqual(next(fixed_class).get("BLOCK").get("METHOD").get("ARGSLIST")[0].value, "self")
 
-    @php_t
-    def test_class_compilation(self, php_node):
+    @compiled_class
+    def test_class_compilation(self, class_node, cc):
         """ A class with a static classmethod in it
         <?php
         class TestClass2
@@ -677,11 +694,12 @@ class SimpleTests(unittest.TestCase):
             }
         }
         """
-        # print_tree(php_node)
-
+        print_tree(class_node)
+        print(cc)
+        self.assertTrue(False)
         # r = self.compiler.compile(php_node)
         # print(r)
-        pass
+
 
 
 if __name__ == "__main__":
