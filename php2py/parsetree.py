@@ -5,6 +5,10 @@ class ParseTreeError(Exception):
     pass
 
 
+class NoMatchesError(ParseTreeError):
+    pass
+
+
 next_id = 0
 def get_next_id():
     global next_id
@@ -28,6 +32,7 @@ class ParseNode(object):
             raise ParseTreeError("Expected a node, saw a {} as a child of {}".format(node, self))
         self.children.append(node)
         node.parent = self
+        return node
 
     def to_list(self):
         if len(self.children) > 0:
@@ -89,6 +94,60 @@ class ParseNode(object):
                 new_children.append(self.children[i])
         self.children = new_children
 
+    def match(self, match_str: str):
+        """ Takes a forwardslash delimited string and returns the node matching
+
+        Examples:
+            match("PHP*") - returns all children of this node of node_type "PHP"
+            match("PHP/FUNCTION*/BLOCK") - Tries to return all blocks of functions which are children
+                                          of the first PHP child of this node
+            match("FUNCTION|body/BLOCK") - Tries to return the BLOCK of the function which is a child
+                                           of this node and is called "body"
+
+        Returns:
+            Either a single ParseNode object if no * is specified or a list if * is.
+        """
+        next_match = None
+        this_match = match_str
+        try:
+            this_match, next_match = match_str.split("/", 1)
+        except ValueError:
+            pass
+        child_name = None
+        single = this_match[-1] != "*"
+        if not single:
+            this_match = this_match[:-1]
+        try:
+            this_match, child_name = this_match.split("|")
+        except ValueError:
+            pass
+        # print("Matching {},{} {} times.".format(this_match, child_name, "one" if single else "many"))
+        matches = []
+        for c in self.get_all(this_match, child_name):
+            child_matched = c
+            if next_match is not None:
+                # Look deeper
+                try:
+                    child_matched = c.match(next_match)
+                except NoMatchesError:
+                    child_matched = None
+            if child_matched is not None:
+                if single:
+                    return child_matched
+                else:
+                    matches.append(child_matched)
+        if len(matches) == 0:
+            raise NoMatchesError()
+        return matches
+
+    def get_all(self, node_type: str, node_name:str=None) -> 'ParseNode':
+        for c in self.children:
+            if node_name is None:
+                if c.node_type == node_type:
+                    yield c
+            else:
+                if c.node_type == node_type and str(c.value) == node_name:
+                    yield c
 
 class ParseTree(object):
     def __init__(self, name):

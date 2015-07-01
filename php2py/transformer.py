@@ -25,10 +25,39 @@ class TransformException(Exception):
     pass
 
 
-def transform(root_node):
-    for n in root_node:
-        if n.node_type == "PHP":
-            transform_php(n)
+def transform(root_node: ParseNode):
+    functions = []
+    classes = []
+    body_function = ParseNode("FUNCTION", "body")
+    body_function.append(ParseNode("ARGSLIST"))
+    add_argument(body_function, ParseNode("IDENT", "p"))
+    block = ParseNode("BLOCK")
+    body_function.append(block)
+
+    for tln in root_node:
+        pdebug("Transforming top level node {}".format(tln))
+        if tln.node_type == "PHP":
+            pdebug("T PHP")
+            for php_child in tln:
+                for n in transform_node(php_child):
+                    if n.node_type == "FUNCTION":
+                        functions.append(n)
+                    elif n.node_type == "CLASS":
+                        classes.append(n)
+                    else:
+                        block.append(n)
+        else:
+            pdebug("T HTML")
+            # TODO: Change to a call to "echo" here
+            block.append(tln)
+
+    # TODO: Maybe change this so that the body function is generated in transform2 stage. This would let you possibly
+    # use jinja2 instead if you wanted.
+    functions.append(body_function)
+    out = []
+    out += functions
+    out += classes
+    root_node.children = out
 
 
 def transform_node(node):
@@ -52,18 +81,18 @@ def transform_children(node):
     node.children = new_children
 
 
-@transforms("PHP", "BLOCK")
-def transform_php(php_node):
-    pdebug("T PHP", php_node)
-    transform_children(php_node)
-    return php_node
+@transforms("BLOCK")
+def transform_block(block_node):
+    pdebug("T BLOCK", block_node)
+    transform_children(block_node)
+    return block_node
 
 
 def transform_statement(statement_node: ParseNode):
     pdebug("T STATEMENT", statement_node)
     if statement_node.node_type in transform_map:
         yield from transform_map[statement_node.node_type](statement_node)
-    elif statement_node[0].node_type =="EXPRESSION":
+    elif statement_node[0].node_type == "EXPRESSION":
         transform_expression(statement_node[0])
         yield statement_node
     else:
@@ -122,7 +151,7 @@ def transform_if(if_statement):
 
     if_op = if_statement.get("EXPRESSIONGROUP").get("EXPRESSION")[0]
     if_op = transform_single_node(if_op)
-    #TODO: This probably only deals with the most basic cases. Need to go down tree and extract all assignments.
+    # TODO: This probably only deals with the most basic cases. Need to go down tree and extract all assignments.
     if if_op.node_type == "ASSIGNMENT":
         assign_statement = ParseNode("STATEMENT", None, token=if_op.token)
         assign_ex = ParseNode("EXPRESSION", None, token=if_op.token)
@@ -157,7 +186,7 @@ def transform_foreach(foreach_statement):
     for_node = ParseNode("PYFOR", "for", token=foreach_statement.token)
     for_node.append(var)
     for_node.append(in_)
-    for_node.append(transform_php(foreach_statement[1]))
+    for_node.append(transform_block(foreach_statement[1]))
     yield for_node
 
 
@@ -184,11 +213,7 @@ def transform_switch(switch_statement):
     i = 0
     extras = []
     for c in contents:
-        #print("??")
-        #print_tree(c)
-        #print("??")
         if c.node_type == "CASE":
-            #print("FOUND CASE")
             yield transform_case(switch_var, c, i, extras)
             i += 1
             extras = []
@@ -199,7 +224,7 @@ def transform_switch(switch_statement):
             ctf_node = transform_case(switch_var, c, i, extras)
             yield ctf_node
             extras.append(ctf_node.get("EXPRESSION").get("COMPARATOR"))
-            #raise TransformException("Implement new case type for " + c.node_type)
+            # raise TransformException("Implement new case type for " + c.node_type)
             i += 1
         elif c.node_type == "STATEMENT":
             # Probably a statement with a comment
@@ -232,14 +257,16 @@ def transform_case(switch_var, case_node, i, extras):
     else:
         if_ex.append(comp)
     if_statement.append(if_ex)
-    if_statement.append(transform_php(case_node.get("BLOCK")))
+    if_statement.append(transform_block(case_node.get("BLOCK")))
     return if_statement
 
 
 def transform_default(default_node, i):
     if i > 0:
         else_statement = ParseNode("ELSE", "else", token=default_node.token)
-    else_statement.append(transform_php(default_node.get("BLOCK")))
+    else:
+        raise TransformException("Something unknown went wrong")
+    else_statement.append(transform_block(default_node.get("BLOCK")))
     return else_statement
 
 
@@ -283,6 +310,20 @@ def transform_array(array_node):
     yield array_node
 
 
+@transforms("FUNCTION")
+def transform_function(function_node: ParseNode):
+    pdebug("T FUNCTION")
+    transform_children(function_node["ARGSLIST"])
+    transform_children(function_node["BLOCK"])
+    yield function_node
+    # TODO: Highly cheating - need to make an attr access properly instead
+    attr_node = ParseNode("VAR", "p.f.{}".format(function_node.value))
+    assign_node = ParseNode("ASSIGNMENT", "=")
+    assign_node.append(attr_node)
+    assign_node.append(ParseNode("VAR",function_node.value))
+    yield assign_node
+
+
 @transforms("CLASS")
 def transform_class(class_node: ParseNode):
     pdebug("T CLASS", class_node)
@@ -290,7 +331,7 @@ def transform_class(class_node: ParseNode):
     # TODO: Fix the inheritance etc for the class
 
     # Fix the class contents up
-    class_node["BLOCK"] = transform_php(class_node["BLOCK"])
+    class_node["BLOCK"] = transform_block(class_node["BLOCK"])
     yield class_node
 
 
@@ -325,9 +366,9 @@ cast_map = {
     "(string)": "str",
     "(array)": "list",
     "(object)": "object",
-    "(unset)": None,    #TODO: unset should be not so shit. Use "del"
+    "(unset)": None,    # TODO: unset should be not so shit. Use "del"
 }
 
 
-#MAGIC_CONSTANTS = ["__line__", "__file__", "__dir__", "__function__", "__class__",
+# MAGIC_CONSTANTS = ["__line__", "__file__", "__dir__", "__function__", "__class__",
 #                   "__trait__", "__method__", "__namespace__"]
