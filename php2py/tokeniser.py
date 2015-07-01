@@ -78,7 +78,12 @@ class Tokeniser(object):
                 #print("\033[94m" + repr(self.line) + "\n" + " " * (self.cursor + 2) + "^----")
                 if self.cursor >= len(self.line):
                     try:
+                        blankline = False
+                        if len(self.line.strip()) == 0:
+                            blankline = True
                         self.next_line()
+                        if blankline:
+                            return Token(self.line_number, 0, "\n", "BLANKLINE")
                     except StopIteration:
                         return Token(self.line_number + 1, 0, "EOF", "PHPEND")
             if self.match_for(php_end):

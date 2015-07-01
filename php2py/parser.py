@@ -94,7 +94,7 @@ class Parser(object):
             print(" " * self.debug_indent + str(s))
         self.debug_indent += i_change
 
-    def next(self):
+    def next(self) -> tokeniser.Token:
         self.current = self.tokens.next()
         #print("NEXT:" + str(self.current))
         self.pdebug("^^^^^^^" + str(self.current))
@@ -315,6 +315,8 @@ class PhpParser(Parser):
             statement = self.parse_function()
         elif self.peek().kind == "CLASS":
             statement = self.parse_class()
+        elif self.peek().kind == "BLANKLINE":
+            statement = self.parse_blankline()
         elif self.peek().kind == "METHODMOD":
             static = False
             visibility = "public"
@@ -684,8 +686,10 @@ class PhpParser(Parser):
         return self.pt.new("INT", int(int_token.val))
 
     def parse_newline(self):
-        self.next()
-        return self.pt.new("NEWLINE", "\n")
+        t = self.next()
+        return self.pt.new("NOOP", "\n", t)
+
+    parse_blankline = parse_newline
 
     def parse_ident(self, ident, bare=False):
         """ Parse an identifier. bare indicates that this isn't part of a variable or anything.

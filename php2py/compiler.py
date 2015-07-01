@@ -193,6 +193,11 @@ class Compiler(object):
     def html_compile(self, node: parsetree.ParseNode) -> str:
         return self.echo(repr(node.value))
 
+    def noop_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
+        cs = CompiledSegment()
+        cs.br()
+        return cs
+
     def while_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
         seg.append("while {0}:".format(self.marshal(node[0][0])))

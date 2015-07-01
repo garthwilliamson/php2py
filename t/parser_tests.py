@@ -208,6 +208,19 @@ class ParserTests(Php2PyTestCase):
         self.assertEqual(function_call.value, "foo")
 
     @parse_t
+    def test_blank_lines(self, root_node):
+        """ Php block with a blank line in it
+        <?php
+        echo("Before blank");
+
+        echo("After blank");
+        """
+        print_tree(root_node)
+        php_node = root_node.get("PHP")
+        self.assertEcho(php_node[0], "Before blank")
+        self.assertEqual("NOOP", php_node[1].node_type)
+
+    @parse_t
     def test_scope(self, root_node):
         """Scopes
         <?php
@@ -485,7 +498,7 @@ class ParserTests(Php2PyTestCase):
         <?php
         class TestClass
         {
-
+            $a;
         }
         """
         # print_tree(root_node)

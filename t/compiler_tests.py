@@ -43,6 +43,20 @@ class CompilerTests(Php2PyTestCase):
         cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
         self.assertEqual('p.f.a(p, u"B", p.constants.C, p.g.d)', cs)
 
+    @parse_t
+    def test_blank_line(self, root_node):
+        """ Php block with a blank line in it
+        <?php
+        echo("Before blank");
+
+        echo("After blank");
+        """
+        transformer.transform(root_node)
+        main = self.compiler.block_compile(get_body(root_node))
+        from pprint import pprint
+        pprint(main.lines)
+        self.assertEqual("", main[2].strip())
+
     #@compiled_class
     #def test_class_compilation(self, class_node, cc):
         """ A class with a static classmethod in it
