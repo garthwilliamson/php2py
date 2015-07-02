@@ -32,11 +32,12 @@ class CompilerTests(Php2PyTestCase):
         wc = self.compiler.while_compile(get_body(root_node).get("WHILE"))
         self.assertEqual("while (p.g.a == p.g.b):", wc[-2])
 
+    # TODO: Can valid php end a php block without a semicolon?
     @parse_t
     def test_call(self, root_node):
         """ Simple multi argument call
         <?php
-        a("B", C, $d)
+        a("B", C, $d);
         """
         transformer.transform(root_node)
         print_tree(root_node)

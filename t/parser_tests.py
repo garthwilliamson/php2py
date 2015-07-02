@@ -264,7 +264,7 @@ class ParserTests(Php2PyTestCase):
         comment_node2 = php_node[1].comments[0]
         self.assertEqual(comment_node2.value, "In band comment")
         comment_node3 = php_node[2].comments[0]
-        self.assertEqual(comment_node3.value, "/* Big groupy comment")
+        self.assertEqual(comment_node3.value, "/* Big groupy comment\n")
         comment_node4 = php_node[2].comments[1]
         self.assertEqual(comment_node4.value[-2:], "*/")
         comment_node5 = php_node[4].comments[0]

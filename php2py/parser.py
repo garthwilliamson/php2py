@@ -140,7 +140,7 @@ class Parser(object):
             raise ExpectedCharError(kind + ":" + value, self.current)
         if value is not None and t.val != value:
             raise ExpectedCharError(kind + ":" + value, self.current)
-
+        return t
 
 operator_map = {
     #OP:        (ARITY,    PREC, ASSOC)
@@ -278,7 +278,7 @@ class PhpParser(Parser):
             #print("FOUND HTML")
             contents += t.val
         if len(contents) > 0:
-            self.pdebug("FOUND HTML CONTENTS")
+            self.pdebug("FOUND HTML CONTENTS. APPENDING NOW")
             self.pt.append("HTML", contents)
         else:
             pass
@@ -291,8 +291,7 @@ class PhpParser(Parser):
 
     def parse_php(self):
         self.pdebug("PHP:", 4)
-        self.assert_next("PHPSTART")
-        php_node = self.pt.new("PHP", None)
+        php_node = self.pt.new("PHP", None, self.assert_next("PHPSTART"))
         for t in self.peek_until(PHPEND):
             self.next_non_white()
             php_node.append(self.parse_statement())
@@ -685,7 +684,10 @@ class PhpParser(Parser):
             return self.pt.new("OCT", int_token.val[1:])
         return self.pt.new("INT", int(int_token.val))
 
-    def parse_newline(self):
+    def parse_newline(self, t=None):
+        if t is not None:
+            # If t isn't none, then this was called from within an expression
+            return None
         t = self.next()
         return self.pt.new("NOOP", "\n", t)
 
