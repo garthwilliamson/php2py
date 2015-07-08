@@ -231,9 +231,9 @@ class Compiler(object):
 
     def while_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
-        seg.append("while {0}:".format(self.marshal_str(node[0][0])))
+        seg.append("while {0}:".format(self.expression_compile_str(node["EXPRESSIONGROUP"]["EXPRESSION"])))
         seg.indent()
-        seg.append(self.marshal(node[1]))
+        seg.append(self.block_compile(node["BLOCK"]))
         seg.dedent()
         return seg
 
@@ -264,7 +264,7 @@ class Compiler(object):
 
     def pyfor_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
-        seg.append("for {} in {}:".format(self.marshal(node[0]), self.marshal(node[1])))
+        seg.append("for {} in {}:".format(self.marshal_str(node[0]), self.marshal_str(node[1])))
         seg.indent()
         seg.append(self.marshal(node[2]))
         seg.dedent()
@@ -279,7 +279,7 @@ class Compiler(object):
         seg.append("@phpfunc")
         seg.append("def {0}({1}):".format(node.value, ", ".join(args)))
         seg.indent()
-        seg.append(self.marshal(node[1]))
+        seg.append(self.marshal(node["BLOCK"]))
         seg.dedent()
         return seg
 
@@ -377,7 +377,7 @@ class Compiler(object):
 
     def staticattr_compile_str(self, node):
         """ Static attr should change references to self etc to the proper class name..."""
-        return "p.c.{}.{}".format(self.marshal(node[1]), self.marshal(node[0]))
+        return "p.c.{}.{}".format(self.marshal(node[1]), self.marshal(t 0]))
 
     def constant_compile_str(self, node):
         # TODO: Contants might need further thought

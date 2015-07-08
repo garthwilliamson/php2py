@@ -168,6 +168,8 @@ class ParserTests(Php2PyTestCase):
         """
         while_node = root_node.get("PHP")[0]
         self.assertEqual(while_node.node_type, "WHILE")
+        expr_node = while_node["EXPRESSIONGROUP"]["EXPRESSION"]
+        self.assertContainsNode(expr_node, "OPERATOR2")
         echo_world_statement = root_node.get("PHP")[1]
         self.assertEcho(echo_world_statement, "world")
 
