@@ -390,7 +390,8 @@ class ParserTests(Php2PyTestCase):
         i = b[0]
         self.assertEqual(i.value, 3)
 
-        self.assertEqual(self.compiler.expression_compile(ex), "((1 + (2 * 3)) ^ ((4 / 5) + 6))")
+        # TODO: Move to compiler_tests
+        self.assertEqual(self.compiler.expression_compile_str(ex), "((1 + (2 * 3)) ^ ((4 / 5) + 6))")
 
     @parse_t
     def test_array_lookups(self, root_node):

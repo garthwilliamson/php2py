@@ -61,7 +61,8 @@ class TransformerTests(Php2PyTestCase):
         self.assertEqual(l[0].node_type, "TUPLE")
         self.assertEqual(l[0][0].node_type, "STRING")
         self.assertEqual(l[0][1].node_type, "INT")
-        self.assertEqual(self.compiler.expression_compile(ex), 'p.g.a = array(p, [(u"b", 1), (u"c", 2)])')
+        # TODO: Move to compiler tests
+        self.assertEqual(self.compiler.expression_compile_str(ex), 'p.g.a = array(p, [(u"b", 1), (u"c", 2)])')
 
     @parse_t
     def test_assign_in_if(self, root_node):
