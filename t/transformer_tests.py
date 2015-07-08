@@ -123,3 +123,39 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(statements[0], "COMMENTLINE")
         self.assertContainsNode(statements[1], "COMMENTLINE")
         self.assertContainsNode(statements[1], "EXPRESSION")
+
+    @parse_t
+    def test_foreach(self, root_node):
+        """ Test foreach statement
+        <?php
+        foreach ($parameters as $key) {
+             $key;
+        }
+        """
+        print_tree(root_node)
+        transformer.transform(root_node)
+        print_tree(root_node)
+        bod = get_body(root_node)
+        for_node = bod["PYFOR"]
+
+        self.assertContainsNode(for_node, "EXPRESSION")
+        self.assertContainsNode(for_node, "GLOBALVAR|key")  # foreach is at global or function scope
+        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/GLOBALVAR")
+
+    @parse_t
+    def test_foreach_tricky(self, root_node):
+        """ Test foreach statement
+        <?php
+        foreach ($parameters as $key => $value) {
+             $key;
+        }
+        """
+        print_tree(root_node)
+        transformer.transform(root_node)
+        print_tree(root_node)
+        bod = get_body(root_node)
+        for_node = bod["PYFOR"]
+
+        self.assertContainsNode(for_node, "EXPRESSION")
+        self.assertContainsNode(for_node, "ARGSLIST/GLOBALVAR")  # foreach is at global or function scope
+        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/GLOBALVAR")

@@ -81,7 +81,6 @@ def transform_children(node):
     node.children = new_children
 
 
-@transforms("BLOCK")
 def transform_block(block_node):
     pdebug("T BLOCK", block_node)
     transform_children(block_node)
@@ -179,13 +178,41 @@ def transform_while(while_statement):
 
 
 @transforms("FOREACH")
-def transform_foreach(foreach_statement):
-    as_ = foreach_statement.get("EXPRESSIONGROUP").get("EXPRESSION").get("OPERATOR2")
+def transform_foreach(foreach_statement: ParseNode):
+    pdebug("T FOREACH")
+    """ Transform key=>value loop into
+
+    for k, v in dict.items():
+        body
+
+    Transform plain foreach into
+    PYFOR:
+        VAR: A
+        EXPR: B
+        BLOCK: C
+
+    to be compiled as
+    for A in B:
+        C
+
+    """
+    as_ = foreach_statement.match("EXPRESSIONGROUP/EXPRESSION/OPERATOR2")
     var = as_[0]
     in_ = as_[1]
+
+    expr = ParseNode("EXPRESSION")
+    if var.value == "=>":
+        items = ParseNode("CALL", "items")
+        method_call = ParseNode("OPERATOR2", ".")
+        method_call.append(in_)
+        method_call.append(items)
+        expr.append(method_call)
+        var.node_type = "ARGSLIST"
+    else:
+        expr.append(in_)
     for_node = ParseNode("PYFOR", "for", token=foreach_statement.token)
     for_node.append(var)
-    for_node.append(in_)
+    for_node.append(expr)
     for_node.append(transform_block(foreach_statement[1]))
     yield for_node
 

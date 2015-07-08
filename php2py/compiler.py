@@ -278,7 +278,7 @@ class Compiler(object):
 
     def function_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
-        args = ["p"]
+        args = []
         parsetree.print_tree(node)
         for v in node["ARGSLIST"]:
             args.append(self.marshal_str(v))
