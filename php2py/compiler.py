@@ -377,7 +377,7 @@ class Compiler(object):
 
     def staticattr_compile_str(self, node):
         """ Static attr should change references to self etc to the proper class name..."""
-        return "p.c.{}.{}".format(self.marshal(node[1]), self.marshal(t 0]))
+        return "p.c.{}.{}".format(self.marshal(node[1]), self.marshal(node[0]))
 
     def constant_compile_str(self, node):
         # TODO: Contants might need further thought
