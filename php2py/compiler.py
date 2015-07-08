@@ -188,12 +188,16 @@ class Compiler(object):
 
         """
         try:
-            return getattr(self, node.node_type.lower() + "_compile")(node)
+            res = getattr(self, node.node_type.lower() + "_compile")(node)
+            if not isinstance(res, CompiledSegment):
+                raise TypeError(node.node_type.lower() + "_compile methods should return a CompiledSegment")
+            return res
         except TypeError:
             print("Tried to compile...")
             parsetree.print_tree(node)
             print("...but failed")
-            raise  # CompileError("Probably something isn't returning a string when it should", e)
+            print("Original token was {}".format(node.token))
+            raise CompileError() # CompileError("Probably something isn't returning a string when it should", e)
         except AttributeError:
             print("Tried to compile {}...".format(node.token))
             parsetree.print_tree(node)
@@ -202,7 +206,9 @@ class Compiler(object):
 
     def marshal_str(self, node: parsetree.ParseNode) -> str:
         try:
-            return getattr(self, node.node_type.lower() + "_compile_str")(node)
+            res = getattr(self, node.node_type.lower() + "_compile_str")(node)
+            assert isinstance(res, str)
+            return res
         except TypeError:
             print("Tried to compile...")
             parsetree.print_tree(node)
@@ -291,11 +297,11 @@ class Compiler(object):
         seg.dedent()
         return seg
 
-    def classmethod_compile(self, node):
+    def classmethod_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         # TODO: This is wrong - we should do _most_ of the function compile, but not the adding to php functions bit
         return self.function_compile(node)
 
-    def method_compile(self, node):
+    def method_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         # TODO: Ditto
         return self.function_compile(node)
 
@@ -471,7 +477,7 @@ class Compiler(object):
     def expressiongroup_compile_str(self, node):
         return "({})".format(", ".join([self.marshal_str(c) for c in node]))
 
-    def try_compile(self, node):
+    def try_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
         seg.append("try:")
         seg.indent()
@@ -491,9 +497,5 @@ class Compiler(object):
             seg.dedent()
         return seg
 
-    def switch_compile(self, node):
-        # TODO: Transform switch statements. Probably mostly already done.
-        pass
-
-    def cast_compile_str(self, node):
+    def cast_compile_str(self, node: parsetree) -> CompiledSegment:
         return "{}({})".format(node.value, self.marshal_str(node[0]))
