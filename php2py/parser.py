@@ -283,12 +283,6 @@ class PhpParser(Parser):
         else:
             pass
 
-    def parse_blockcomment(self):
-        contents = ""
-        for t in self.next_while_kind(("BLOCKCOMMENT",)):
-            contents += t.val
-        return self.pt.new("BLOCKCOMMENT", contents)
-
     def parse_php(self):
         self.pdebug("PHP:", 4)
         php_node = self.pt.new("PHP", None, self.assert_next("PHPSTART"))
@@ -732,8 +726,7 @@ class PhpParser(Parser):
         return i
 
     def parse_comment(self, comment_token):
-        #TODO: change to chop off first chars
         if comment_token.kind == "COMMENTLINE":
             return self.pt.new("COMMENTLINE", value=comment_token.val[2:])
         else:
-            return self.pt.new("COMMENTBLOCK", value=comment_token.val)
+            return self.pt.new("COMMENTBLOCK", value=comment_token.val.strip(" \t\r\n*/"))

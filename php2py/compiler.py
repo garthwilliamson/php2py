@@ -72,7 +72,7 @@ class CompiledSegment(object):
         pprint(self.lines)
         for l, i in self.lines:
             print(l, i)
-            out += "    " * i + l
+            out += "    " * i + l + "\n"
         return out
 
     def __iter__(self):
@@ -282,7 +282,7 @@ class Compiler(object):
         parsetree.print_tree(node)
         for v in node["ARGSLIST"]:
             args.append(self.marshal_str(v))
-        seg.append("@phpfunc")
+        #seg.append("@phpfunc")
         seg.append("def {0}({1}):".format(node.value, ", ".join(args)))
         seg.indent()
         seg.append(self.marshal(node["BLOCK"]))
@@ -441,20 +441,12 @@ class Compiler(object):
         # Should do something about putting comments on the end of a line properly
         if self.strip_comments:
             return ""
-        if node.parent.node_type in ("STATEMENT", "EXPRESSION"):
-            return "#" + node.value + "\n"
-        else:
-            return "#" + node.value
+        return "#" + node.value
 
     def commentblock_compile_str(self, node):
-        # TODO: Note that we don't deal with comments inline very well. Should strip them if they are in the
-        # wrong place
         if self.strip_comments:
             return ""
-        if node.parent.node_type in ("STATEMENT", "EXPRESSION"):
-            return '"""{}"""\n'.format(node.value)
-        else:
-            return '"""{}"""\n'.format(node.value)
+        return '"""{}"""'.format(node.value)
 
     def magic_compile_str(self, node):
         if node.value not in magic_map:
