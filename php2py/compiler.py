@@ -331,7 +331,7 @@ class Compiler(object):
         return self._call_inner_compile(node)
 
     def keyvalue_compile_str(self, node: parsetree.ParseNode, assign=": ") -> str:
-        if len(node.children) != 2:
+        if len(node) != 2:
             parsetree.print_tree(node.parent)
             raise CompileError("Keyvalues must have more than one child")
         return self.marshal_str(node[0]) + assign + self.marshal_str(node[1])
@@ -349,15 +349,15 @@ class Compiler(object):
         # print("Compiling expression")
         # print("from")
         # parsetree.print_tree(node)
-        if len(node.children) == 0:
+        if len(node) == 0:
             return ""
         r = "".join([self.marshal_str(c) for c in node]).lstrip()
         return r
 
     def var_compile_str(self, node: parsetree.ParseNode) -> str:
         sub_var = ""
-        if len(node.children) > 0:
-            sub_var = self.subvar_compile_str(node.children[0])
+        if len(node) > 0:
+            sub_var = self.subvar_compile_str(node[0])
         return python_safe(node.value) + sub_var
 
     def subvar_compile_str(self, node: parsetree.ParseNode) -> str:
@@ -373,11 +373,11 @@ class Compiler(object):
         return "{}[{}]".format(self.marshal(node[1]), self.marshal(node[0]))
 
     def attr_compile_str(self, node):
-        return "{}.{}".format(self.marshal(node.children[1]), self.marshal(node.children[0]))
+        return "{}.{}".format(self.marshal(node[1]), self.marshal(node[0]))
 
     def staticattr_compile_str(self, node):
         """ Static attr should change references to self etc to the proper class name..."""
-        return "p.c.{}.{}".format(self.marshal(node.children[1]), self.marshal(node.children[0]))
+        return "p.c.{}.{}".format(self.marshal(node[1]), self.marshal(node[0]))
 
     def constant_compile_str(self, node):
         # TODO: Contants might need further thought
@@ -391,13 +391,13 @@ class Compiler(object):
 
     def block_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
-        for c in node.children:
+        for c in node:
             seg.append(self.marshal(c))
         return seg
 
     def string_compile_str(self, node):
         fmt = ""
-        if len(node.children) > 0:
+        if len(node) > 0:
             fmt = ".format({})".format(", ".join([v.value for v in node]))
         return 'u"' + node.value + '"' + fmt
 
@@ -414,7 +414,7 @@ class Compiler(object):
         return "{} ({})".format(node.value, self.marshal_str(node[0]))
 
     def statement_compile(self, node) -> CompiledSegment:
-        if len(node.children) != 0:
+        if len(node) != 0:
             # for n in node:
             # print(n)
             cs = CompiledSegment()
@@ -469,7 +469,7 @@ class Compiler(object):
         return "[" + ", ".join(self.marshal_str(c) for c in node) + "]"
 
     def expressiongroup_compile_str(self, node):
-        return "({})".format(", ".join([self.marshal_str(c) for c in node.children]))
+        return "({})".format(", ".join([self.marshal_str(c) for c in node]))
 
     def try_compile(self, node):
         seg = CompiledSegment()
