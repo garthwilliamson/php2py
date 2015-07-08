@@ -351,7 +351,9 @@ class PhpParser(Parser):
                     self.next()
                 if self.peek().kind == "COMMENTLINE" and self.tokens.line_number == cur_line:
                     self.comments.append(self.parse_comment(self.next()))
-        statement.comments = self.comments
+        # Now we've collected all the comments, append them to the statement
+        for c in self.comments:
+            statement.append(c)
         self.pdebug("STATEMENT END")
         self.debug_indent -= 4
         return statement

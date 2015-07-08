@@ -107,3 +107,19 @@ class TransformerTests(Php2PyTestCase):
         """
         transformer.transform(root_node)
         self.assertContainsNode(get_body(root_node), "STATEMENT/EXPRESSION/ASSIGNMENT|=")
+
+    @parse_t
+    def test_comments(self, root_node):
+        """ Test single line comments
+        <?php
+        // Comment 1
+        $a = 1; // Comment 2
+        """
+        print_tree(root_node)
+        transformer.transform(root_node)
+        bod = get_body(root_node)
+        print_tree(root_node)
+        statements = bod.match("STATEMENT*")
+        self.assertContainsNode(statements[0], "COMMENTLINE")
+        self.assertContainsNode(statements[1], "COMMENTLINE")
+        self.assertContainsNode(statements[1], "EXPRESSION")

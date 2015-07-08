@@ -259,17 +259,17 @@ class ParserTests(Php2PyTestCase):
         $a = 2; /* groupy comment on line */ $b=3;
 
         """
-        # print_tree(root_node)
+        print_tree(root_node)
         php_node = root_node.get("PHP")
-        comment_node = php_node[0]
-        self.assertEqual(comment_node.comments[0].value, " Out of band comment")
-        comment_node2 = php_node[1].comments[0]
+        comment_node = php_node[0]["COMMENTLINE"]
+        self.assertEqual(comment_node.value, " Out of band comment")
+        comment_node2 = php_node[1]["COMMENTLINE"]
         self.assertEqual(comment_node2.value, "In band comment")
-        comment_node3 = php_node[2].comments[0]
+        comment_node3 = php_node[2]["COMMENTBLOCK"]
         self.assertEqual(comment_node3.value, "/* Big groupy comment\n")
-        comment_node4 = php_node[2].comments[1]
+        comment_node4 = php_node[2][1]
         self.assertEqual(comment_node4.value[-2:], "*/")
-        comment_node5 = php_node[4].comments[0]
+        comment_node5 = php_node[4]["COMMENTBLOCK"]
         self.assertEqual(comment_node5.value, "/* groupy comment on line */")
 
     def test_new(self):
@@ -446,7 +446,7 @@ class ParserTests(Php2PyTestCase):
         """
         if_s = root_node.get("PHP")[0]
         comment_s = if_s[1][0]
-        self.assertEqual(comment_s.comments[0].node_type, "COMMENTLINE")
+        self.assertEqual(comment_s[0].node_type, "COMMENTLINE")
 
     def test_dynamic_class_creation(self):
         parse_string(dynamic_class_creation, False).get_tree()
