@@ -203,6 +203,7 @@ def transform_foreach(foreach_statement: ParseNode):
     expr = ParseNode("EXPRESSION")
     if var.value == "=>":
         items = ParseNode("CALL", "items")
+        items.append(ParseNode("ARGSLIST"))
         method_call = ParseNode("OPERATOR2", ".")
         method_call.append(in_)
         method_call.append(items)

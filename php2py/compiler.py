@@ -235,6 +235,9 @@ class Compiler(object):
         cs.br()
         return cs
 
+    def noop_compile_str(self, _) -> str:
+        return ""
+
     def while_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
         seg.append("while {0}:".format(self.expression_compile_str(node["EXPRESSIONGROUP"]["EXPRESSION"])))
@@ -381,14 +384,14 @@ class Compiler(object):
         return node.value
 
     def index_compile_str(self, node):
-        return "{}[{}]".format(self.marshal(node[1]), self.marshal(node[0]))
+        return "{}[{}]".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
 
     def attr_compile_str(self, node):
-        return "{}.{}".format(self.marshal(node[1]), self.marshal(node[0]))
+        return "{}.{}".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
 
     def staticattr_compile_str(self, node):
         """ Static attr should change references to self etc to the proper class name..."""
-        return "p.c.{}.{}".format(self.marshal(node[1]), self.marshal(node[0]))
+        return "p.c.{}.{}".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
 
     def constant_compile_str(self, node):
         # TODO: Contants might need further thought
@@ -494,5 +497,8 @@ class Compiler(object):
             seg.dedent()
         return seg
 
-    def cast_compile_str(self, node: parsetree) -> CompiledSegment:
+    def cast_compile_str(self, node: parsetree.ParseNode) -> str:
         return "{}({})".format(node.value, self.marshal_str(node[0]))
+
+    def argslist_compile_str(self, node: parsetree.ParseNode) -> str:
+        return ", ".join([self.marshal_str(child) for child in node])
