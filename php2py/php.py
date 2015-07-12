@@ -6,68 +6,6 @@ from . import phpfunctions
 from .exceptions import *
 
 
-def php_func(f):
-    """ Wrap a function f in a context. F should take a scope as its first argument
-
-    Args:
-        f: The function to wrap
-
-    Returns:
-        the functions wrapped
-    """
-    @wraps(f)
-    def wrapper(p, *args, **kwargs):
-        """ The wrapper function. Instantiates a sub-scope of p (the calling scope)
-
-        """
-        p2 = PhpContext(p.app, p.f, p.c, i=p.i)
-        try:
-            return f(p2, *args, **kwargs)
-        except PhpWarning as e:
-            # TODO: Check for a global warning should error
-            print(e)
-            return None
-    return wrapper
-
-
-class PhpContext(object):
-    def __init__(self, app, f=None, c=None, i=None):
-        """ Initialise a new php context
-
-        Args:
-            app: A wsgi application object
-            f: A php_var object which contains the functions
-            c: A php_var object for containing classes
-            l: A php_var object for containing locals
-            g: A php_var object for containing Globals
-            i: A dict with lists of files already imported
-
-        If f is set to None, assume this is the top level instantiation and create all the other variables
-
-        If l is set to something other than None,
-        """
-        self.g = app.g
-        self.constants = app.constants
-        self.app = app
-
-        if f is None:
-            # At the top level, f should hold all the available php functions
-            f = PhpFunctions()
-            # c should hold all the classes
-            c = PhpClasses()
-            # There are no imports yet
-            i = {}
-            # And I _think_ locals are the same as globals here
-            l = self.g
-        else:
-            # Everywhere except global scope, locals are locals!
-            l = PhpVars()
-        self.f = f
-        self.c = c
-        self.l = l
-        self.i = i
-
-
 class PhpVars(object):
     def __getattr__(self, name):
         """ Apparently getattr is called after first searching to see if there is already an attribute attr
@@ -81,7 +19,7 @@ class PhpVars(object):
 class PhpFunctions(PhpVars):
     def __init__(self):
         for fname, f in phpfunctions.functionlist:
-            setattr(self, fname, php_func(f))
+            setattr(self, fname, f)
 
 
 class PhpGlobals(PhpVars):
@@ -130,11 +68,32 @@ class PhpApp(object):
     """ The inner application to be eventually served up.
 
     Attributes:
+        body: A callable function that will return the body of the response
         headers: A list of headers to be returned
         response_code: The http response code to use. Defaults to 500
+        response_message: The http message to include along with the response code
+        f: All the functions defined in the php engine and by translated php code
+        c: All the classes defined in the php engine and by translated php code
+        i: A dict containing information about what has already been imported
+        # TODO: Is this actually used any more
+
 
     """
-    def __init__(self, body, root_dir):
+    def __init__(self):
+        self.body = None
+        self.body_str = ""
+        self._headers = OrderedDict()
+        self.response_code = 500
+        self.response_msg = "Server Error"
+
+        # The php engine runs on these variables
+        self.g = PhpGlobals()
+        self.constants = PhpConstants()
+        self.f = PhpFunctions()
+        self.c = PhpClasses
+        self.i = {}
+
+    def init_http(self, body, root_dir):
         """ Initialise the app
 
         Args:
@@ -144,18 +103,9 @@ class PhpApp(object):
         """
         # HTTP
         self.body = body
-        self.body_str = ""
-        self._headers = OrderedDict()
-        self.response_code = 500
-        self.response_msg = "Server Error"
 
         # Helpers for php engine
         self.root_dir = root_dir
-
-        # Php engine
-        self.p = None
-        self.g = None
-        self._initialise_context()  # TODO: Here for now. Think about it.
 
         self.error_level = self.constants.E_ALL
         self.ini = {}
@@ -197,22 +147,26 @@ class PhpApp(object):
         """
         self.headers[name] = [value]
 
-    def _initialise_context(self):
-        self.g = PhpGlobals()
-        self.constants = PhpConstants()
-        self.p = PhpContext(self)
 
     def http_headers_str(self):
-        self.body_str = self.body(self.p)
+        self.body_str = self.body()
         out = "HTTP/1.1 {} {}".format(self.response_code, self.response_msg)
         for name in self.headers:
             for value in self.headers[name]:
                 out += "\r\n{}: {}".format(name, value)
         return out
 
+# Using the module import to create a kind of singleton
+_app_ = PhpApp()
+_g_ = _app_.g
+_c_ = _app_.c
+_f_ = _app_.f
+_constants_ = _app_.constants
 
-def serve_up(body, root_dir):
-    app = PhpApp(body, root_dir)
+
+# TODO: Move this to be a member of _app_
+def _serve_up_(body, root_dir):
+    app = _app_.init_http(body, root_dir)
     # Globals and locals are the same for the entry point
     try:
         print(app.http_headers_str())

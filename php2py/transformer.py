@@ -345,7 +345,7 @@ def transform_function(function_node: ParseNode):
     transform_children(function_node["BLOCK"])
     yield function_node
     # TODO: Highly cheating - need to make an attr access properly instead
-    attr_node = ParseNode("VAR", "p.f.{}".format(function_node.value))
+    attr_node = ParseNode("VAR", "_f_.{}".format(function_node.value))
     assign_node = ParseNode("ASSIGNMENT", "=")
     assign_node.append(attr_node)
     assign_node.append(ParseNode("VAR",function_node.value))
@@ -365,7 +365,7 @@ def transform_class(class_node: ParseNode):
     yield class_node
 
     # TODO: Highly cheating - need to make an attr access properly instead
-    attr_node = ParseNode("VAR", "p.c.{}".format(class_node.value))
+    attr_node = ParseNode("VAR", "_c_.{}".format(class_node.value))
     assign_node = ParseNode("ASSIGNMENT", "=")
     assign_node.append(attr_node)
     assign_node.append(ParseNode("VAR",class_node.value))

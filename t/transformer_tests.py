@@ -62,7 +62,7 @@ class TransformerTests(Php2PyTestCase):
         self.assertEqual(l[0][0].node_type, "STRING")
         self.assertEqual(l[0][1].node_type, "INT")
         # TODO: Move to compiler tests
-        self.assertEqual(self.compiler.expression_compile_str(ex), 'p.g.a = array(p, [(u"b", 1), (u"c", 2)])')
+        self.assertEqual(self.compiler.expression_compile_str(ex), '_g_.a = array(p, [(u"b", 1), (u"c", 2)])')
 
     @parse_t
     def test_assign_in_if(self, root_node):
@@ -173,7 +173,7 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(class_node, "EXTENDS|PhpBase")
         self.assertContainsNode(class_node, "BLOCK")
         bod = get_body(root_node)
-        self.assertContainsNode(bod, "STATEMENT/ASSIGNMENT/VAR|p.c.TestClass")
+        self.assertContainsNode(bod, "STATEMENT/ASSIGNMENT/VAR|_c_.TestClass")
 
     @parse_t
     def test_class_parents(self, root_node):

@@ -18,7 +18,7 @@ class CompilerTests(Php2PyTestCase):
         """
         transformer.transform(root_node)
         cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual("p.g.a = 1", cs[0])
+        self.assertEqual("_g_.a = 1", cs[0])
 
     @parse_t
     def test_while(self, root_node):
@@ -30,7 +30,7 @@ class CompilerTests(Php2PyTestCase):
         """
         transformer.transform(root_node)
         wc = self.compiler.while_compile(get_body(root_node).get("WHILE"))
-        self.assertEqual("while (p.g.a == p.g.b):", wc[-2])
+        self.assertEqual("while (_g_.a == _g_.b):", wc[-2])
 
     # TODO: Can valid php end a php block without a semicolon?
     @parse_t
@@ -42,7 +42,7 @@ class CompilerTests(Php2PyTestCase):
         transformer.transform(root_node)
         print_tree(root_node)
         cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual('p.f.a(p, u"B", p.constants.C, p.g.d)', cs[0])
+        self.assertEqual('_f_.a(p, u"B", _constants_.C, _g_.d)', cs[0])
 
     @parse_t
     def test_blank_line(self, root_node):
@@ -75,4 +75,4 @@ class CompilerTests(Php2PyTestCase):
         transformer.transform(root_node)
         print_tree(root_node)
         cc = self.compiler.class_compile(root_node.match("CLASS|TestClass2"))
-        self.assertEqual("class TestClass2(p.c.PhpBase):", cc[0])
+        self.assertEqual("class TestClass2(_c_.PhpBase):", cc[0])

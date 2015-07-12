@@ -1,29 +1,31 @@
 from __future__ import absolute_import
+from php2py.php import _g_, _app_, _constants_
 
 import os.path
 
 from .exceptions import *
 
 
-def isset(p, name):
-    """ Check whether a value was already set
+#def isset(name):
+#    """ Check whether a value was already set
+#
+#    Must be set in locals
+#
+#    """
+#    # TODO: does being set in globals mean anything?
+#    try:
+#        # TODO: We aren't using .l any  more
+#        p.l.__getattribute__(name)
+#        return True
+#    except AttributeError:
+#        return False
 
-    Must be set in locals
 
-    """
-    # TODO: does being set in globals mean anything?
-    try:
-        p.l.__getattribute__(name)
-        return True
-    except AttributeError:
-        return False
-
-
-def get__file__(p, _file_):
+def get__file__(_file_):
     if _file_[0] == "/":
         return _file_
     else:
-        return os.path.join(p.g.__rootdir__, _file_)
+        return os.path.join(_g_.__rootdir__, _file_)
 
 
 class stdClass(object):
@@ -31,51 +33,44 @@ class stdClass(object):
         self.p = p
 
 
-def header(p, header: str, replace=True, http_response_code=None):
+def header(header: str, replace=True, http_response_code=None):
     if header.startswith("HTTP/"):
         # Mixed up functionality ftw
         x, error_code, error_msg = [h.strip() for h in header.split(" ")]
-        p.app.response_code = error_code
-        p.app.response_msg = error_msg
+        _app_.response_code = error_code
+        _app_.response_msg = error_msg
         return
     name, value = [h.strip() for h in header.split(":")]
-    if replace == True:
-        p.app.replace_header(name, value)
+    if replace is True:
+        _app_.replace_header(name, value)
     else:
-        p.app.add_header(name, value)
+        _app_.add_header(name, value)
 
     # If the header is a location header, we need to perform a redirect
     if name == "Location":
-        if str(p.app.response_code)[0] != "3" and str(p.app.response_code) != "201":
+        if str(_app_.response_code)[0] != "3" and str(_app_.response_code) != "201":
             raise HttpRedirect(302)
 
-def py_func(f):
-    def unwrapper(p, *args, **kwargs):
-        print(args, kwargs)
-        return f(*args, **kwargs)
 
-    return unwrapper
+def define(name: str, value):
+    setattr(_constants_, name, value)
 
 
-def define(p, name: str, value):
-    setattr(p.constants, name, value)
-
-
-def error_reporting(p, level: int) -> int:
-    ol = p.app.error_level
-    p.app.error_level = level
+def error_reporting(level: int) -> int:
+    ol = _app_.error_level
+    _app_.error_level = level
     return ol
 
 
-def ini_set(p, name: str, value: str) -> str:
+def ini_set(name: str, value: str) -> str:
     old = None
-    if name in p.app.ini:
-        old = p.app.ini[name]
-    p.app.ini[name] = value
+    if name in _app_.ini:
+        old = _app_.ini[name]
+    _app_.ini[name] = value
     return old
 
 
-def str_replace(p, search, replace, subject, count=0):
+def str_replace(search, replace, subject, count=0):
     """ Replaces instances of a string
 
     Note that this can accept either arrays of strings...........
@@ -89,11 +84,11 @@ def str_replace(p, search, replace, subject, count=0):
 
 
 functionlist = [
-    ("isset", isset),
+#    ("isset", isset),
     ("stdClass", stdClass),
-    ("dirname", py_func(os.path.dirname)),
-    ("abspath", py_func(os.path.abspath)),
-    ("file_exists", py_func(os.path.isfile)), # http://php.net/manual/en/function.file-exists.php
+    ("dirname", os.path.dirname),
+    ("abspath", os.path.abspath),
+    ("file_exists", os.path.isfile), # http://php.net/manual/en/function.file-exists.php
     ("get__file__", get__file__),
     ("header", header), # http://php.net/manual/en/function.header.php
     ("define", define),

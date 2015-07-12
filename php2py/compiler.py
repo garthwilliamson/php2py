@@ -13,7 +13,7 @@ constant_map = {
 }
 
 magic_map = {
-    "__file__": "p.f.get__file__(p, __file__)",
+    "__file__": "_f_.get__file__(p, __file__)",
 }
 
 
@@ -123,7 +123,7 @@ class Compiler(object):
     def __init__(self, tree=None, strip_comments=False):
         self.strip_comments = strip_comments
         self.imports = collections.defaultdict(list)
-        self.imports["php2py"].append("php")
+        self.imports["php2py.php"] = ["_app_", "_f_", "_g_", "_c_", "_constants_"]
         self.imports["php2py.specials"].append("*")
         self.compiled = CompiledSegment()
         self.tree = tree
@@ -153,7 +153,7 @@ class Compiler(object):
         self.compiled.append('if __name__ == "__main__":')
         self.compiled.indent()
         self.compiled.append('import os.path')
-        self.compiled.append('php.serve_up(body, root_dir=os.path.abspath(os.path.dirname(__file__)))')
+        self.compiled.append('php._serve_up_(body, root_dir=os.path.abspath(os.path.dirname(__file__)))')
         self.compiled.dedent()
 
     def add_import(self, module: str, els=None):
@@ -294,7 +294,7 @@ class Compiler(object):
 
     def class_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
-        seg.append("class {}(p.c.{}):".format(node.value, node["EXTENDS"].value))
+        seg.append("class {}(_c_.{}):".format(node.value, node["EXTENDS"].value))
         seg.indent()
         seg.append(self.marshal(node.get("BLOCK")))
         seg.dedent()
@@ -331,7 +331,7 @@ class Compiler(object):
         return "{0}({1})".format(node.value, args)
 
     def call_compile_str(self, node: parsetree.ParseNode) -> str:
-        return "p.f." + self._call_inner_compile(node)
+        return "_f_." + self._call_inner_compile(node)
 
     def methodcall_compile_str(self, node: parsetree.ParseNode) -> str:
         return "{}.{}".format(self.marshal_str(node[1]), self._call_inner_compile(node))
@@ -378,7 +378,7 @@ class Compiler(object):
         return '.{0}'.format(node.value)
 
     def globalvar_compile_str(self, node):
-        return "p.g." + self.var_compile_str(node).lstrip()
+        return "_g_." + self.var_compile_str(node).lstrip()
 
     def ident_compile_str(self, node):
         return node.value
@@ -391,11 +391,11 @@ class Compiler(object):
 
     def staticattr_compile_str(self, node):
         """ Static attr should change references to self etc to the proper class name..."""
-        return "p.c.{}.{}".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
+        return "_c_.{}.{}".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
 
     def constant_compile_str(self, node):
         # TODO: Contants might need further thought
-        return "p.constants.{}".format(node.value)
+        return "_constants_.{}".format(node.value)
 
     def comparator_compile_str(self, node):
         return self.operator2_compile_str(node)
