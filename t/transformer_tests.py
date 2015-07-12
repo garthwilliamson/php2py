@@ -150,12 +150,40 @@ class TransformerTests(Php2PyTestCase):
              $key;
         }
         """
-        print_tree(root_node)
         transformer.transform(root_node)
-        print_tree(root_node)
         bod = get_body(root_node)
         for_node = bod["PYFOR"]
 
         self.assertContainsNode(for_node, "EXPRESSION")
         self.assertContainsNode(for_node, "ARGSLIST/GLOBALVAR")  # foreach is at global or function scope
         self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/GLOBALVAR")
+
+    @parse_t
+    def test_class_simple(self, root_node):
+        """ A simple class with no content
+        <?php
+        class TestClass
+        {
+            $a;
+        }
+        """
+        transformer.transform(root_node)
+        class_node = root_node["CLASS"]
+        self.assertEqual("TestClass", class_node.value)
+        self.assertContainsNode(class_node, "EXTENDS|PhpBase")
+        self.assertContainsNode(class_node, "BLOCK")
+        bod = get_body(root_node)
+        self.assertContainsNode(bod, "STATEMENT/ASSIGNMENT/VAR|p.c.TestClass")
+
+    @parse_t
+    def test_class_parents(self, root_node):
+        """ A class with parents
+        <?php
+        class TestClass extends TestBaseClass{
+            $a;
+        }
+        """
+        print_tree(root_node)
+        transformer.transform(root_node)
+        class_node = root_node["CLASS"]
+        self.assertContainsNode(class_node, "EXTENDS|TestBaseClass")

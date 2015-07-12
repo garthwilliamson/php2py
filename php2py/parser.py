@@ -456,14 +456,33 @@ class PhpParser(Parser):
         return f
 
     def parse_class(self):
+        """ Chomp a class
+
+        class ClassName extends ParentClassName { //contents }
+        CLASS CLASS.val <    parse_extends    > <parse_block >
+
+        """
         self.pdebug("Doing a class call", 4)
         self.push_scope("CLASS")
         self.next()
-        c = self.pt.new("CLASS", self.next().val.lower())
+        c = self.pt.new("CLASS", self.next().val)
+        if self.peek().val == "extends":
+            c.append(self.parse_extends())
         c.append(self.parse_block())
         self.pop_scope()
         self.debug_indent -= 4
         return c
+
+    def parse_extends(self):
+        """ Chomp the extends keyword and value
+
+        class ClassName extends ParentClassName {
+                       >EXTENDS IDENT<
+
+        """
+        self.assert_next("EXTENDS")
+        parent = self.assert_next("IDENT")
+        return self.pt.new("EXTENDS", parent.val, parent)
 
     def parse_method(self, static=False, visibility=None):
         # For now, methods are functions with visibility

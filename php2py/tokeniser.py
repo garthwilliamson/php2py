@@ -222,6 +222,7 @@ keyword_table = {
     "switch": "CONTROL",
     "return": "RETURN",
     "global": "GLOBAL",
+    "extends": "EXTENDS",
     "array": "SPECIAL",
     "clone": "SPECIAL",
     "die": "SPECIAL",

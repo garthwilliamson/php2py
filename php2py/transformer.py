@@ -355,11 +355,23 @@ def transform_function(function_node: ParseNode):
 def transform_class(class_node: ParseNode):
     pdebug("T CLASS", class_node)
 
-    # TODO: Fix the inheritance etc for the class
+    # The base class for all php derived classes should be PhpBase
+    if "EXTENDS" not in class_node:
+        class_node.append(ParseNode("EXTENDS", "PhpBase"))
 
     # Fix the class contents up
-    class_node["BLOCK"] = transform_block(class_node["BLOCK"])
+    transform_children(class_node["BLOCK"])
     yield class_node
+
+    # TODO: Highly cheating - need to make an attr access properly instead
+    attr_node = ParseNode("VAR", "p.c.{}".format(class_node.value))
+    assign_node = ParseNode("ASSIGNMENT", "=")
+    assign_node.append(attr_node)
+    assign_node.append(ParseNode("VAR",class_node.value))
+    statement_node = ParseNode("STATEMENT", token=class_node.token)
+    statement_node.append(assign_node)
+    yield statement_node
+
 
 
 @transforms("METHOD", "CLASSMETHOD")

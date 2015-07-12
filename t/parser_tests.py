@@ -536,6 +536,17 @@ class ParserTests(Php2PyTestCase):
         #fixed_class = transform_class(class_node)
         #self.assertEqual(next(fixed_class).get("BLOCK").get("METHOD").get("ARGSLIST")[0].value, "self")
 
+    @parse_t
+    def test_class_extends(self, root_node):
+        """ A class with an extends keyword
+        <?php
+        class TestClass extends TestBaseClass{
+            $a;
+        }
+        """
+        print_tree(root_node)
+        class_node = root_node["PHP"]["CLASS"]
+        self.assertContainsNode(class_node, "EXTENDS")
 
 if __name__ == "__main__":
     unittest.main()

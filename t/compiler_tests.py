@@ -58,8 +58,8 @@ class CompilerTests(Php2PyTestCase):
         pprint(main.lines)
         self.assertEqual("", main[2].strip())
 
-    #@compiled_class
-    #def test_class_compilation(self, class_node, cc):
+    @parse_t
+    def test_class_compilation(self, root_node):
         """ A class with a static classmethod in it
         <?php
         class TestClass2
@@ -72,8 +72,7 @@ class CompilerTests(Php2PyTestCase):
             }
         }
         """
-        #print_tree(class_node)
-        #print(cc)
-        #self.assertTrue(False)
-        #r = self.compiler.compile(class_node)
-        #print(r)
+        transformer.transform(root_node)
+        print_tree(root_node)
+        cc = self.compiler.class_compile(root_node.match("CLASS|TestClass2"))
+        self.assertEqual("class TestClass2(p.c.PhpBase):", cc[0])

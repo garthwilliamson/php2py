@@ -70,11 +70,18 @@ class ParseNode(object):
     def __len__(self):
         return len(self.children)
 
+    def __contains__(self, item):
+        try:
+            self.get(item)
+            return True
+        except KeyError:
+            return False
+
     def get(self, node_type) -> 'ParseNode':
         for c in self.children:
             if c.node_type == node_type:
                 return c
-        raise IndexError("No node of type {} is a child of {}".format(node_type, self))
+        raise KeyError("No node of type {} is a child of {}".format(node_type, self))
 
     def insert_after(self, search, new_node):
         i = self.children.index(search) + 1

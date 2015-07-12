@@ -93,9 +93,14 @@ class PhpGlobals(PhpVars):
 
 
 class PhpClasses(PhpVars):
-    pass
-    # This be where the classes go
+    def __init__(self):
+        self.PhpBase = PhpBase
 
+class PhpBase(object):
+    """ The base class for all "php" classes"
+
+    """
+    pass
 
 class PhpConstants(PhpVars):
     def __init__(self):

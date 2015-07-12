@@ -291,7 +291,7 @@ class Compiler(object):
 
     def class_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
-        seg.append("class {}(PhpClass):".format(node.value))
+        seg.append("class {}(p.c.{}):".format(node.value, node["EXTENDS"].value))
         seg.indent()
         seg.append(self.marshal(node.get("BLOCK")))
         seg.dedent()
@@ -346,7 +346,12 @@ class Compiler(object):
         return self.call_compile_str(node[0])
 
     def return_compile_str(self, node: parsetree.ParseNode) -> str:
+        # TODO: Remove this method if exception never fires, else work out why two kinds of return
+        raise Exception("We actually got here")
         return "return " + self.expression_compile_str(node[0])
+
+    def return_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
+        return compiled_line("return {}".format(self.expression_compile_str(node[0])))
 
     def pass_compile_str(self, _) -> str:
         return "pass"
