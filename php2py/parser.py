@@ -445,6 +445,7 @@ class PhpParser(Parser):
         self.pdebug("Doing a function call", 4)
         self.push_scope("LOCAL")
         self.next()
+        # Function names are case insensitive
         f = self.pt.new("FUNCTION", self.next().val.lower())
         f.append(self.parse_expression_group(self.next(), "ARGSLIST"))
         f.append(self.parse_block())

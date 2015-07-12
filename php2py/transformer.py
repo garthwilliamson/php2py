@@ -376,8 +376,10 @@ def transform_class(class_node: ParseNode):
 
 @transforms("METHOD", "CLASSMETHOD")
 def transform_method(node):
-    args = node.get("ARGSLIST")
+    args = node["ARGSLIST"]
     args.children.insert(0, ParseNode("VAR", value="self", parent=args, token=args.token))
+    transform_children(node["BLOCK"])
+    # TODO: Probably have to rearrange some things here
     yield node
 
 

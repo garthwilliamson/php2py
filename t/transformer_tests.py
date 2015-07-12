@@ -187,3 +187,26 @@ class TransformerTests(Php2PyTestCase):
         transformer.transform(root_node)
         class_node = root_node["CLASS"]
         self.assertContainsNode(class_node, "EXTENDS|TestBaseClass")
+
+    @parse_t
+    def test_class_transform_function_body(self, root_node):
+        """ The body of static functions should compile properly
+        <?php
+        class TestClass42 {
+            static public function testFunction($params) {
+                foreach ($params as $key => $value) {
+                    $key;
+                }
+            }
+        }
+        """
+        transformer.transform(root_node)
+        print_tree(root_node)
+        # Function names are case insensitive, so lowercase all
+        function_node = root_node.match("CLASS|TestClass42/BLOCK/CLASSMETHOD|testfunction")
+        # TODO: if we can get away with it, avoid making things static etc.
+        # self.assertContainsNode(function_node("PROPERTY|php_static"))
+        for_node = function_node["BLOCK"]["PYFOR"]
+        self.assertContainsNode(for_node, "EXPRESSION")
+        self.assertContainsNode(for_node, "ARGSLIST/VAR")
+        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/VAR")
