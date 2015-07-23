@@ -23,3 +23,6 @@ class PhpFunctionsTests(unittest.TestCase):
         self.assertEqual("/", phpfunctions.dirname("/etc/"))
         self.assertEqual("somewhere/else", phpfunctions.dirname("somewhere/else/a"))
 
+    def test_file_exists(self):
+        self.assertTrue(phpfunctions.file_exists("php2py.py"))
+        self.assertFalse(phpfunctions.file_exists("THISFILEDONTEXISTS"))

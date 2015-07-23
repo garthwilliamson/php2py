@@ -90,7 +90,7 @@ class PhpApp(object):
         self.g = PhpGlobals()
         self.constants = PhpConstants()
         self.f = None
-        self.c = PhpClasses
+        self.c = PhpClasses()
         self.i = {}
 
     def init_http(self, body, root_dir):

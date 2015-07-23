@@ -110,6 +110,11 @@ def dirname(d: str) -> str:
         return res
 
 
+def file_exists(name: str) -> bool:
+    # TODO: Look up url wrappers - apparently can be used with some
+    return os.path.isfile(name)
+
+
 functionlist = [
 #    ("isset", isset),
     ("stdClass", stdClass),

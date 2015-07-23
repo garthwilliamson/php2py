@@ -70,9 +70,9 @@ def require_once(p, filename):
     require(p, filename)
 
 
-def require(p, filename):
+def require(filename):
     try:
-        include(p, filename)
+        include(filename)
     except PhpImportWarning as e:
         raise PhpError(e)
 
@@ -83,20 +83,20 @@ def include_once(p, filename):
     include(p, filename)
 
 
-def include(p, fullpath):
+def include(fullpath):
     # Remember, because the fullpath is calculated dynamically, this shouldn't break things on other machines
     abspath = os.path.abspath(fullpath)
     if abspath.endswith(".php"):
         abspath = abspath[0:-4] + ".py"
     try:
-        p.i[abspath] = importlib.machinery.SourceFileLoader(abspath, abspath).load_module()
+        _app_.i[abspath] = importlib.machinery.SourceFileLoader(abspath, abspath).load_module()
     except ImportError:
         raise PhpImportWarning("Couldn't import {} as {}".format(abspath, abspath))
     except FileNotFoundError:
         raise PhpImportWarning("Couldn't import {} as {}".format(abspath, abspath))
 
     # Run it in the local context
-    p.i[abspath].body(p)
+    _app_.i[abspath].body()
 
 def echo(*strings):
     _app_.write("".join(strings))
