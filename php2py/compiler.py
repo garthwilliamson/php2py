@@ -95,8 +95,7 @@ def compiled_line(string: str) -> CompiledSegment:
 
 
 def echo(value: str) -> str:
-    # TODO: Move this into transformer too
-    return "_app_.write({0})".format(value)
+    return "echo({0})".format(value)
 
 
 def python_safe(ident):

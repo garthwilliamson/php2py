@@ -210,3 +210,5 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(for_node, "EXPRESSION")
         self.assertContainsNode(for_node, "ARGSLIST/VAR")
         self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/VAR")
+
+    # TODO: Need to work out what rules php uses to strip a newline at end of file and replicate

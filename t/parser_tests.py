@@ -118,6 +118,13 @@ class ParserTests(Php2PyTestCase):
         self.assertEcho(php[0], "Hello World")
 
     @parse_t
+    def test_hello_brackets(self, root_node):
+        """ Test that echos get brackets now
+        <? echo("Hello World!") ?>
+        """
+        self.assertEcho(root_node["PHP"][0], "Hello World!")
+
+    @parse_t
     def test_hello_no_end(self, root_node):
         """ Echo without an end tag
         <?php echo "Hello World";

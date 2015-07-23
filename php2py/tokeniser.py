@@ -96,7 +96,7 @@ class Tokenizer(object):
         """ Tokenizes the html state
 
         """
-        next_state_at = self.line.lower().find("<?php", self.cursor)
+        next_state_at = self.line.lower().find("<?", self.cursor)
         if next_state_at >= 0:
             if next_state_at == self.cursor:
                 # We don't need to insert a blank html element here - straight into the php state
@@ -105,7 +105,10 @@ class Tokenizer(object):
                                     self.cursor,
                                     self.line[self.cursor:self.cursor + 5],
                                     "PHPSTART")
-                self.cursor += 5
+                self.cursor += 2
+                if len(self.line) > self.cursor + 3:
+                    if self.line[self.cursor:self.cursor + 3].lower() == "php":
+                        self.cursor += 3
                 yield php_start_t
                 raise StopIteration()
         else:

@@ -28,6 +28,7 @@ class ComparisonTests(unittest.TestCase):
 
 tests = [
     "hello00",
+    "hello01",
 ]
 for t in tests:
     test_name = "test_{}".format(t)
