@@ -98,5 +98,5 @@ def include(p, fullpath):
     # Run it in the local context
     p.i[abspath].body(p)
 
-def echo(string):
-    _app_.write(string)
+def echo(*strings):
+    _app_.write("".join(strings))
