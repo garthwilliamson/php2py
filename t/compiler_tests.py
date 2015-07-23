@@ -9,7 +9,7 @@ class CompilerTests(Php2PyTestCase):
         """
         transformer.transform(root_node)
         sc = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual('echo(p, u"Hello World")', sc[0])
+        self.assertEqual('echo(u"Hello World")', sc[0])
 
     @parse_t
     def test_asign(self, root_node):
@@ -42,7 +42,7 @@ class CompilerTests(Php2PyTestCase):
         transformer.transform(root_node)
         print_tree(root_node)
         cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual('_f_.a(p, u"B", _constants_.C, _g_.d)', cs[0])
+        self.assertEqual('_f_.a(u"B", _constants_.C, _g_.d)', cs[0])
 
     @parse_t
     def test_blank_line(self, root_node):

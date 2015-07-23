@@ -95,7 +95,8 @@ def compiled_line(string: str) -> CompiledSegment:
 
 
 def echo(value: str) -> str:
-    return "php.write({0})".format(value)
+    # TODO: Move this into transformer too
+    return "_app_.write({0})".format(value)
 
 
 def python_safe(ident):
@@ -153,7 +154,7 @@ class Compiler(object):
         self.compiled.append('if __name__ == "__main__":')
         self.compiled.indent()
         self.compiled.append('import os.path')
-        self.compiled.append('php._serve_up_(body, root_dir=os.path.abspath(os.path.dirname(__file__)))')
+        self.compiled.append('_app_.body_http_response(body, root_dir=os.path.abspath(os.path.dirname(__file__)))')
         self.compiled.dedent()
 
     def add_import(self, module: str, els=None):
@@ -316,7 +317,7 @@ class Compiler(object):
         """
         # Process args
         # TODO: Deal with positional and other args combined
-        arg_list = ["p"]
+        arg_list = []
         kwarg_list = []
         if len(node.get("ARGSLIST")) > 0:
             for e in node.get("ARGSLIST"):

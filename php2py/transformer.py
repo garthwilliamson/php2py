@@ -30,7 +30,6 @@ def transform(root_node: ParseNode):
     classes = []
     body_function = ParseNode("FUNCTION", "body")
     body_function.append(ParseNode("ARGSLIST"))
-    add_argument(body_function, ParseNode("IDENT", "p"))
     block = ParseNode("BLOCK")
     body_function.append(block)
 
@@ -347,8 +346,8 @@ def transform_function(function_node: ParseNode):
     # TODO: Highly cheating - need to make an attr access properly instead
     attr_node = ParseNode("VAR", "_f_.{}".format(function_node.value))
     assign_node = ParseNode("ASSIGNMENT", "=")
-    assign_node.append(attr_node)
     assign_node.append(ParseNode("VAR",function_node.value))
+    assign_node.append(attr_node)
     yield assign_node
 
 
@@ -367,8 +366,8 @@ def transform_class(class_node: ParseNode):
     # TODO: Highly cheating - need to make an attr access properly instead
     attr_node = ParseNode("VAR", "_c_.{}".format(class_node.value))
     assign_node = ParseNode("ASSIGNMENT", "=")
-    assign_node.append(attr_node)
     assign_node.append(ParseNode("VAR",class_node.value))
+    assign_node.append(attr_node)
     statement_node = ParseNode("STATEMENT", token=class_node.token)
     statement_node.append(assign_node)
     yield statement_node
