@@ -52,8 +52,22 @@ def header(header: str, replace=True, http_response_code=None):
             raise HttpRedirect(302)
 
 
-def define(name: str, value):
-    setattr(_constants_, name, value)
+def define(name: str, value, case_insensitive=False) -> bool:
+    """ Define a constant
+
+    If case_insensitive is true, then we should be able to find it insensitively
+
+    Returns False if constant already defined, else True
+
+    # TODO: Actually implement case_insensitive
+
+    """
+    if case_insensitive:
+        raise NotImplementedError("Whoever heard of configurable case insensitivity")
+    if getattr(_app_.constants, name) is not None:
+        return False
+    setattr(_app_.constants, name, value)
+    return True
 
 
 def error_reporting(level: int) -> int:
