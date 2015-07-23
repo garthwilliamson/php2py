@@ -22,7 +22,8 @@ py_filename = os.path.join(dir_name, file_name + ".py")
 
 debug_deep = args.debug > 1
 try:
-    parser = PhpParser(open(args.file), debug_deep)
+    # Need to open in binary mode to get consistent line endings
+    parser = PhpParser(open(args.file, "r", newline=''), debug_deep)
 except FileNotFoundError:
     print("Unknown file: {}. Check filename and try again.".format(args.file))
     sys.exit(1)

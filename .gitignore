@@ -1,5 +1,5 @@
 *.pyc
 out.txt
 .coverage
-php
+php/
 t/config.py

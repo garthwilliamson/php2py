@@ -1,6 +1,7 @@
 from functools import wraps
 from collections import OrderedDict
 import os.path
+import sys
 
 from .exceptions import *
 
@@ -175,7 +176,9 @@ class PhpApp(object):
         # TODO: Should we allow interactive use here?
         self.init_http(body, root_dir)
         self.http_headers_str()
-        print(self.body_str, end='')
+        # TODO: Probably should check php's default encoding
+        # Write in binary mode This enables use of newlines consistent(ish) with php
+        sys.stdout.buffer.write(self.body_str.encode('utf-8'))
 
     def write(self, item):
         # Write the item as a string to the body string
