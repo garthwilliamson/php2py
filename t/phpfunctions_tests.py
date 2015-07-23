@@ -15,3 +15,11 @@ class PhpFunctionsTests(unittest.TestCase):
         self.assertRaises(NotImplementedError,
                           phpfunctions.define,
                           "AnyOldCaps", "are acceptable", case_insensitive=True)
+
+    def test_dirname(self):
+        self.assertEqual(".", phpfunctions.dirname("hello.py"))
+        self.assertEqual("somewhere", phpfunctions.dirname("somewhere/a/"))
+        self.assertEqual("somewhere", phpfunctions.dirname("somewhere\\a"))
+        self.assertEqual("/", phpfunctions.dirname("/etc/"))
+        self.assertEqual("somewhere/else", phpfunctions.dirname("somewhere/else/a"))
+

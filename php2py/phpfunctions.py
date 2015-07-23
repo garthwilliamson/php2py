@@ -97,10 +97,23 @@ def str_replace(search, replace, subject, count=0):
     return subject.replace(search, replace, count)
 
 
+def dirname(d: str) -> str:
+    """ Return the parent directory of the given one
+
+    """
+    if d[-1] in "/\\":
+        d = d[:-1]
+    res = os.path.dirname(d)
+    if res == '':
+        return '.'
+    else:
+        return res
+
+
 functionlist = [
 #    ("isset", isset),
     ("stdClass", stdClass),
-    ("dirname", os.path.dirname),
+    ("dirname", dirname),
     ("abspath", os.path.abspath),
     ("file_exists", os.path.isfile), # http://php.net/manual/en/function.file-exists.php
     ("get__file__", get__file__),
