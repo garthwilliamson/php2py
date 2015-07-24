@@ -376,7 +376,9 @@ def transform_function(function_node: ParseNode):
     assign_node = ParseNode("ASSIGNMENT", t, "=")
     assign_node.append(ParseNode("VAR", t, function_node.value))
     assign_node.append(attr_node)
-    yield assign_node
+    statement_node = ParseNode("STATEMENT", t)
+    statement_node.append(assign_node)
+    yield statement_node
 
 
 @transforms("CLASS")

@@ -39,7 +39,7 @@ class TransformerTests(Php2PyTestCase):
         transformer.transform(root_node)
         self.assertContainsNode(root_node, "FUNCTION|foo")
         body = get_body(root_node)
-        self.assertContainsNode(body, "ASSIGNMENT")
+        self.assertContainsNode(body, "STATEMENT/ASSIGNMENT")
 
     @parse_t
     def test_array_keyvalue(self, root_node):
