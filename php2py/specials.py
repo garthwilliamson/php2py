@@ -7,10 +7,59 @@ from .exceptions import *
 from .php import _app_
 
 
-class array(dict):
-    def __init__(self, p, **kwargs):
-        super(array, self).__init__(**kwargs)
-        self.p = p
+class array():
+    def __init__(self, *args):
+        """ Args should be a series of key, value tuples
+
+        """
+        # TODO: because dicts are unordered, building an array from a dict will require a transform
+        self.next_index = 0
+        self.data = OrderedDict()
+        self.append_many(args)
+
+    def append_many(self, items):
+        for i in items:
+            self.append(i)
+
+    def append(self, item):
+            if isinstance(item, tuple):
+                self[item[0]] = item[1]
+            else:
+                self[self.next_index] = item
+
+    def __setitem__(self, key, value):
+        """
+        if key is None:
+            key = self.max_index
+        if isinstance(key, int):
+            super(array, self).__setattr__(str(key), value)
+            if key >= self.max_index:
+                self.max_index = key + 1
+        else:
+            super(array, self).__setattr__(key, value)
+        """
+        # TODO: Move this to a transform, although if it were from an expression...
+        if isinstance(key, str):
+            try:
+                key = int(key)
+            except ValueError:
+                pass
+        if isinstance(key, float):
+            key = int(key)
+        if key is None:
+            key = ""
+        self.data[key] = value
+        if isinstance(key, int) and key >= self.next_index:
+            self.next_index = key + 1
+
+    def __getitem__(self, key):
+        """
+        if isinstance(key, int):
+            return super(array, self).__getitem__(str(key))
+        else:
+            return super(array, self).__getitem__(key)
+        """
+        return self.data[key]
 
 
 def clone(p):

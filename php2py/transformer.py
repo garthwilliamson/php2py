@@ -311,6 +311,15 @@ def transform_callspecial(cs_node: ParseNode):
         yield from transform_call(cs_node)
 
 
+@transforms("INDEX")
+def transform_index(index_node: ParseNode):
+    # Check for empty are list and stick None in
+    if len(index_node["EXPRESSION"]) == 0:
+        index_node["EXPRESSION"].append(ParseNode("IDENT", "None"))
+    transform_children(index_node)
+    yield index_node
+
+
 def transform_call(call_node):
     transform_children(call_node.get("ARGSLIST"))
     yield call_node

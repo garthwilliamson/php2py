@@ -65,6 +65,22 @@ class TransformerTests(Php2PyTestCase):
         self.assertEqual(self.compiler.expression_compile_str(ex), '_g_.a = array([(u"b", 1), (u"c", 2)])')
 
     @parse_t
+    def test_array_assign_lookup(self, root_node):
+        """ Array lookup which is actually an append
+        <?php
+        $a[] = "bob";
+        """
+        transformer.transform(root_node)
+        assign_t = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT")
+        rhs = assign_t[0]
+        lhs = assign_t[1]
+        self.assertEqual("INDEX", lhs.node_type)
+        self.assertEqual("STRING", rhs.node_type)
+        print_tree(root_node)
+        self.assertContainsNode(lhs, "GLOBALVAR|a")
+        self.assertContainsNode(lhs, "EXPRESSION/IDENT|None")
+
+    @parse_t
     def test_assign_in_if(self, root_node):
         """ Assign in an if statment
         <?php

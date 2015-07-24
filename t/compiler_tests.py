@@ -21,6 +21,15 @@ class CompilerTests(Php2PyTestCase):
         self.assertEqual("_g_.a = 1", cs[0])
 
     @parse_t
+    def test_array_append(self, root_node):
+        """ I don't have much to say about this
+        <?php $a[] = "bob"; ?>
+        """
+        transformer.transform(root_node)
+        cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
+        self.assertEqual('_g_.a[None] = u"bob"', cs[0])
+
+    @parse_t
     def test_while(self, root_node):
         """ Simple while loop
         <?php
