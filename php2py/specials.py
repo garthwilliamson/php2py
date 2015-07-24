@@ -28,16 +28,6 @@ class array():
             self[self.next_index] = item
 
     def __setitem__(self, key, value):
-        """
-        if key is None:
-            key = self.max_index
-        if isinstance(key, int):
-            super(array, self).__setattr__(str(key), value)
-            if key >= self.max_index:
-                self.max_index = key + 1
-        else:
-            super(array, self).__setattr__(key, value)
-        """
         # TODO: Move this to a transform, although if it were from an expression...
         if isinstance(key, str):
             try:
@@ -56,12 +46,6 @@ class array():
             self.next_index = key + 1
 
     def __getitem__(self, key):
-        """
-        if isinstance(key, int):
-            return super(array, self).__getitem__(str(key))
-        else:
-            return super(array, self).__getitem__(key)
-        """
         return self.data[key]
 
 

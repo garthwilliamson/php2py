@@ -1,10 +1,11 @@
 from __future__ import absolute_import
-from php2py.php import _g_, _app_, _constants_
 
 import os.path
+import re
 
 from .exceptions import *
-
+from php2py.php import _g_, _app_, _constants_
+from .specials import *
 
 #def isset(name):
 #    """ Check whether a value was already set
@@ -113,6 +114,15 @@ def dirname(d: str) -> str:
 def file_exists(name: str) -> bool:
     # TODO: Look up url wrappers - apparently can be used with some
     return os.path.isfile(name)
+
+
+def preg_replace(pattern, replacement, subject, limit: int = -1):
+    if isinstance(pattern, array) or isinstance(replacement, array):
+        raise NotImplementedError("Php can take arrays as args to preg_replace")
+    # TODO: There are a lot of differences between regex engines in different languages
+    if limit == -1:
+        limit = 0
+    return re.sub(pattern, replacement, subject, limit)
 
 
 functionlist = [
