@@ -4,11 +4,12 @@ import sys
 import logging
 import time
 
-from .compiler import Compiler
+from .compiler import Compiler, CompilationFailure
 from .parser import PhpParser
 
 
 BAD_FILE = 1
+COMPILE_FAILURE = 2
 
 
 def compile_file(filename: str, compile: bool, strip_comments: bool, print_tree: bool = False):
@@ -33,9 +34,24 @@ def compile_file(filename: str, compile: bool, strip_comments: bool, print_tree:
     name, ext = os.path.splitext(php_filename)
     py_filename = os.path.join(dir_name, name + ".py")
 
+    print()
     print("Compiling {} to {}".format(filename, py_filename))
     c = Compiler(parser.get_tree(), strip_comments=strip_comments)
-    results = c.compile()
+    try:
+        results = c.compile()
+    except CompilationFailure as e:
+        print()
+        print(e.args[0] + ":")
+        for cause in e.args[1]:
+            print("    " + cause.msg)
+            print("        Node was {}".format(cause.node))
+            t = cause.node.token
+            if t is None:
+                print("        Node didn't include a token. Unknown location")
+            else:
+                print("        Original token was {}".format(t))
+            print()
+        sys.exit(COMPILE_FAILURE)
     with open(py_filename, "w") as py_file:
         py_file.write(str(results))
 

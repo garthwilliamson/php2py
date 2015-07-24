@@ -317,6 +317,7 @@ more_table = {
 
 
 def tokens(linestream):
+    logging.debug("Tokenizing")
     return Tokenizer(linestream, re.compile(TOKENS, flags=re.IGNORECASE))
 
 

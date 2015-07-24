@@ -251,7 +251,6 @@ PYTHON_KEYWORDS = ["continue"]
 class PhpParser(Parser):
     def __init__(self, linestream):
         Parser.__init__(self, "", "Test")
-        logging.info("Tokenizing")
         self.tokens = tokeniser.tokens(linestream)
         logging.log(logging.DEBUG - 1, tokeniser.TOKENS)
         self.debug_indent = 0

@@ -17,6 +17,10 @@ magic_map = {
 }
 
 
+class CompilationFailure(Exception):
+    pass
+
+
 class CompileError(Exception):
     def __init__(self, node: parsetree.ParseNode, msg: str, *args):
         self.node = node
@@ -137,17 +141,17 @@ class Compiler(object):
             tree = self.tree
         transformer.transform(tree)
 
+        success = True
+        errors = []
         for c in tree:
             try:
                 self.compiled.append(self.marshal(c))
             except CompileError as e:
-                print("Compilation failure at node {}".format(e.node))
-                t = e.node.token
-                if t is None:
-                    print("Node didn't include a token. Unknown location")
-                else:
-                    print("Original token ({}) was on line {}, column {}".format(t, t.line, t.col))
+                success = False
+                errors.append(e)
             self.compiled.br()
+        if not success:
+            raise CompilationFailure("Compilation failed with {} errors".format(len(errors)), errors)
         self.generic_footer_compile()
 
         for i, v in self.imports.items():
