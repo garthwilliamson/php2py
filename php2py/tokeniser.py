@@ -12,7 +12,7 @@ class Token(object):
         self.kind = kind
 
     def __str__(self):
-        return '{} ({}) at col {} of line {}'.format(repr(self.val), self.kind, self.col, self.line)
+        return '{} ({}) on line {}, column {}'.format(repr(self.val), self.kind, self.line, self.col)
 
     def __repr__(self):
         return "Token(line={}, column={}, value=\"{!r}\", kind={})".format(self.line,

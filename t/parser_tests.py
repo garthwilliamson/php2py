@@ -567,7 +567,7 @@ class ParserTests(Php2PyTestCase):
         """
         print_tree(root_node)
         class_node = root_node["PHP"]["CLASS"]
-        self.assertContainsNode(class_node, "BLOCK/EXPRESSION/ASSIGNMENT/VAR")
+        self.assertContainsNode(class_node, "BLOCK/STATEMENT/EXPRESSION/ASSIGNMENT/VAR")
 
 
 if __name__ == "__main__":

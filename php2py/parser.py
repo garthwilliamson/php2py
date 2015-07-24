@@ -331,7 +331,9 @@ class PhpParser(Parser):
                 statement = self.parse_method(static, visibility)
             elif self.peek().kind == "VARIABLE":
                 # TODO: This should be limited, not a full expression
-                statement = self.parse_expression()
+                statement = self.pt.new("STATEMENT", self.peek())
+                en = self.parse_expression()
+                statement.append(en)
             else:
                 raise ExpectedCharError("function", self.peek().val)
         elif self.peek().kind == "RETURN":
