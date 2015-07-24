@@ -8,6 +8,7 @@ class CompilerTests(Php2PyTestCase):
         <?php echo "Hello World"; ?>
         """
         transformer.transform(root_node)
+        print_tree(root_node)
         sc = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
         self.assertEqual('echo(u"Hello World")', sc[0])
 
@@ -61,7 +62,9 @@ class CompilerTests(Php2PyTestCase):
 
         echo("After blank");
         """
+        print_tree(root_node)
         transformer.transform(root_node)
+        print_tree(root_node)
         main = self.compiler.block_compile(get_body(root_node))
         from pprint import pprint
         pprint(main.lines)
@@ -85,3 +88,17 @@ class CompilerTests(Php2PyTestCase):
         print_tree(root_node)
         cc = self.compiler.class_compile(root_node.match("CLASS|TestClass2"))
         self.assertEqual("class TestClass2(_c_.PhpBase):", cc[0])
+
+    @parse_t
+    def test_compile_deep_attr(self, root_node):
+        """ Compile something with deep attributes
+        <?php
+        c = $this->a->b();
+        """
+        print_tree(root_node)
+        transformer.transform(root_node)
+        print("-" * 50)
+        print_tree(root_node)
+        main = self.compiler.block_compile(get_body(root_node))
+        print_tree(root_node)
+        print(main)

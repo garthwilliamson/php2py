@@ -146,8 +146,9 @@ operator_map = {
 #   "[":        (2,        120,  "left"),
     ".":        (2,        90,  "left"),
     "::":       (2,        160,  "right"),
+    "->":       (2,        155,  "left"),
     "return":   (1,        150,  "none"),
-    "new":      (0,        150,  "right"),
+    "new":      (1,        150,  "right"),
     "++":       (1,        110,  "right"),
     "--":       (1,        110,  "right"),
     "~":        (1,        110,  "right"),
@@ -194,7 +195,6 @@ operator_map = {
     "<<=":      (2,        40,   "right"),
     ">>=":      (2,        40,   "right"),
     "=>":       (2,        40,   "right"),
-    "->":       (2,        155,  "left"),
     "and":      (2,        30,   "left"),
     "xor":      (2,        29,   "left"),
     "or":       (2,        28,   "left"),
@@ -228,10 +228,10 @@ def lookup_op_type(op_value):
         return "ATTR"
     elif op_value == "::":
         return "STATICATTR"
-    elif operator_map[op_value][0] == 1:
-        return "OPERATOR1"
     elif op_value in ("return", "new"):
         return op_value.upper()
+    elif operator_map[op_value][0] == 1:
+        return "OPERATOR1"
     elif operator_map[op_value][0] == 3:
         return "OPERATOR3"
     else:
@@ -525,7 +525,13 @@ class PhpParser(Parser):
                 self.comments.append(self.parse_comment(t))
             elif t.val == "(":
                 self.pdebug("About to deal with an expression group")
-                full_ex.append(self.parse_expression_group("("))
+                eg = self.parse_expression_group("(")
+                op_node = self.pt.new("CALL", t, "")
+                op_node.append(eg)
+                op_node.arrity = 1
+                op_node.assoc = "left"
+                op_node.precedence = 152
+                full_ex.append(op_node)
                 #print_tree(full_ex[-1])
                 self.pdebug("Finished with expression group")
                 noo1a = False
@@ -552,7 +558,7 @@ class PhpParser(Parser):
         for n in full_ex:
             if n is None:
                 continue
-            if n.node_type not in ("OPERATOR", "INDEX", "REFERENCE"):
+            if n.node_type not in ("OPERATOR", "INDEX", "REFERENCE", "CALL"):
                 opee_stack.append(n)
             else:
                 if len(op_stack) == 0:
@@ -565,7 +571,8 @@ class PhpParser(Parser):
                             o2 = op_stack.pop()
                             args = [opee_stack.pop() for i in range(0, o2.arrity)]
                             [o2.children.append(a) for a in args]
-                            o2.node_type = lookup_op_type(o2.value)
+                            if o2.node_type != "CALL":
+                                o2.node_type = lookup_op_type(o2.value)
                             opee_stack.append(o2)
                         else:
                             break
@@ -579,7 +586,8 @@ class PhpParser(Parser):
             o2 = op_stack.pop()
             args = [opee_stack.pop() for i in range(0, o2.arrity)]
             [o2.children.append(a) for a in args]
-            o2.node_type = lookup_op_type(o2.value)
+            if o2.node_type != "CALL":
+                o2.node_type = lookup_op_type(o2.value)
             opee_stack.append(o2)
         if len(opee_stack) > 1:
             self.pdebug("========opee_stack > 1========")
@@ -692,8 +700,6 @@ class PhpParser(Parser):
         op_node.arrity = arrity
         op_node.precedence = prec
         op_node.assoc = assoc
-        if op_token.val == "new":
-            op_node.append(self.parse_ident(self.next()))
         return op_node
 
     def parse_int(self, int_token):
@@ -716,14 +722,7 @@ class PhpParser(Parser):
         TODO: Refactor to work out if bare is actually needed.
 
         """
-        if self.peek().val == "(":
-            # Function call
-            self.pdebug("Function call", 4)
-            call = self.pt.new("CALL", ident)
-            call.append(self.parse_expression_group(self.next(), "ARGSLIST"))
-            self.debug_indent -= 4
-            return call
-        elif ident.val in indent_map:
+        if ident.val in indent_map:
             ident.val = indent_map[ident.val]
         elif bare:
             # Assume all bare idents which aren't message calls and are bare  are constants

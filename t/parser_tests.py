@@ -51,11 +51,6 @@ Sum();
 echo $b;
 """
 
-new_eg = """<?php
-$a = new B();
-$c = new D("e", "f");
-"""
-
 
 complex_if = """<?php
 if (!empty($CFG->a) && ($CFG->a == CONS) && optional_param('b', 1, PARAM_BOOL) === 0) {
@@ -214,7 +209,7 @@ class ParserTests(Php2PyTestCase):
         t = parse_string(double_function, True).get_tree()
         function_call = t[0][1][0][0]
         self.assertEqual(function_call.node_type, "CALL")
-        self.assertEqual(function_call.value, "foo")
+        self.assertEqual(function_call[1].value, "foo")
 
     @parse_t
     def test_blank_lines(self, root_node):
@@ -279,15 +274,21 @@ class ParserTests(Php2PyTestCase):
         comment_node5 = php_node[4]["COMMENTBLOCK"]
         self.assertEqual(comment_node5.value, "groupy comment on line")
 
-    def test_new(self):
-        root_node = parse_string(new_eg, True).get_tree()[0]
-        statement_1, statement_2 = root_node.children
+    @parse_t
+    def test_new(self, root_node):
+        """ Test creation of new options
+        <?php
+        $a = new B();
+        $c = new D("e", "f");
+        """
+        print_tree(root_node)
+        statement_1 = root_node["PHP"][0]
         assignment = statement_1.get("EXPRESSION").get("ASSIGNMENT")
         new = assignment[0]
         self.assertEqual(new.node_type, "NEW")
         call = new[0]
         self.assertEqual(call.node_type, "CALL")
-        self.assertEqual(call.value, "B")
+        self.assertEqual(call["CONSTANT"].value, "B")
 
     @parse_t
     def test_multiline_call(self, root_node):
@@ -301,8 +302,8 @@ class ParserTests(Php2PyTestCase):
         """
         fcall = root_node.match("PHP/STATEMENT/EXPRESSION")[0]
         self.assertEqual(fcall.node_type, "CALL")
-        self.assertEqual(fcall.value, "F")
-        self.assertEqual(fcall.get("ARGSLIST")[0][0].value, "a")
+        self.assertEqual(fcall["CONSTANT"].value, "F")
+        self.assertEqual(fcall.get("EXPRESSIONGROUP")[0][0].value, "a")
 
     @parse_t
     def test_multiline_call2(self, root_node):
@@ -316,8 +317,8 @@ class ParserTests(Php2PyTestCase):
         """
         fcall = root_node.get("PHP")[0][0][0]
         self.assertEqual(fcall.node_type, "CALL")
-        self.assertEqual(fcall.value, "F")
-        self.assertEqual(fcall.get("ARGSLIST")[0][0].value, "a")
+        self.assertEqual(fcall[1].value, "F")
+        self.assertEqual(fcall[0][0][0].value, "a")
 
     @parse_t
     def test_multiline_call3(self, root_node):
@@ -329,9 +330,9 @@ class ParserTests(Php2PyTestCase):
         """
         fcall = root_node.match("PHP/STATEMENT/EXPRESSION")[0]
         self.assertEqual(fcall.node_type, "CALL")
-        self.assertEqual(fcall.value, "c")
-        self.assertEqual(fcall.get("ARGSLIST").get("EXPRESSION")[0].node_type, "OPERATOR2")
-        self.assertEqual(fcall.get("ARGSLIST").get("EXPRESSION")[0][1].value, "d")
+        self.assertEqual(fcall[1].value, "c")
+        self.assertEqual(fcall[0].get("EXPRESSION")[0].node_type, "OPERATOR2")
+        self.assertEqual(fcall[0].get("EXPRESSION")[0][1].value, "d")
 
     @parse_t
     def test_nested(self, root_node):
@@ -342,7 +343,7 @@ class ParserTests(Php2PyTestCase):
         require_once = root_node.match("PHP/STATEMENT/EXPRESSION/CALLSPECIAL")
         dirname = require_once.match("ARGSLIST/EXPRESSION/OPERATOR2/CALL")
         self.assertEqual(dirname.node_type, "CALL")
-        self.assertContainsNode(dirname, "ARGSLIST/EXPRESSION/INT|1")
+        self.assertContainsNode(dirname, "EXPRESSIONGROUP/EXPRESSION/INT|1")
 
     @parse_t
     def test_ident_starts_new(self, root_node):

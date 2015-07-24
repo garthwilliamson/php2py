@@ -137,8 +137,22 @@ def transform_attr(attr_node):
         object_node = attr_node[1]
         call_node.node_type = "METHODCALL"
         call_node.append(object_node)
-        return call_node
+        yield call_node
+        return
     yield attr_node
+
+
+@transforms("CALL")
+def transform_call(call_node):
+    call_node[0].node_type = "ARGSLIST"
+    transform_children(call_node[0])
+    lhs = call_node[1]
+    transform_children(lhs)
+    if lhs.node_type == "CONSTANT":
+        lhs.node_type = "IDENT"
+        # TODO: Cheating!
+        lhs.value = "_f_." + lhs.value
+    yield call_node
 
 
 @transforms("IF")
@@ -298,12 +312,13 @@ def transform_default(default_node, i):
 
 @transforms("CALLSPECIAL")
 def transform_callspecial(cs_node: ParseNode):
+    cs_node.node_type = "CALL"
+    cs_node.append(ParseNode("IDENT", cs_node.token, cs_node.value))
     if cs_node.value == "array":
         yield from transform_array(cs_node)
     elif cs_node.value == "__dir__":
         # We don't need to transform_call if we are generating the argslist entirely ourselves
-        cs_node.node_type = "CALL"
-        cs_node.value = "dirname"
+        cs_node["IDENT"].value = "dirname"
         add_argument(cs_node, ParseNode("IDENT", cs_node.token, value="__file__"))
         yield cs_node
     else:
@@ -318,11 +333,6 @@ def transform_index(index_node: ParseNode):
         exp.append(ParseNode("STRING", exp.token, "MagicEmptyArrayIndex"))
     transform_children(index_node)
     yield index_node
-
-
-def transform_call(call_node):
-    transform_children(call_node.get("ARGSLIST"))
-    yield call_node
 
 
 def transform_array(array_node):

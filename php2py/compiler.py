@@ -213,16 +213,12 @@ class Compiler(object):
             res = getattr(self, node.node_type.lower() + "_compile_str")(node)
             assert isinstance(res, str)
             return res
-        except TypeError:
-            print("Tried to compile...")
-            parsetree.print_tree(node)
-            print("...but failed")
-            raise  # CompileError("Probably something isn't returning a string when it should", e)
         except AttributeError:
-            print("Tried to compile {}...".format(node.token))
-            parsetree.print_tree(node)
-            print("...but failed")
-            raise CompileError("Unimplemented method " + node.node_type.lower() + "_compile_str")
+            raise UnimplementedCompileError(node, "Unimplemented method " + node.node_type.lower() + "_compile_str")
+        except CompileError:
+            raise
+        except Exception as e:
+            raise CompileError(node, "Unexpected error compiling node", e)
 
     def php_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         php_segment = CompiledSegment()
@@ -311,10 +307,8 @@ class Compiler(object):
         # TODO: Ditto
         return self.function_compile(node)
 
-    def _call_inner_compile(self, node: parsetree.ParseNode) -> str:
+    def call_compile_str(self, node: parsetree.ParseNode) -> str:
         """ Compile a function or method call
-
-        Deals with the function name and arg list but not the scoping.
 
         """
         # Process args
@@ -331,16 +325,7 @@ class Compiler(object):
             kwargs = "**{" + ", ".join(kwarg_list) + "}"
             arg_list.append(kwargs)
         args = ", ".join(arg_list)
-        return "{0}({1})".format(node.value, args)
-
-    def call_compile_str(self, node: parsetree.ParseNode) -> str:
-        return "_f_." + self._call_inner_compile(node)
-
-    def methodcall_compile_str(self, node: parsetree.ParseNode) -> str:
-        return "{}.{}".format(self.marshal_str(node[1]), self._call_inner_compile(node))
-
-    def callspecial_compile_str(self, node: parsetree.ParseNode) -> str:
-        return self._call_inner_compile(node)
+        return "{0}({1})".format(self.marshal_str(node[1]), args)
 
     def keyvalue_compile_str(self, node: parsetree.ParseNode, assign=": ") -> str:
         if len(node) != 2:

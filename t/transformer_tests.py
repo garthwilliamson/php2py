@@ -54,7 +54,7 @@ class TransformerTests(Php2PyTestCase):
         print_tree(root_node)
         ex = get_body(root_node).get("STATEMENT").get("EXPRESSION")
         od = ex.get("ASSIGNMENT")[0]
-        self.assertEqual(od.node_type, "CALLSPECIAL")
+        self.assertEqual("CALL", od.node_type)
         self.assertEqual(od.value, "array")
         l = od.get("ARGSLIST").get("EXPRESSION")[0]
         self.assertEqual("LIST", l.node_type)
@@ -228,3 +228,18 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/VAR")
 
     # TODO: Need to work out what rules php uses to strip a newline at end of file and replicate
+
+    @parse_t
+    def test_deep_attr(self, root_node):
+        """ Compile something with deep attributes
+        <?php
+        c = $this->a->b();
+        """
+        # TODO: The precendence of calls might be too low. or too high. I've forgotten this stuff already
+        print_tree(root_node)
+        transformer.transform(root_node)
+        rhs = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT/CALL")
+        self.assertEqual(rhs.node_type, "CALL")
+        self.assertContainsNode(rhs, "ARGSLIST")
+        self.assertContainsNode(rhs, "ATTR/ATTR/GLOBALVAR|this")
+
