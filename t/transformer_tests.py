@@ -78,7 +78,7 @@ class TransformerTests(Php2PyTestCase):
         self.assertEqual("STRING", rhs.node_type)
         print_tree(root_node)
         self.assertContainsNode(lhs, "GLOBALVAR|a")
-        self.assertContainsNode(lhs, "EXPRESSION/IDENT|None")
+        self.assertContainsNode(lhs, "EXPRESSION/STRING|MagicEmptyArrayIndex")
 
     @parse_t
     def test_assign_in_if(self, root_node):

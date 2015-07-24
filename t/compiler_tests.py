@@ -27,7 +27,7 @@ class CompilerTests(Php2PyTestCase):
         """
         transformer.transform(root_node)
         cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual('_g_.a[None] = u"bob"', cs[0])
+        self.assertEqual('_g_.a[u"MagicEmptyArrayIndex"] = u"bob"', cs[0])
 
     @parse_t
     def test_while(self, root_node):

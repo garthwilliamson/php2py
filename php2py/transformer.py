@@ -313,9 +313,9 @@ def transform_callspecial(cs_node: ParseNode):
 
 @transforms("INDEX")
 def transform_index(index_node: ParseNode):
-    # Check for empty are list and stick None in
+    # TODO: Maybe change to a call to append? Would require altering parent too
     if len(index_node["EXPRESSION"]) == 0:
-        index_node["EXPRESSION"].append(ParseNode("IDENT", "None"))
+        index_node["EXPRESSION"].append(ParseNode("STRING", "MagicEmptyArrayIndex"))
     transform_children(index_node)
     yield index_node
 

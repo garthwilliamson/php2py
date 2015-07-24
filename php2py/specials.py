@@ -22,10 +22,10 @@ class array():
             self.append(i)
 
     def append(self, item):
-            if isinstance(item, tuple):
-                self[item[0]] = item[1]
-            else:
-                self[self.next_index] = item
+        if isinstance(item, tuple):
+            self[item[0]] = item[1]
+        else:
+            self[self.next_index] = item
 
     def __setitem__(self, key, value):
         """
@@ -44,6 +44,9 @@ class array():
                 key = int(key)
             except ValueError:
                 pass
+            if key == "MagicEmptyArrayIndex":
+                # This is actually an append. Magic!
+                key = self.next_index
         if isinstance(key, float):
             key = int(key)
         if key is None:
