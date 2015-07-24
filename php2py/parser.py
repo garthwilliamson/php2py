@@ -144,12 +144,14 @@ class Parser(object):
             raise ExpectedCharError(kind + ":" + value, self.current)
         return t
 
+
 operator_map = {
 #   OP:        (ARITY,    PREC, ASSOC)
 #   "[":        (2,        120,  "left"),
     ".":        (2,        90,  "left"),
     "::":       (2,        160,  "right"),
     "->":       (2,        155,  "left"),
+    "->{":      (1,        152,  "left"),
     "return":   (1,        150,  "none"),
     "new":      (1,        150,  "right"),
     "++":       (1,        110,  "right"),
@@ -229,6 +231,8 @@ def lookup_op_type(op_value):
         return "INDEX"
     elif op_value == "->":
         return "ATTR"
+    elif op_value == "->{":
+        return "GETATTR"
     elif op_value == "::":
         return "STATICATTR"
     elif op_value in ("return", "new"):
@@ -514,11 +518,15 @@ class PhpParser(Parser):
                 self.pdebug("Appended an operator")
                 if t.val == "?":
                     tern = True
+                if t.val == "->{":
+                    op_node.append(self.parse_expression())
+                    self.assert_next("ENDBRACE", "}")
                 noo1a = True
             elif t.kind in ("BLOCKCOMMENT", "COMMENTLINE"):
                 # Get rid of block comments for the meantime - too hard to deal with
                 self.comments.append(self.parse_comment(t))
             elif t.val == "(":
+                # TODO: When lhs is an operator, this isn't a call...
                 self.pdebug("About to deal with an expression group")
                 eg = self.parse_expression_group("(")
                 op_node = self.pt.new("CALL", t, "")
@@ -534,6 +542,9 @@ class PhpParser(Parser):
                 # Hopefully we haven't missed too many ident cases
                 full_ex.append(self.parse_ident(t, bare=True))
                 noo1a = False
+            #elif t.kind == "STARTBRACE":
+            #    # Assume we have a attr lookup
+            #    full_ex.append(self.parse_startbrace())
             else:
                 try:
                     self.pdebug("Going to try to run parse_" + t.kind.lower())
@@ -547,13 +558,21 @@ class PhpParser(Parser):
         self.pdebug("Expresion nodes")
         self.pdebug([str(n) for n in full_ex])
 
+        def shuffle_stacks(op_stack, opee_stack):
+            o2 = op_stack.pop()
+            args = [opee_stack.pop() for _ in range(0, o2.arrity)]
+            [o2.children.append(a) for a in args]
+            if o2.node_type not in ("CALL", "GETATTR"):
+                o2.node_type = lookup_op_type(o2.value)
+            opee_stack.append(o2)
+
         # Here follows the shunting algorithm(ish)
         op_stack = []
         opee_stack = []
         for n in full_ex:
             if n is None:
                 continue
-            if n.node_type not in ("OPERATOR", "INDEX", "REFERENCE", "CALL"):
+            if n.node_type not in ("OPERATOR", "INDEX", "REFERENCE", "CALL", "GETATTR"):
                 opee_stack.append(n)
             else:
                 if len(op_stack) == 0:
@@ -562,22 +581,12 @@ class PhpParser(Parser):
                     while len(op_stack) > 0:
                         o2 = op_stack[-1]
                         if (n.assoc == "left" and n.precedence == o2.precedence) or n.precedence < o2.precedence:
-                            o2 = op_stack.pop()
-                            args = [opee_stack.pop() for _ in range(0, o2.arrity)]
-                            [o2.children.append(a) for a in args]
-                            if o2.node_type != "CALL":
-                                o2.node_type = lookup_op_type(o2.value)
-                            opee_stack.append(o2)
+                            shuffle_stacks(op_stack, opee_stack)
                         else:
                             break
                     op_stack.append(n)
         while len(op_stack) != 0:
-            o2 = op_stack.pop()
-            args = [opee_stack.pop() for _ in range(0, o2.arrity)]
-            [o2.children.append(a) for a in args]
-            if o2.node_type != "CALL":
-                o2.node_type = lookup_op_type(o2.value)
-            opee_stack.append(o2)
+            shuffle_stacks(op_stack, opee_stack)
         if len(opee_stack) > 1:
             self.pdebug("========opee_stack > 1========")
             [print_tree(n) for n in op_stack]

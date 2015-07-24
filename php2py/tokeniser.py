@@ -276,7 +276,7 @@ cast_map = {
 CASTERS = [c for c in cast_map]
 COMPARATORS = ["===", "!==", "==", "!=", "<>", "<=", ">=", "<", ">"]
 OPERATORS = ["new ", "and ", "xor " "or ", "as ",
-             "=>", "->", "::",        # Here because I don't know where else to put it
+             "->{", "=>", "->", "::",        # TODO: is ->{ allowed whitespace?
              "<<", ">>", "||", "&&", "++", "--",
              "+", "-", "*", "/", "%", ".", "&", "|", "^", "~", "!", "?", "@"]
 ASSIGNMENTS = ["<<=", ">>=",

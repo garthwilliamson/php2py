@@ -103,3 +103,14 @@ class CompilerTests(Php2PyTestCase):
         main = self.compiler.block_compile(get_body(root_node))
         print_tree(root_node)
         print(main)
+
+    @parse_t
+    def test_compile_getattr(self, root_node):
+        """ Funky php getattr equivalent
+        <?php
+       $r = $s->{"a"};
+        """
+        transformer.transform(root_node)
+        print_tree(root_node)
+        statement = self.compiler.statement_compile(get_body(root_node)["STATEMENT"])
+        self.assertEqual('_g_.r = getattr(_g_.s, u"a")', statement[0])

@@ -378,6 +378,9 @@ class Compiler(object):
     def attr_compile_str(self, node):
         return "{}.{}".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
 
+    def getattr_compile_str(self, node):
+        return "getattr({}, {})".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
+
     def staticattr_compile_str(self, node):
         """ Static attr should change references to self etc to the proper class name..."""
         return "_c_.{}.{}".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
