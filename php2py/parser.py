@@ -378,7 +378,6 @@ class PhpParser(Parser):
         i.append(self.parse_expression_group(self.next()))
         i.append(self.parse_block())
         while self.peek().kind == "ELSEIF":
-            self.next()
             e = self.pt.new("ELIF", self.next())
             e.append(self.parse_expression_group(self.next()))
             e.append(self.parse_block())
