@@ -125,6 +125,14 @@ def preg_replace(pattern, replacement, subject, limit: int = -1):
     return re.sub(pattern, replacement, subject, limit)
 
 
+def is_string(self, item):
+    # TODO: This could be a transform
+    if isinstance(item, str):
+        return True
+    else:
+        return False
+
+
 functionlist = [
 #    ("isset", isset),
     ("stdClass", stdClass),

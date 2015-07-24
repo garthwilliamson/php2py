@@ -321,6 +321,9 @@ class PhpParser(Parser):
                     visibility = mm.val
             if self.peek().kind == "FUNCTION":
                 statement = self.parse_method(static, visibility)
+            elif self.peek().kind == "VARIABLE":
+                # TODO: This should be limited, not a full expression
+                statement = self.parse_expression()
             else:
                 raise ExpectedCharError("function", self.peek().val)
         elif self.peek().kind == "RETURN":

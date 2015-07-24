@@ -555,5 +555,18 @@ class ParserTests(Php2PyTestCase):
         class_node = root_node["PHP"]["CLASS"]
         self.assertContainsNode(class_node, "EXTENDS")
 
+    @parse_t
+    def test_class_attributes(self, root_node):
+        """ A class with some private attributes
+        <?php
+        class TestClass {
+            private $a = 1;
+        }
+        """
+        print_tree(root_node)
+        class_node = root_node["PHP"]["CLASS"]
+        self.assertContainsNode(class_node, "BLOCK/EXPRESSION/ASSIGNMENT/VAR")
+
+
 if __name__ == "__main__":
     unittest.main()
