@@ -27,9 +27,9 @@ class TransformException(Exception):
 def transform(root_node: ParseNode):
     functions = []
     classes = []
-    body_function = ParseNode("FUNCTION", "body")
-    body_function.append(ParseNode("ARGSLIST"))
-    block = ParseNode("BLOCK")
+    body_function = ParseNode("FUNCTION", None, "body")
+    body_function.append(ParseNode("ARGSLIST", None))
+    block = ParseNode("BLOCK", None)
     body_function.append(block)
 
     for tln in root_node:
@@ -100,7 +100,7 @@ def transform_statement(statement_node: ParseNode):
 @transforms("EXPRESSION")
 def transform_expression(expression_node):
     if len(expression_node) == 0:
-        yield ParseNode("NOOP", "")
+        yield ParseNode("NOOP", expression_node.token, "")
     transform_children(expression_node)
     yield expression_node
 
@@ -120,7 +120,7 @@ def transform_operator(operator_node):
     pdebug("T OPERATOR", operator_node)
     if operator_node.value == "++":
         operator_node.value = "+="
-        operator_node.children.insert(0, ParseNode("INT", 1))
+        operator_node.children.insert(0, ParseNode("INT", operator_node.token, 1))
         operator_node.node_type = "OPERATOR2"
     elif operator_node.value in op_map:
         operator_node.value = op_map[operator_node.value]
@@ -150,13 +150,13 @@ def transform_if(if_statement):
     if_op = transform_single_node(if_op)
     # TODO: This probably only deals with the most basic cases. Need to go down tree and extract all assignments.
     if if_op.node_type == "ASSIGNMENT":
-        assign_statement = ParseNode("STATEMENT", None, token=if_op.token)
-        assign_ex = ParseNode("EXPRESSION", None, token=if_op.token)
+        assign_statement = ParseNode("STATEMENT", if_op.token)
+        assign_ex = ParseNode("EXPRESSION", if_op.token)
         assign_ex.append(if_op)
         assign_statement.append(assign_ex)
         yield assign_statement
         if_op = if_op[1]
-    if_ex = ParseNode("EXPRESSION", None)
+    if_ex = ParseNode("EXPRESSION", if_op.token)
     if_ex.append(if_op)
     if_statement.children = [if_ex, if_statement["BLOCK"]]
     yield if_statement
@@ -198,18 +198,18 @@ def transform_foreach(foreach_statement: ParseNode):
     var = as_[0]
     in_ = as_[1]
 
-    expr = ParseNode("EXPRESSION")
+    expr = ParseNode("EXPRESSION", as_.token)
     if var.value == "=>":
-        items = ParseNode("CALL", "items")
-        items.append(ParseNode("ARGSLIST"))
-        method_call = ParseNode("OPERATOR2", ".")
+        items = ParseNode("CALL", var.token, "items")
+        items.append(ParseNode("ARGSLIST", var.token))
+        method_call = ParseNode("OPERATOR2", in_.token, ".")
         method_call.append(in_)
         method_call.append(items)
         expr.append(method_call)
         var.node_type = "ARGSLIST"
     else:
         expr.append(in_)
-    for_node = ParseNode("PYFOR", "for", token=foreach_statement.token)
+    for_node = ParseNode("PYFOR", foreach_statement.token, value="for")
     for_node.append(var)
     for_node.append(expr)
     for_node.append(transform_block(foreach_statement[1]))
@@ -221,15 +221,15 @@ def transform_switch(switch_statement):
     # Rearrange to have _switch_choice = <expression> so expression is only run once
     decide_ex = switch_statement.get("EXPRESSIONGROUP").get("EXPRESSION")
 
-    assign = ParseNode("ASSIGNMENT", "=")
-    switch_var = ParseNode("VAR", "_switch_choice")
+    assign = ParseNode("ASSIGNMENT", decide_ex.token, "=")
+    switch_var = ParseNode("VAR", decide_ex.token, "_switch_choice")
     assign.append(decide_ex[0])
     assign.append(switch_var)
 
-    assign_ex = ParseNode("EXPRESSION", None)
+    assign_ex = ParseNode("EXPRESSION", decide_ex.token, None)
     assign_ex.append(assign)
 
-    assign_statement = ParseNode("STATEMENT", None)
+    assign_statement = ParseNode("STATEMENT", decide_ex.token, None)
     assign_statement.append(assign_ex)
     yield assign_statement
 
@@ -260,21 +260,21 @@ def transform_switch(switch_statement):
 
 def transform_case(switch_var, case_node, i, extras):
     if i > 0:
-        if_statement = ParseNode("ELIF", "elif", token=case_node.token)
+        if_statement = ParseNode("ELIF", case_node.token, value="elif")
     else:
-        if_statement = ParseNode("IF", "if", token=case_node.token)
+        if_statement = ParseNode("IF", case_node.token, value="if")
     orig_ex = case_node.get("EXPRESSION")
-    if_ex = ParseNode("EXPRESSION", None, token=orig_ex.token)
-    comp = ParseNode("COMPARATOR", "==", token=case_node.token)
+    if_ex = ParseNode("EXPRESSION", orig_ex.token)
+    comp = ParseNode("COMPARATOR", case_node.token, value="==")
     comp.append(switch_var)
     comp.append(orig_ex[0])
     if len(extras) > 0:
         # Add the extras to a tree of or nodes like:
         # or(extras[0], or(extras[1], ... or(extras[-2], extras[-1])))
-        or_node = ParseNode("OPERATOR2", "or")
+        or_node = ParseNode("OPERATOR2", comp.token, "or")
         or_node.append(comp)
         for e in extras[:-1]:
-            new_or_node = ParseNode("OPERATOR2", "or")
+            new_or_node = ParseNode("OPERATOR2", e.token, "or")
             new_or_node.append(e)
             or_node.append(new_or_node)
             or_node = new_or_node
@@ -289,7 +289,7 @@ def transform_case(switch_var, case_node, i, extras):
 
 def transform_default(default_node, i):
     if i > 0:
-        else_statement = ParseNode("ELSE", "else", token=default_node.token)
+        else_statement = ParseNode("ELSE", default_node.token, value="else")
     else:
         raise TransformException("Something unknown went wrong")
     else_statement.append(transform_block(default_node.get("BLOCK")))
@@ -304,7 +304,7 @@ def transform_callspecial(cs_node: ParseNode):
         # We don't need to transform_call if we are generating the argslist entirely ourselves
         cs_node.node_type = "CALL"
         cs_node.value = "dirname"
-        add_argument(cs_node, ParseNode("IDENT", "__file__", token=cs_node.token))
+        add_argument(cs_node, ParseNode("IDENT", cs_node.token, value="__file__"))
         yield cs_node
     else:
         yield from transform_call(cs_node)
@@ -313,8 +313,9 @@ def transform_callspecial(cs_node: ParseNode):
 @transforms("INDEX")
 def transform_index(index_node: ParseNode):
     # TODO: Maybe change to a call to append? Would require altering parent too
-    if len(index_node["EXPRESSION"]) == 0:
-        index_node["EXPRESSION"].append(ParseNode("STRING", "MagicEmptyArrayIndex"))
+    exp = index_node["EXPRESSION"]
+    if len(exp) == 0:
+        exp.append(ParseNode("STRING", exp.token, "MagicEmptyArrayIndex"))
     transform_children(index_node)
     yield index_node
 
@@ -326,19 +327,19 @@ def transform_call(call_node):
 
 def transform_array(array_node):
     i = 0
-    list_node = ParseNode("LIST", "[", token=array_node.token, parent=array_node)
+    list_node = ParseNode("LIST", array_node.token, value="[", parent=array_node)
     for e in array_node.get("ARGSLIST"):
         c = e[0]
-        tuple_node = ParseNode("TUPLE", "(", token=c.token)
+        tuple_node = ParseNode("TUPLE", c.token, value="(")
         if c.value == "=>":
             tuple_node.append(transform_single_node(c[1]))
             tuple_node.append(transform_single_node(c[0]))
         else:
-            tuple_node.append(ParseNode("INT", i, token=c.token))
+            tuple_node.append(ParseNode("INT", c.token, value=i))
             tuple_node.append(c)
             i += 1
         list_node.append(tuple_node)
-    l_e = ParseNode("EXPRESSION", "_list expression")
+    l_e = ParseNode("EXPRESSION", list_node.token, "_list expression")
     l_e.append(list_node)
     array_node.get("ARGSLIST").children = [l_e]
     yield array_node
@@ -351,9 +352,10 @@ def transform_function(function_node: ParseNode):
     transform_children(function_node["BLOCK"])
     yield function_node
     # TODO: Highly cheating - need to make an attr access properly instead
-    attr_node = ParseNode("VAR", "_f_.{}".format(function_node.value))
-    assign_node = ParseNode("ASSIGNMENT", "=")
-    assign_node.append(ParseNode("VAR",function_node.value))
+    t = function_node.token
+    attr_node = ParseNode("VAR", t, "_f_.{}".format(function_node.value))
+    assign_node = ParseNode("ASSIGNMENT", t, "=")
+    assign_node.append(ParseNode("VAR", t, function_node.value))
     assign_node.append(attr_node)
     yield assign_node
 
@@ -361,21 +363,22 @@ def transform_function(function_node: ParseNode):
 @transforms("CLASS")
 def transform_class(class_node: ParseNode):
     pdebug("T CLASS", class_node)
+    cnt = class_node.token
 
     # The base class for all php derived classes should be PhpBase
     if "EXTENDS" not in class_node:
-        class_node.append(ParseNode("EXTENDS", "PhpBase"))
+        class_node.append(ParseNode("EXTENDS", cnt, "PhpBase"))
 
     # Fix the class contents up
     transform_children(class_node["BLOCK"])
     yield class_node
 
     # TODO: Highly cheating - need to make an attr access properly instead
-    attr_node = ParseNode("VAR", "_c_.{}".format(class_node.value))
-    assign_node = ParseNode("ASSIGNMENT", "=")
-    assign_node.append(ParseNode("VAR",class_node.value))
+    attr_node = ParseNode("VAR", cnt, "_c_.{}".format(class_node.value))
+    assign_node = ParseNode("ASSIGNMENT", cnt, "=")
+    assign_node.append(ParseNode("VAR", cnt, class_node.value))
     assign_node.append(attr_node)
-    statement_node = ParseNode("STATEMENT", token=class_node.token)
+    statement_node = ParseNode("STATEMENT", cnt)
     statement_node.append(assign_node)
     yield statement_node
 
@@ -384,7 +387,7 @@ def transform_class(class_node: ParseNode):
 @transforms("METHOD", "CLASSMETHOD")
 def transform_method(node):
     args = node["ARGSLIST"]
-    args.children.insert(0, ParseNode("VAR", value="self", parent=args, token=args.token))
+    args.children.insert(0, ParseNode("VAR", args.token, value="self", parent=args))
     transform_children(node["BLOCK"])
     # TODO: Probably have to rearrange some things here
     yield node
@@ -397,7 +400,7 @@ def add_argument(node: ParseNode, argument: ParseNode):
 
     """
     if argument.node_type != "EXPRESSION":
-        e = ParseNode("EXPRESSION", token=argument.token)
+        e = ParseNode("EXPRESSION", argument.token)
         e.append(argument)
         argument = e
     node.get("ARGSLIST").append(argument)

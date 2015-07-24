@@ -17,11 +17,9 @@ def get_next_id():
 
 
 class ParseNode(object):
-    def __init__(self, node_type, value=None, parent=None, token=None):
+    def __init__(self, node_type, token, value=None, parent=None):
         if not isinstance(node_type, str):
             raise ParseTreeError("node_type must be a string, not {}".format(node_type))
-        if token is None:
-            raise ParseTreeError("Token is now required")
         self.node_type = node_type
         self.parent = parent
         self.value = value
@@ -160,26 +158,7 @@ class ParseNode(object):
 
 class ParseTree(object):
     def __init__(self, name):
-        self.root_node = ParseNode("ROOT", value=name)
-        self.cur = self.root_node
-        self.last = self.cur
-
-    def up(self):
-        #print("Going up from", str(self.cur), "to", str(self.cur.parent))
-        if self.cur.parent is None:
-            raise Exception("Can't go up from here")
-        self.cur = self.cur.parent
-
-    def append(self, node_type, value=None):
-        new_node = ParseNode(node_type, value, self.cur)
-        #print("Appending node", str(new_node), value, "to", str(self.cur))
-        self.cur.append(new_node)
-        self.last = new_node
-        return new_node
-
-    def append_and_into(self, node_type, value=None):
-        self.cur = self.append(node_type, value)
-        return self.cur
+        self.root_node = ParseNode("ROOT", None, value=name)
 
     def print_(self, node=None):
         if node is None:
@@ -196,8 +175,15 @@ class ParseTree(object):
                     print_tree(c, indent + 4)
         print_tree(node, 0)
 
-    def new(self, node_type=None, value=None, token=None):
-        n = ParseNode(node_type, value=value, token=token)
+    def new(self, node_type: str, token, value=None) -> ParseNode:
+        """ Create a new ParseNode
+
+        If value is None, then we get the value from the token
+
+        """
+        if value is None:
+            value = token.val
+        n = ParseNode(node_type, token, value=value)
         #print("New node: {}".format(n))
         return n
 

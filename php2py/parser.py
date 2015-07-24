@@ -265,33 +265,36 @@ class PhpParser(Parser):
 
     def parse(self):
         #print("\n".join(self.tokens.position()))
-        for t in self.peek_until(("EOF",)):
-            self.parse_html()
+        for _ in self.peek_until(("EOF",)):
+            h = self.parse_html()
+            if h is not None:
+                self.pt.root_node.append(h)
             if self.peek().kind == "PHPSTART":
-                self.parse_php()
+                self.pt.root_node.append(self.parse_php())
 
     def parse_html(self):
         contents = ""
         #print("Parsing html")
+        t = self.peek()
         for t in self.next_while_kind(("HTML",)):
             #print("FOUND HTML")
             contents += t.val
         if len(contents) > 0:
             self.pdebug("FOUND HTML CONTENTS. APPENDING NOW")
-            self.pt.append("HTML", contents)
+            return self.pt.new("HTML", t, contents)
         else:
-            pass
+            return None
 
     def parse_php(self):
         self.pdebug("PHP:", 4)
-        php_node = self.pt.new("PHP", None, self.assert_next("PHPSTART"))
-        for t in self.peek_until(PHPEND):
+        php_node = self.pt.new("PHP", self.assert_next("PHPSTART"))
+        for _ in self.peek_until(PHPEND):
             self.next_non_white()
             php_node.append(self.parse_statement())
 
-        self.pt.cur.append(php_node)
         self.next()
         self.debug_indent -= 4
+        return php_node
 
     def parse_statement(self):
         self.pdebug("STATEMENT starting with {}:".format(self.peek()), 4)
@@ -311,13 +314,13 @@ class PhpParser(Parser):
             statement = self.parse_blankline()
         elif self.peek().kind == "METHODMOD":
             static = False
-            visibility = "public"
+            visibility = None
             while self.peek().kind == "METHODMOD":
                 mm = self.next()
                 if mm.val == "static":
                     static = True
                 elif mm.val in ("public", "protected", "private"):
-                    visibility = mm.val
+                    visibility = mm
             if self.peek().kind == "FUNCTION":
                 statement = self.parse_method(static, visibility)
             elif self.peek().kind == "VARIABLE":
@@ -336,7 +339,7 @@ class PhpParser(Parser):
         elif self.peek().kind == "DEFAULT":
             statement = self.parse_default()
         else:
-            statement = self.pt.new("STATEMENT", None)
+            statement = self.pt.new("STATEMENT", self.peek())
             if self.peek().kind in ("COMMENTLINE", "BLOCKCOMMENT"):
                 while self.peek().kind in ("COMMENTLINE", "BLOCKCOMMENT"):
                     self.comments.append(self.parse_comment(self.next()))
@@ -356,8 +359,7 @@ class PhpParser(Parser):
 
     def parse_block(self):
         self.pdebug("Staring new block", 4)
-        self.assert_next("STARTBRACE", "{")
-        block = self.pt.new("BLOCK", None)
+        block = self.pt.new("BLOCK", self.assert_next("STARTBRACE", "{"))
         for t in self.peek_until(ENDBLOCK):
             block.append(self.parse_statement())
 
@@ -369,17 +371,17 @@ class PhpParser(Parser):
         return block
 
     def parse_if(self):
-        i = self.pt.new("IF", "if", self.next())
+        i = self.pt.new("IF", self.next())
         i.append(self.parse_expression_group(self.next()))
         i.append(self.parse_block())
         while self.peek().kind == "ELSEIF":
             self.next()
-            e = self.pt.new("ELIF", "elseif", self.next())
+            e = self.pt.new("ELIF", self.next())
             e.append(self.parse_expression_group(self.next()))
             e.append(self.parse_block())
             i.append(e)
         if self.peek().kind == "ELSE":
-            e = self.pt.new("ELSE", "else", self.next())
+            e = self.pt.new("ELSE", self.next())
             if self.peek().kind == "IF":
                 e.append(self.parse_if())
             else:
@@ -394,10 +396,9 @@ class PhpParser(Parser):
         #s.append(self.parse_block())
 
     def parse_case(self):
-        case = self.pt.new("CASE", "case", self.next())
+        case = self.pt.new("CASE", self.next())
         case.append(self.parse_expression())
-        self.assert_next("COLON", ":")
-        block = self.pt.new("BLOCK", None)
+        block = self.pt.new("BLOCK", self.assert_next("COLON", ":"))
         while self.peek().kind not in ("CASE", "BREAK", "DEFAULT", "ENDBRACE"):
             block.append(self.parse_statement())
         if self.peek().kind != "BREAK":
@@ -409,9 +410,8 @@ class PhpParser(Parser):
         return case
 
     def parse_default(self):
-        default = self.pt.new("DEFAULT", "default", self.next())
-        self.assert_next("COLON", ":")
-        block = self.pt.new("BLOCK", None)
+        default = self.pt.new("DEFAULT", self.next())
+        block = self.pt.new("BLOCK", self.assert_next("COLON", ":"))
         while self.peek().kind not in ("BREAK", "ENDBRACE"):
             block.append(self.parse_statement())
         if self.peek().kind == "BREAK":
@@ -424,18 +424,18 @@ class PhpParser(Parser):
     def parse_control(self):
         control_token = self.next()
         keyword = control_token.val.upper()
-        c = self.pt.new(keyword, None, control_token)
+        c = self.pt.new(keyword, control_token)
         c.append(self.parse_expression_group(self.next()))
         c.append(self.parse_block())
         return c
 
     def parse_try(self):
-        try_node = self.pt.new("TRY", None, self.next())
+        try_node = self.pt.new("TRY", self.next())
         try_node.append(self.parse_block())
         for t in self.next_while(("catch",)):
-            c = self.pt.new("CATCH", None, t)
+            c = self.pt.new("CATCH", t)
             self.assert_next("STARTBRACE", "(")
-            catchmatch = self.pt.new("EXCEPTION", self.next().val)
+            catchmatch = self.pt.new("EXCEPTION", self.next())
             catchmatch.append(self.parse_variable(self.next()))
             c.append(catchmatch)
             self.assert_next("ENDBRACE", ")")
@@ -448,7 +448,7 @@ class PhpParser(Parser):
         self.push_scope("LOCAL")
         self.next()
         # Function names are case insensitive
-        f = self.pt.new("FUNCTION", self.next().val.lower())
+        f = self.pt.new("FUNCTION", self.peek(), self.next().val.lower())
         f.append(self.parse_expression_group(self.next(), "ARGSLIST"))
         f.append(self.parse_block())
         self.pdebug("At end of function")
@@ -468,7 +468,7 @@ class PhpParser(Parser):
         self.pdebug("Doing a class call", 4)
         self.push_scope("CLASS")
         self.next()
-        c = self.pt.new("CLASS", self.next().val)
+        c = self.pt.new("CLASS", self.next())
         if self.peek().val == "extends":
             c.append(self.parse_extends())
         c.append(self.parse_block())
@@ -485,7 +485,7 @@ class PhpParser(Parser):
         """
         self.assert_next("EXTENDS")
         parent = self.assert_next("IDENT")
-        return self.pt.new("EXTENDS", parent.val, parent)
+        return self.pt.new("EXTENDS", parent)
 
     def parse_method(self, static=False, visibility=None):
         # For now, methods are functions with visibility
@@ -494,11 +494,12 @@ class PhpParser(Parser):
             f.node_type = "CLASSMETHOD"
         else:
             f.node_type = "METHOD"
-        f.append(self.pt.new("VISIBILITY",visibility))
+        if visibility is not None:
+            f.append(self.pt.new("VISIBILITY", visibility))
         return f
 
     def parse_expression(self):
-        ex = self.pt.new("EXPRESSION", "EX")
+        ex = self.pt.new("EXPRESSION", self.peek(), "EX")
         self.pdebug("\033[94m########Starting new expression##########", 4)
         full_ex = []
         tern = False
@@ -602,7 +603,7 @@ class PhpParser(Parser):
 
     def parse_comma_list(self, node_type="COMMALIST"):
         self.pdebug("COMMA LIST", 4)
-        cl = self.pt.new(node_type)
+        cl = self.pt.new(node_type, self.peek())
         self.pdebug(self.peek())
         for t in self.peek_until(ENDGROUP):
             cl.append(self.parse_expression())
@@ -624,7 +625,7 @@ class PhpParser(Parser):
             v = v + "_"
         if self.scope_is("GLOBAL") or self.is_global(v):
             t = "GLOBALVAR"
-        var = self.pt.new(t, v)
+        var = self.pt.new(t, var_token, v)
         return var
 
     def parse_string(self, string_token):
@@ -650,22 +651,21 @@ class PhpParser(Parser):
             #else:
                 #out.append("{}")
                 #format_vars.append(self.pt.new("VARIABLE", t.val))
-        string = self.pt.new("STRING", s)
+        string = self.pt.new("STRING", string_token, s)
         #string.children = format_vars
         self.debug_indent -= 4
         return string
 
 
     def parse_simple_control(self, name, value):
-        self.next()
-        r = self.pt.new(name, value)
+        r = self.pt.new(name, self.next(), value)
         r.append(self.parse_expression())
         if self.peek().val == ";":
             self.next()
         return r
 
     def parse_special(self, keyword_token):
-        special = self.pt.new("CALLSPECIAL", keyword_token.val.lower())
+        special = self.pt.new("CALLSPECIAL", keyword_token, keyword_token.val.lower())
         if self.peek().val == "(":
             args = self.parse_expression_group(self.next(), "ARGSLIST")
         else:
@@ -675,8 +675,7 @@ class PhpParser(Parser):
         return special
 
     def parse_global(self):
-        self.next()
-        g = self.pt.new("GLOBAL", "global")
+        g = self.pt.new("GLOBAL", self.next(), "global")
         args = self.parse_comma_list("GLOBALS")
         for v in args:
             g.append(v[0])
@@ -689,7 +688,7 @@ class PhpParser(Parser):
         #if op_token.val == "[":
             #return self.parse_index(op_token)
         arrity, prec, assoc = operator_map[op_token.val]
-        op_node = self.pt.new("OPERATOR", op_token.val)
+        op_node = self.pt.new("OPERATOR", op_token)
         op_node.arrity = arrity
         op_node.precedence = prec
         op_node.assoc = assoc
@@ -699,15 +698,15 @@ class PhpParser(Parser):
 
     def parse_int(self, int_token):
         if len(int_token.val) > 1 and int_token.val[0] == "0":
-            return self.pt.new("OCT", int_token.val[1:])
-        return self.pt.new("INT", int(int_token.val))
+            return self.pt.new("OCT", int_token, int_token.val[1:])
+        return self.pt.new("INT", int_token, int(int_token.val))
 
     def parse_newline(self, t=None):
         if t is not None:
             # If t isn't none, then this was called from within an expression
             return None
         t = self.next()
-        return self.pt.new("NOOP", "\n", t)
+        return self.pt.new("NOOP", t, "\n")
 
     parse_blankline = parse_newline
 
@@ -720,7 +719,7 @@ class PhpParser(Parser):
         if self.peek().val == "(":
             # Function call
             self.pdebug("Function call", 4)
-            call = self.pt.new("CALL", ident.val)
+            call = self.pt.new("CALL", ident)
             call.append(self.parse_expression_group(self.next(), "ARGSLIST"))
             self.debug_indent -= 4
             return call
@@ -728,8 +727,8 @@ class PhpParser(Parser):
             ident.val = indent_map[ident.val]
         elif bare:
             # Assume all bare idents which aren't message calls and are bare  are constants
-            return self.pt.new("CONSTANT", ident.val)
-        return self.pt.new("IDENT", ident.val)
+            return self.pt.new("CONSTANT", ident)
+        return self.pt.new("IDENT", ident)
 
     def parse_unknown(self):
         raise UnexpectedCharError()
@@ -739,7 +738,7 @@ class PhpParser(Parser):
         Args:
             item: The item to index
         """
-        i = self.pt.new("INDEX", t.val)
+        i = self.pt.new("INDEX", t)
         i.append(self.parse_expression())
         i.precedence = 130
         i.arrity = 1
@@ -749,6 +748,6 @@ class PhpParser(Parser):
 
     def parse_comment(self, comment_token):
         if comment_token.kind == "COMMENTLINE":
-            return self.pt.new("COMMENTLINE", value=comment_token.val[2:])
+            return self.pt.new("COMMENTLINE", comment_token, value=comment_token.val[2:])
         else:
-            return self.pt.new("COMMENTBLOCK", value=comment_token.val.strip(" \t\r\n*/"))
+            return self.pt.new("COMMENTBLOCK", comment_token, value=comment_token.val.strip(" \t\r\n*/"))
