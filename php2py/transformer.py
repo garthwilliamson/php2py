@@ -1,9 +1,9 @@
-from __future__ import absolute_import, unicode_literals, print_function
+from __future__ import absolute_import, unicode_literals
 
-from .parsetree import ParseNode, print_tree
+import logging
 
+from .parsetree import ParseNode
 
-DEBUG = True
 
 transform_map = {}
 
@@ -17,8 +17,7 @@ def transforms(*args):
 
 
 def pdebug(*s):
-    if DEBUG:
-        print("|".join([str(p) for p in s]))
+    logging.debug("|".join([str(p) for p in s]))
 
 
 class TransformException(Exception):
@@ -341,7 +340,6 @@ def transform_array(array_node):
         list_node.append(tuple_node)
     l_e = ParseNode("EXPRESSION", "_list expression")
     l_e.append(list_node)
-    print("GOT ALIST NODE HOHOHO")
     array_node.get("ARGSLIST").children = [l_e]
     yield array_node
 

@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import re
+import logging
 
 
 class Token(object):
@@ -46,11 +47,11 @@ class Tokenizer(object):
         if self.peeked is not None:
             res = self.peeked
             self.peeked = None
-            print("Produced1 {}".format(res))
+            logging.debug("Produced1 {}".format(res))
             return res
         else:
             res = next(self.token_stream)
-            print("Produced2 {}".format(res))
+            logging.debug("Produced2 {}".format(res))
             return res
 
     def __next__(self):

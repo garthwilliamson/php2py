@@ -1,5 +1,6 @@
 from functools import wraps
 import unittest
+import logging
 
 from php2py.parser import PhpParser
 from php2py.compiler import Compiler
@@ -7,8 +8,10 @@ from php2py import transformer, compiler
 from php2py.parsetree import ParseNode, print_tree
 
 
+logging.basicConfig(level=logging.DEBUG)
+
 def parse_string(s: str, debug=False) -> PhpParser:
-    parser = PhpParser(iter(s.splitlines(True)), debug=True)
+    parser = PhpParser(iter(s.splitlines(True)))
     parser.parse()
     if debug:
         parser.pt.print_()

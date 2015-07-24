@@ -7,7 +7,7 @@ import php2py.parser as p
 class ParserTests(unittest.TestCase):
     def setUp(self):
         self.matching = "AABBCC1234<?php"
-        self.simple_parser = p.Parser(self.matching, "test1", False)
+        self.simple_parser = p.Parser(self.matching, "test1")
 
     def test_scopes(self):
         self.simple_parser.push_scope("GLOBAL")

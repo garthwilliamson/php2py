@@ -1,40 +1,34 @@
 #!/usr/bin/python
-import sys
 import argparse
-import os.path
+import logging
 
-from php2py.compiler import Compiler
-from php2py.parser import PhpParser
+from php2py.main import compile_file, compile_dir
+
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-d", "--debug", type=int, default=0, help="Enable basic debugging")
+ap.add_argument("-d", "--debug", type=int, default=1, help="Enable basic debugging")
 ap.add_argument("-s", "--strip", action="store_true", help="Strip comments and crap")
 ap.add_argument("-c", "--compile", action="store_false", help="Compile to file.py")
 ap.add_argument("--tree", action="store_true", help="Display the parse tree.")
 ap.add_argument("file", help="file to compile")
+ap.add_argument("--search", action="store_true", help="Search for php files in a given directory")
 args = ap.parse_args()
 
-# set up some filenames and paths
-dir_name, php_filename = os.path.split(args.file)
-file_name, ext = os.path.splitext(php_filename)
-py_filename = os.path.join(dir_name, file_name + ".py")
+print_tree = False
+if args.tree or args.debug > 0:
+    print_tree = True
 
+levels = {
+    -1: logging.ERROR,      # Silent mode
+    0: logging.WARNING,     # Critical information
+    1: logging.INFO,        # Compiling information, and bad php code
+    2: logging.DEBUG,       # Debug php2py
+    3: logging.DEBUG - 1,   # Ridiculous verbosity
+}
+logging.basicConfig(level=levels[args.debug], format=None)
 
-debug_deep = args.debug > 1
-try:
-    # Need to open in binary mode to get consistent line endings
-    parser = PhpParser(open(args.file, "r", newline=''), debug_deep)
-except FileNotFoundError:
-    print("Unknown file: {}. Check filename and try again.".format(args.file))
-    sys.exit(1)
+if args.search:
+    compile_dir(args.file, args.compile, args.strip)
+else:
+    parser = compile_file(args.file, args.compile, args.strip, print_tree)
 
-parser.parse()
-if args.debug or args.tree:
-    parser.pt.print_()
-
-if args.compile:
-    c = Compiler(parser.get_tree(), strip_comments=args.strip)
-    results = c.compile()
-    py_file = open(py_filename, "w")
-    py_file.write(str(results))
-    py_file.close()

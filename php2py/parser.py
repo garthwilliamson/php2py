@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
-from __future__ import print_function
+
+import logging
 
 from .parsetree import ParseTree, ParseTreeError, print_tree
 from . import tokeniser
@@ -34,12 +35,11 @@ class UpTooMuchException(Exception):
 
 
 class Parser(object):
-    def __init__(self, contents, name, debug=False):
+    def __init__(self, contents, name):
         self.scope = []
         self.globals = []
         self.pt = ParseTree(name)
         self.chars = contents
-        self.debug = debug
 
     def to_list(self, ):
         return self.get_tree().to_list()
@@ -81,7 +81,7 @@ class Parser(object):
             if end - start > 30:
                 end = start + 30
         except AttributeError:
-            print("{} has no end cursor. Up mustn't have been called for it or one of its children".format(node))
+            logging.warning("{} has no end cursor. Up mustn't have been called for it or one of its children".format(node))
             end = len(self.chars)
         #print("{:<30}{:<7}{}{!r}".format(str(node), str(start) + ":" + str(end), " " * (indent), self.chars[start:end]))
 
@@ -90,8 +90,7 @@ class Parser(object):
                 self.print_node_info(c, recurse, start_indent)
 
     def pdebug(self, s, i_change=0):
-        if self.debug:
-            print(" " * self.debug_indent + str(s))
+        logging.debug(" " * self.debug_indent + str(s))
         self.debug_indent += i_change
 
     def next(self) -> tokeniser.Token:
@@ -243,21 +242,21 @@ PYTHON_KEYWORDS = ["continue"]
 
 
 class PhpParser(Parser):
-    def __init__(self, linestream, debug=False):
-        Parser.__init__(self, "", "Test", debug)
-
+    def __init__(self, linestream):
+        Parser.__init__(self, "", "Test")
+        logging.info("Tokenizing")
         self.tokens = tokeniser.tokens(linestream)
-        #print(tokeniser.TOKENS)
+        logging.log(logging.DEBUG - 1, tokeniser.TOKENS)
         self.debug_indent = 0
         self.push_scope("GLOBAL")
 
         try:
             self.parse()
         except ExpectedCharError:
-            print("\n".join(self.tokens.position()))
+            logging.critical("\n".join(self.tokens.position()))
             raise
         except:
-            print("\n".join(self.tokens.position()))
+            logging.critical("\n".join(self.tokens.position()))
             raise
 
     def next_non_white(self):

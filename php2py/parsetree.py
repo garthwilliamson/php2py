@@ -20,6 +20,8 @@ class ParseNode(object):
     def __init__(self, node_type, value=None, parent=None, token=None):
         if not isinstance(node_type, str):
             raise ParseTreeError("node_type must be a string, not {}".format(node_type))
+        if token is None:
+            raise ParseTreeError("Token is now required")
         self.node_type = node_type
         self.parent = parent
         self.value = value

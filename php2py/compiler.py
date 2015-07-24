@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
-from __future__ import print_function
 
 import collections
+import logging
 
 from . import parsetree, transformer
 
@@ -18,6 +18,13 @@ magic_map = {
 
 
 class CompileError(Exception):
+    def __init__(self, node: parsetree.ParseNode, msg: str, *args):
+        self.node = node
+        self.msg = msg
+        super(CompileError, self).__init__(*args)
+
+
+class UnimplementedCompileError(CompileError):
     pass
 
 
@@ -67,11 +74,7 @@ class CompiledSegment(object):
 
     def __str__(self):
         out = ""
-        from pprint import pprint
-
-        pprint(self.lines)
         for l, i in self.lines:
-            print(l, i)
             out += "    " * i + l + "\n"
         return out
 
@@ -134,7 +137,15 @@ class Compiler(object):
         transformer.transform(tree)
 
         for c in tree:
-            self.compiled.append(self.marshal(c))
+            try:
+                self.compiled.append(self.marshal(c))
+            except CompileError as e:
+                print("Compilation failure at node {}".format(e.node))
+                t = e.node.token
+                if t is None:
+                    print("Node didn't include a token. Unknown location")
+                else:
+                    print("Original token ({}) was on line {}, column {}".format(t, t.line, t.col))
 
         self.generic_footer_compile()
 
@@ -189,20 +200,13 @@ class Compiler(object):
         """
         try:
             res = getattr(self, node.node_type.lower() + "_compile")(node)
-            if not isinstance(res, CompiledSegment):
-                raise TypeError(node.node_type.lower() + "_compile methods should return a CompiledSegment")
             return res
-        except TypeError:
-            print("Tried to compile...")
-            parsetree.print_tree(node)
-            print("...but failed")
-            print("Original token was {}".format(node.token))
-            raise CompileError() # CompileError("Probably something isn't returning a string when it should", e)
         except AttributeError:
-            print("Tried to compile {}...".format(node.token))
-            parsetree.print_tree(node)
-            print("...but failed")
-            raise CompileError("Unimplemented method " + node.node_type.lower() + "_compile")
+            raise UnimplementedCompileError(node, "Unimplemented method " + node.node_type.lower() + "_compile")
+        except CompileError:
+            raise
+        except Exception as e:
+            raise CompileError(node, "Unexpected error compiling node", e)
 
     def marshal_str(self, node: parsetree.ParseNode) -> str:
         try:
@@ -282,7 +286,6 @@ class Compiler(object):
     def function_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
         args = []
-        parsetree.print_tree(node)
         for v in node["ARGSLIST"]:
             args.append(self.marshal_str(v))
         #seg.append("@phpfunc")
