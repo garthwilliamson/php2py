@@ -114,3 +114,13 @@ class CompilerTests(Php2PyTestCase):
         print_tree(root_node)
         statement = self.compiler.statement_compile(get_body(root_node)["STATEMENT"])
         self.assertEqual('_g_.r = getattr(_g_.s, u"a")', statement[0])
+
+    @parse_t
+    def test_compile_ternary(self, root_node):
+        """ Compile a ternary operator
+        <?php
+        $a = 1 ? "a" : "b";
+        """
+        transformer.transform(root_node)
+        statement = self.compiler.statement_compile(get_body(root_node)["STATEMENT"])
+        self.assertEqual('_g_.a = u"a" if 1 else u"b"', statement[0])

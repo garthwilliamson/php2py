@@ -423,6 +423,14 @@ class Compiler(object):
     def operator1_compile_str(self, node):
         return "{} ({})".format(node.value, self.marshal_str(node[0]))
 
+    def operator3_compile_str(self, node):
+        if node.value != "?":
+            raise UnimplementedCompileError("There are ternaries not called ?")
+        return "{} if {} else {}".format(
+            self.marshal_str(node[1]),
+            self.marshal_str(node[2]),
+            self.marshal_str(node[0]))
+
     def statement_compile(self, node) -> CompiledSegment:
         if len(node) != 0:
             # for n in node:
