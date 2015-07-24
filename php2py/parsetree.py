@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 from builtins import str
 
+
 class ParseTreeError(Exception):
     pass
 
@@ -147,7 +148,7 @@ class ParseNode(object):
             raise NoMatchesError()
         return matches
 
-    def get_all(self, node_type: str, node_name:str=None) -> 'ParseNode':
+    def get_all(self, node_type: str, node_name: str = None) -> 'ParseNode':
         for c in self.children:
             if node_name is None:
                 if c.node_type == node_type:
@@ -156,6 +157,7 @@ class ParseNode(object):
                 if c.node_type == node_type and str(c.value) == node_name:
                     yield c
 
+
 class ParseTree(object):
     def __init__(self, name):
         self.root_node = ParseNode("ROOT", None, value=name)
@@ -163,6 +165,7 @@ class ParseTree(object):
     def print_(self, node=None):
         if node is None:
             node = self.root_node
+
         def print_tree(tree, indent):
             s = str(tree)
             if len(s) > 50:
@@ -184,7 +187,7 @@ class ParseTree(object):
         if value is None:
             value = token.val
         n = ParseNode(node_type, token, value=value)
-        #print("New node: {}".format(n))
+        # print("New node: {}".format(n))
         return n
 
 

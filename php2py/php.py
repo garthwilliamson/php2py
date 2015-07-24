@@ -1,4 +1,3 @@
-from functools import wraps
 from collections import OrderedDict
 import os.path
 import sys
@@ -34,11 +33,13 @@ class PhpClasses(PhpVars):
     def __init__(self):
         self.PhpBase = PhpBase
 
+
 class PhpBase(object):
     """ The base class for all "php" classes"
 
     """
     pass
+
 
 class PhpConstants(PhpVars):
     def __init__(self):
@@ -92,6 +93,9 @@ class PhpApp(object):
         self.f = None
         self.c = PhpClasses()
         self.i = {}
+        self.root_dir = None
+        self.error_level = self.constants.E_ALL
+        self.ini = {}
 
     def init_http(self, body, root_dir):
         """ Initialise the app
@@ -106,9 +110,6 @@ class PhpApp(object):
 
         # Helpers for php engine
         self.root_dir = root_dir
-
-        self.error_level = self.constants.E_ALL
-        self.ini = {}
 
         # Set POST, GET, SERVER etc variables
         # TODO: SERVER and at least some others are reserved. Should probably treat them specially.
@@ -146,7 +147,6 @@ class PhpApp(object):
 
         """
         self.headers[name] = [value]
-
 
     def http_headers_str(self):
         self.body()
@@ -188,7 +188,6 @@ class PhpApp(object):
 
 # Using the module import to create a kind of singleton
 _app_ = PhpApp()
-_g_ = _app_.g
 _c_ = _app_.c
 _g_ = _app_.g
 _constants_ = _app_.constants
@@ -197,5 +196,3 @@ _constants_ = _app_.constants
 from . import phpfunctions
 _app_.f = PhpFunctions()
 _f_ = _app_.f
-
-

@@ -49,7 +49,7 @@ class array():
         return self.data[key]
 
 
-def clone(p):
+def clone():
     """ Clone the object.
 
     Performs a shallow copy. Tries to call __clone() method first
@@ -58,19 +58,19 @@ def clone(p):
     raise NotImplementedError("Clone is not implmented yet")
 
 
-def die(p, m=0):
+def die(m=0):
     sys.exit(m)
 
 
-def empty(p, v):
+def empty(v):
     raise NotImplementedError("Probably should be done at the transform stage")
 
 
-def eval(p, s):
+def eval(s):
     raise NotImplementedError("Eval will never be implemented probably")
 
 
-def exit(p, m=0):
+def exit(m=0):
     # http://php.net/manual/en/function.exit.php
     # TODO: Check functionality
     # TODO: Run shutdown functions etc
@@ -81,11 +81,11 @@ def exit(p, m=0):
         sys.exit(-2)
 
 
-def isset(p, variable):
+def isset(variable):
     raise NotImplementedError("Probably should be done at the transform stage")
 
 
-def list(p, *args):
+def list(*args):
     """ Actually normally used like tuple unpacking
 
     This niave implementation won't work normally - it actually should be rewritten to a tuple at the
@@ -93,17 +93,17 @@ def list(p, *args):
 
     """
     raise NotImplementedError("List needs to be implemented at transform")
-    return tuple(*args)
+    # return tuple(*args)
 
 
-def unset(p, name):
+def unset(name):
     del name
 
 
-def require_once(p, filename):
-    if filename in p.i:
+def require_once(filename):
+    if filename in _app_.i:
         return
-    require(p, filename)
+    require(filename)
 
 
 def require(filename):
@@ -113,10 +113,10 @@ def require(filename):
         raise PhpError(e)
 
 
-def include_once(p, filename):
-    if filename in p.i:
+def include_once(filename):
+    if filename in _app_.i:
         return
-    include(p, filename)
+    include(filename)
 
 
 def include(fullpath):
@@ -133,6 +133,7 @@ def include(fullpath):
 
     # Run it in the local context
     _app_.i[abspath].body()
+
 
 def echo(*strings):
     _app_.write("".join(strings))

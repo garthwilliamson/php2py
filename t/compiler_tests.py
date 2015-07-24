@@ -1,5 +1,6 @@
 from tlib.php2pytests import *
 
+
 class CompilerTests(Php2PyTestCase):
 
     @parse_t

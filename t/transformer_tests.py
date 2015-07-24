@@ -242,4 +242,3 @@ class TransformerTests(Php2PyTestCase):
         self.assertEqual(rhs.node_type, "CALL")
         self.assertContainsNode(rhs, "ARGSLIST")
         self.assertContainsNode(rhs, "ATTR/ATTR/GLOBALVAR|this")
-

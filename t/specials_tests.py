@@ -46,4 +46,3 @@ class SpecialsTests(unittest.TestCase):
         a.append("bobity")
         self.assertEqual("majigy", a[100])
         self.assertEqual("bobity", a[101])
-

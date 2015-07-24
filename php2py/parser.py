@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 import logging
 
-from .parsetree import ParseTree, ParseTreeError, print_tree
+from .parsetree import ParseTree, print_tree
 from . import tokeniser
 
 
@@ -40,6 +40,9 @@ class Parser(object):
         self.globals = []
         self.pt = ParseTree(name)
         self.chars = contents
+        self.current = None
+        self.debug_indent = 0
+        self.tokens = None
 
     def to_list(self, ):
         return self.get_tree().to_list()
@@ -81,9 +84,10 @@ class Parser(object):
             if end - start > 30:
                 end = start + 30
         except AttributeError:
-            logging.warning("{} has no end cursor. Up mustn't have been called for it or one of its children".format(node))
+            logging.warning(
+                "{} has no end cursor. Up mustn't have been called for it or one of its children".format(node))
             end = len(self.chars)
-        #print("{:<30}{:<7}{}{!r}".format(str(node), str(start) + ":" + str(end), " " * (indent), self.chars[start:end]))
+        # print("{:<30}{:<7}{}{!r}".format(str(node), str(start) + ":" + str(end), " " * (indent), self.chars[start:end]))
 
         if recurse:
             for c in node:
@@ -95,7 +99,6 @@ class Parser(object):
 
     def next(self) -> tokeniser.Token:
         self.current = self.tokens.next()
-        #print("NEXT:" + str(self.current))
         self.pdebug("^^^^^^^" + str(self.current))
         return self.current
 
@@ -142,7 +145,7 @@ class Parser(object):
         return t
 
 operator_map = {
-    #OP:        (ARITY,    PREC, ASSOC)
+#   OP:        (ARITY,    PREC, ASSOC)
 #   "[":        (2,        120,  "left"),
     ".":        (2,        90,  "left"),
     "::":       (2,        160,  "right"),
@@ -219,7 +222,7 @@ ENDEXPRESSION = [",", "]", ":"] + ENDGROUP
 
 
 def lookup_op_type(op_value):
-    #print("LOOKING UP " + op_value)
+    # print("LOOKING UP " + op_value)
     if op_value in tokeniser.ASSIGNMENTS:
         return "ASSIGNMENT"
     elif op_value == "[":
@@ -249,7 +252,7 @@ class PhpParser(Parser):
         logging.log(logging.DEBUG - 1, tokeniser.TOKENS)
         self.debug_indent = 0
         self.push_scope("GLOBAL")
-
+        self.comments = None
         try:
             self.parse()
         except ExpectedCharError:
@@ -264,7 +267,7 @@ class PhpParser(Parser):
             self.next()
 
     def parse(self):
-        #print("\n".join(self.tokens.position()))
+        # print("\n".join(self.tokens.position()))
         for _ in self.peek_until(("EOF",)):
             h = self.parse_html()
             if h is not None:
@@ -274,10 +277,10 @@ class PhpParser(Parser):
 
     def parse_html(self):
         contents = ""
-        #print("Parsing html")
+        logging.debug("Parsing html")
         t = self.peek()
         for t in self.next_while_kind(("HTML",)):
-            #print("FOUND HTML")
+            logging.debug("FOUND HTML")
             contents += t.val
         if len(contents) > 0:
             self.pdebug("FOUND HTML CONTENTS. APPENDING NOW")
@@ -299,7 +302,7 @@ class PhpParser(Parser):
     def parse_statement(self):
         self.pdebug("STATEMENT starting with {}:".format(self.peek()), 4)
         self.comments = []
-        #TODO: Move to using attr to look up these
+        # TODO: Move to using attr to look up these
         if self.peek().kind == "CONTROL":
             statement = self.parse_control()
         elif self.peek().kind == "TRY":
@@ -360,11 +363,11 @@ class PhpParser(Parser):
     def parse_block(self):
         self.pdebug("Staring new block", 4)
         block = self.pt.new("BLOCK", self.assert_next("STARTBRACE", "{"))
-        for t in self.peek_until(ENDBLOCK):
+        for _ in self.peek_until(ENDBLOCK):
             block.append(self.parse_statement())
 
         self.pdebug("At end of block")
-        #print_tree(block)
+        # print_tree(block)
         self.pdebug("=-=-=-=-=-")
         self.assert_next("ENDBRACE", "}")
         self.debug_indent -= 4
@@ -388,12 +391,6 @@ class PhpParser(Parser):
                 e.append(self.parse_block())
             i.append(e)
         return i
-
-    #def parse_switch(self):
-        #self.next()
-        #s = self.pt.new("SWITCH", "switch")
-        #s.append(self.parse_expression_group(self.next()))
-        #s.append(self.parse_block())
 
     def parse_case(self):
         case = self.pt.new("CASE", self.next())
@@ -419,7 +416,6 @@ class PhpParser(Parser):
             self.next()
         default.append(block)
         return default
-
 
     def parse_control(self):
         control_token = self.next()
@@ -452,7 +448,7 @@ class PhpParser(Parser):
         f.append(self.parse_expression_group(self.next(), "ARGSLIST"))
         f.append(self.parse_block())
         self.pdebug("At end of function")
-        #print_tree(f)
+        # print_tree(f)
         self.pdebug("=-=-=-=-=-")
         self.debug_indent -= 4
         self.pop_scope()
@@ -532,7 +528,7 @@ class PhpParser(Parser):
                 op_node.assoc = "left"
                 op_node.precedence = 152
                 full_ex.append(op_node)
-                #print_tree(full_ex[-1])
+                # print_tree(full_ex[-1])
                 self.pdebug("Finished with expression group")
                 noo1a = False
             elif t.kind == "IDENT":
@@ -567,9 +563,8 @@ class PhpParser(Parser):
                     while len(op_stack) > 0:
                         o2 = op_stack[-1]
                         if (n.assoc == "left" and n.precedence == o2.precedence) or n.precedence < o2.precedence:
-                            #print("{} <=? {} so outing {}".format(n, o2, o2))
                             o2 = op_stack.pop()
-                            args = [opee_stack.pop() for i in range(0, o2.arrity)]
+                            args = [opee_stack.pop() for _ in range(0, o2.arrity)]
                             [o2.children.append(a) for a in args]
                             if o2.node_type != "CALL":
                                 o2.node_type = lookup_op_type(o2.value)
@@ -577,14 +572,9 @@ class PhpParser(Parser):
                         else:
                             break
                     op_stack.append(n)
-            #self.pdebug("====ops====")
-            #[print_tree(n) for n in op_stack]
-            #self.pdebug("----opees-----")
-            #[print_tree(n) for n in opee_stack]
-            #self.pdebug("---------")
         while len(op_stack) != 0:
             o2 = op_stack.pop()
-            args = [opee_stack.pop() for i in range(0, o2.arrity)]
+            args = [opee_stack.pop() for _ in range(0, o2.arrity)]
             [o2.children.append(a) for a in args]
             if o2.node_type != "CALL":
                 o2.node_type = lookup_op_type(o2.value)
@@ -613,7 +603,7 @@ class PhpParser(Parser):
         self.pdebug("COMMA LIST", 4)
         cl = self.pt.new(node_type, self.peek())
         self.pdebug(self.peek())
-        for t in self.peek_until(ENDGROUP):
+        for _ in self.peek_until(ENDGROUP):
             cl.append(self.parse_expression())
             if self.peek().kind == "COMMA":
                 self.next()
@@ -630,7 +620,7 @@ class PhpParser(Parser):
         t = "VAR"
         v = var_token.val[1:]
         if v in PYTHON_KEYWORDS:
-            v = v + "_"
+            v += "_"
         if self.scope_is("GLOBAL") or self.is_global(v):
             t = "GLOBALVAR"
         var = self.pt.new(t, var_token, v)
@@ -664,7 +654,6 @@ class PhpParser(Parser):
         self.debug_indent -= 4
         return string
 
-
     def parse_simple_control(self, name, value):
         r = self.pt.new(name, self.next(), value)
         r.append(self.parse_expression())
@@ -679,7 +668,7 @@ class PhpParser(Parser):
         else:
             args = self.parse_comma_list("ARGSLIST")
         special.append(args)
-        #print("EXIT SPECIAL")
+        # print("EXIT SPECIAL")
         return special
 
     def parse_global(self):
@@ -693,8 +682,6 @@ class PhpParser(Parser):
         return g
 
     def parse_operator(self, op_token):
-        #if op_token.val == "[":
-            #return self.parse_index(op_token)
         arrity, prec, assoc = operator_map[op_token.val]
         op_node = self.pt.new("OPERATOR", op_token)
         op_node.arrity = arrity
@@ -730,7 +717,7 @@ class PhpParser(Parser):
         return self.pt.new("IDENT", ident)
 
     def parse_unknown(self):
-        raise UnexpectedCharError()
+        raise UnexpectedCharError(None)
 
     def parse_index(self, t):
         """

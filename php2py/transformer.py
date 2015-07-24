@@ -393,7 +393,6 @@ def transform_class(class_node: ParseNode):
     yield statement_node
 
 
-
 @transforms("METHOD", "CLASSMETHOD")
 def transform_method(node):
     args = node["ARGSLIST"]

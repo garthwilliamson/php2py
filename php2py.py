@@ -31,4 +31,3 @@ if args.search:
     compile_dir(args.file, args.compile, args.strip)
 else:
     parser = compile_file(args.file, args.compile, args.strip, print_tree)
-

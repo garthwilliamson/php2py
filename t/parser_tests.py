@@ -92,6 +92,7 @@ def compiled_class(f):
 
     """
 
+
 class ParserTests(Php2PyTestCase):
     """ Test the parser by itself
 
@@ -541,8 +542,6 @@ class ParserTests(Php2PyTestCase):
         method_node = class_node.get("BLOCK").get("METHOD")
         self.assertEqual(method_node.value, "baz")
         self.assertEqual(method_node.get("VISIBILITY").value, "private")
-        #fixed_class = transform_class(class_node)
-        #self.assertEqual(next(fixed_class).get("BLOCK").get("METHOD").get("ARGSLIST")[0].value, "self")
 
     @parse_t
     def test_class_extends(self, root_node):

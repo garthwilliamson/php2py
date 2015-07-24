@@ -4,11 +4,12 @@ import logging
 
 from php2py.parser import PhpParser
 from php2py.compiler import Compiler
-from php2py import transformer, compiler
+from php2py import transformer, compiler    # Used by the kiddies
 from php2py.parsetree import ParseNode, print_tree
 
 
 logging.basicConfig(level=logging.DEBUG)
+
 
 def parse_string(s: str, debug=False) -> PhpParser:
     parser = PhpParser(iter(s.splitlines(True)))
@@ -71,6 +72,7 @@ class Php2PyTestCase(unittest.TestCase):
             print("Actual node contents are:")
             print_tree(node)
             raise AssertionError(msg)
+
 
 def get_body(root_node: ParseNode) -> ParseNode:
     """ Get the main block of the "body" function

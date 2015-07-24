@@ -2,12 +2,14 @@ import os.path
 import unittest
 import subprocess
 
+
 php_interpreter = "php"
 python_interpreter = "python"
 if os.path.isfile("t/config.py"):
     import config
     php_interpreter = config.php
     python_interpreter = config.python
+
 
 def comparison_factory(php_file_name):
     def unit_test_actual(self):

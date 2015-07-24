@@ -64,7 +64,7 @@ class CompiledSegment(object):
 
         for i in range(0, number):
             # Direct call to results to avoid extra spaces
-            self.lines.append(("\n", 0))
+            self.lines.append(("", 0))
 
     def prepend(self, line):
         """ Insert a zero indented item at the start of this segment
@@ -129,6 +129,7 @@ class Compiler(object):
         self.imports["php2py.php"] = ["_app_", "_f_", "_g_", "_c_", "_constants_"]
         self.imports["php2py.specials"].append("*")
         self.compiled = CompiledSegment()
+        self.compiled.br(2)
         self.tree = tree
 
     def compile(self, tree=None) -> str:
@@ -146,7 +147,7 @@ class Compiler(object):
                     print("Node didn't include a token. Unknown location")
                 else:
                     print("Original token ({}) was on line {}, column {}".format(t, t.line, t.col))
-
+            self.compiled.br()
         self.generic_footer_compile()
 
         for i, v in self.imports.items():
@@ -284,7 +285,7 @@ class Compiler(object):
         args = []
         for v in node["ARGSLIST"]:
             args.append(self.marshal_str(v))
-        #seg.append("@phpfunc")
+        # seg.append("@phpfunc")
         seg.append("def {0}({1}):".format(node.value, ", ".join(args)))
         seg.indent()
         seg.append(self.marshal(node["BLOCK"]))
@@ -330,7 +331,7 @@ class Compiler(object):
     def keyvalue_compile_str(self, node: parsetree.ParseNode, assign=": ") -> str:
         if len(node) != 2:
             parsetree.print_tree(node.parent)
-            raise CompileError("Keyvalues must have more than one child")
+            raise CompileError(node, "Keyvalues must have more than one child")
         return self.marshal_str(node[0]) + assign + self.marshal_str(node[1])
 
     def new_compile_str(self, node) -> str:
@@ -339,7 +340,7 @@ class Compiler(object):
     def return_compile_str(self, node: parsetree.ParseNode) -> str:
         # TODO: Remove this method if exception never fires, else work out why two kinds of return
         raise Exception("We actually got here")
-        return "return " + self.expression_compile_str(node[0])
+        # return "return " + self.expression_compile_str(node[0])
 
     def return_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         return compiled_line("return {}".format(self.expression_compile_str(node[0])))
@@ -410,7 +411,7 @@ class Compiler(object):
         try:
             return "({} {} {})".format(self.marshal_str(node[1]), node.value, self.marshal_str(node[0]))
         except IndexError:
-            raise CompileError("Expected two children for {}".format(node))
+            raise CompileError(node, "Expected two children for {}".format(node))
 
     def operator1_compile_str(self, node):
         return "{} ({})".format(node.value, self.marshal_str(node[0]))
@@ -446,7 +447,7 @@ class Compiler(object):
 
     def magic_compile_str(self, node):
         if node.value not in magic_map:
-            raise CompileError("No magic value {} known".format(node.value))
+            raise CompileError(node, "No magic value {} known".format(node.value))
         return magic_map[node.value]
 
     def dict_compile(self, node) -> CompiledSegment:
@@ -473,7 +474,7 @@ class Compiler(object):
         seg.dedent()
         for c in node[1:]:
             if c.node_type != "CATCH":
-                raise CompileError("Expected catch block as child of try {}".format(c.token))
+                raise CompileError(node, "Expected catch block as child of try {}".format(c.token))
             catch_match = c[0]
             catch_block = c[1]
             seg.append("except {} as {}:".format(

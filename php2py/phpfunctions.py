@@ -35,6 +35,7 @@ class stdClass(object):
 
 
 def header(header: str, replace=True, http_response_code=None):
+    # TODO: Write some tests and heal with http_response_code
     if header.startswith("HTTP/"):
         # Mixed up functionality ftw
         x, error_code, error_msg = [h.strip() for h in header.split(" ")]
@@ -125,7 +126,7 @@ def preg_replace(pattern, replacement, subject, limit: int = -1):
     return re.sub(pattern, replacement, subject, limit)
 
 
-def is_string(self, item):
+def is_string(item):
     # TODO: This could be a transform
     if isinstance(item, str):
         return True
@@ -138,11 +139,11 @@ functionlist = [
     ("stdClass", stdClass),
     ("dirname", dirname),
     ("abspath", os.path.abspath),
-    ("file_exists", os.path.isfile), # http://php.net/manual/en/function.file-exists.php
+    ("file_exists", os.path.isfile),        # http://php.net/manual/en/function.file-exists.php
     ("get__file__", get__file__),
-    ("header", header), # http://php.net/manual/en/function.header.php
+    ("header", header),                     # http://php.net/manual/en/function.header.php
     ("define", define),
-    ("error_reporting", error_reporting), # http://php.net/manual/en/function.error-reporting.php
-    ("ini_set", ini_set), # http://php.net/manual/en/function.ini-set.php
-    ("str_replace", str_replace), # http://php.net/manual/en/function.str-replace.php
+    ("error_reporting", error_reporting),   # http://php.net/manual/en/function.error-reporting.php
+    ("ini_set", ini_set),                   # http://php.net/manual/en/function.ini-set.php
+    ("str_replace", str_replace),           # http://php.net/manual/en/function.str-replace.php
 ]

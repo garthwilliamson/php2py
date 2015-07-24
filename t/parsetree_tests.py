@@ -16,4 +16,3 @@ class ParserTests(unittest.TestCase):
         self.assertTrue(self.simple_parser.scope_is("LOCAL"))
         self.simple_parser.pop_scope()
         self.assertTrue(self.simple_parser.scope_is("GLOBAL"))
-
