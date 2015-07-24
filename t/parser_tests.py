@@ -497,27 +497,14 @@ class ParserTests(Php2PyTestCase):
         self.assertEqual(try_node[1][1].node_type, "BLOCK")
 
     @parse_t
-    def test_if_again(self, root_node):
-        """If with stuff and things
+    def test_one_line_if(self, root_node):
+        """ If on one line
         <?php
-            if (!file_exists("./config.php")) {
-            header('Location: install.php');
-            die;
-        }
+        if (1) echo "hi";
         """
-        # print_tree(root_node)
-        # @parse_t
-
-        # def test_blockcomment2(self, root_node):
-        # """ A big block comment with possibly shit performance
-        # <?php
-
-        # /**
-        # * aaaaa aaaaaaaa
-        # */
-
-        # """
-        # self.assertTrue(False)
+        if_node = root_node["PHP"]["IF"]
+        self.assertContainsNode(if_node, "EXPRESSIONGROUP/EXPRESSION/INT|1")
+        self.assertContainsNode(if_node, "STATEMENT/EXPRESSION/CALLSPECIAL|echo")
 
     @parse_t
     def test_class_simple(self, root_node):

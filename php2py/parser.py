@@ -385,7 +385,11 @@ class PhpParser(Parser):
     def parse_if(self):
         i = self.pt.new("IF", self.next())
         i.append(self.parse_expression_group(self.next()))
-        i.append(self.parse_block())
+        # TODO: Factor this out to use in if, while, elif etc etc
+        if self.peek().val == "{":
+            i.append(self.parse_block())
+        else:
+            i.append(self.parse_statement())
         while self.peek().kind == "ELSEIF":
             e = self.pt.new("ELIF", self.next())
             e.append(self.parse_expression_group(self.next()))

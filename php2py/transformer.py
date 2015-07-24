@@ -158,9 +158,18 @@ def transform_call(call_node):
 @transforms("IF")
 def transform_if(if_statement):
     pdebug("T IF", if_statement)
-    transform_children(if_statement["BLOCK"])
 
-    if_op = if_statement.get("EXPRESSIONGROUP").get("EXPRESSION")[0]
+    # Check if this if was a one liner
+    # TODO: Maybe use python one liners? Not very pythonic though
+    if "STATEMENT" in if_statement:
+        s = if_statement["STATEMENT"]
+        block = ParseNode("BLOCK", s.token)
+        block.append(s)
+    else:
+        block = if_statement["BLOCK"]
+    transform_children(block)
+
+    if_op = if_statement["EXPRESSIONGROUP"]["EXPRESSION"][0]
     if_op = transform_single_node(if_op)
     # TODO: This probably only deals with the most basic cases. Need to go down tree and extract all assignments.
     if if_op.node_type == "ASSIGNMENT":
@@ -172,7 +181,7 @@ def transform_if(if_statement):
         if_op = if_op[1]
     if_ex = ParseNode("EXPRESSION", if_op.token)
     if_ex.append(if_op)
-    if_statement.children = [if_ex, if_statement["BLOCK"]]
+    if_statement.children = [if_ex, block]
     yield if_statement
 
 

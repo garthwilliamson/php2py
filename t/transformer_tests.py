@@ -95,6 +95,17 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(if_statement, "EXPRESSION/GLOBALVAR|a")
 
     @parse_t
+    def test_one_line_if(self, root_node):
+        """ If on one line
+        <?php
+        if (1) echo "hi";
+        """
+        transformer.transform(root_node)
+        if_node = get_body(root_node)["IF"]
+        self.assertContainsNode(if_node, "EXPRESSION/INT|1")
+        self.assertContainsNode(if_node, "BLOCK/STATEMENT/EXPRESSION")
+
+    @parse_t
     def test_switch_simple(self, root_node):
         """ Switch statement as simple as possible
         <?php
