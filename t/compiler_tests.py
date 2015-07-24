@@ -108,7 +108,7 @@ class CompilerTests(Php2PyTestCase):
     def test_compile_getattr(self, root_node):
         """ Funky php getattr equivalent
         <?php
-       $r = $s->{"a"};
+        $r = $s->{"a"};
         """
         transformer.transform(root_node)
         print_tree(root_node)

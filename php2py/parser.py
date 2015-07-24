@@ -367,7 +367,12 @@ class PhpParser(Parser):
     def parse_block(self):
         self.pdebug("Staring new block", 4)
         block = self.pt.new("BLOCK", self.assert_next("STARTBRACE", "{"))
-        for _ in self.peek_until(ENDBLOCK):
+        for _ in self.peek_until(["}"]):
+            if self.peek().kind == "PHPEND":
+                self.next()
+                block.append(self.parse_html())
+                self.assert_next("PHPSTART")
+                #block.append(self.pt.new("HTML", self.next()))
             block.append(self.parse_statement())
 
         self.pdebug("At end of block")

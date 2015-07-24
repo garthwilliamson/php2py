@@ -177,6 +177,21 @@ class ParserTests(Php2PyTestCase):
         self.assertEcho(echo_world_statement, "world")
 
     @parse_t
+    def test_while_html(self, root_node):
+        """ Simple while loop
+        <?php
+        $a = 0;
+        while($a < 10) {
+            ?>lol<?php
+            $a++;
+        }
+        """
+        while_node = root_node["PHP"]["WHILE"]
+        while_block = while_node["BLOCK"]
+        self.assertContainsNode(while_block, "HTML|lol")
+        self.assertContainsNode(while_block, "STATEMENT/EXPRESSION/OPERATOR1|++")
+
+    @parse_t
     def test_function_simple(self, root_node):
         """Simple function
         <?php
