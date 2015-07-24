@@ -278,7 +278,7 @@ class Compiler(object):
 
     def pyfor_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
-        seg.append("for {} in {}:".format(self.marshal_str(node["ARGSLIST"]), self.marshal_str(node["EXPRESSION"])))
+        seg.append("for {} in {}:".format(self.marshal_str(node[0]), self.marshal_str(node["EXPRESSION"])))
         seg.indent()
         seg.append(self.marshal(node["BLOCK"]))
         seg.dedent()

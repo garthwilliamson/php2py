@@ -139,6 +139,20 @@ class CompilerTests(Php2PyTestCase):
         self.assertEqual("for _g_.key, _g_.value in _g_.parameters.items():", fxc[0])
 
     @parse_t
+    def test_compile_foreach2(self, root_node):
+        """ A simpler kind of foreach compilation
+        <?php
+        foreach ($a as $b) {
+            1;
+        }
+        """
+        transformer.transform(root_node)
+        print_tree(root_node)
+        pyfor = get_body(root_node)["PYFOR"]
+        fxc = self.compiler.pyfor_compile(pyfor)
+        self.assertEqual("for _g_.b in _g_.a:", fxc[0])
+
+    @parse_t
     def test_compile_try(self, root_node):
         """ Compile a try statement
         <?php
