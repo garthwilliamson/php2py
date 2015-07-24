@@ -223,13 +223,16 @@ def transform_foreach(foreach_statement: ParseNode):
 
     expr = ParseNode("EXPRESSION", as_.token)
     if var.value == "=>":
-        items = ParseNode("CALL", var.token, "items")
-        items.append(ParseNode("ARGSLIST", var.token))
-        method_call = ParseNode("OPERATOR2", in_.token, ".")
-        method_call.append(in_)
-        method_call.append(items)
-        expr.append(method_call)
+        items_call = ParseNode("CALL", in_.token)
+        items_call.append(ParseNode("ARGSLIST", in_.token))
+        items_ident = ParseNode("IDENT", in_.token, "items")
+        attr_lookup = ParseNode("OPERATOR2", in_.token, ".")
+        attr_lookup.append(items_ident)
+        attr_lookup.append(in_)
+        items_call.append(attr_lookup)
+        expr.append(items_call)
         var.node_type = "ARGSLIST"
+        var.children.reverse()
     else:
         expr.append(in_)
     for_node = ParseNode("PYFOR", foreach_statement.token, value="for")

@@ -124,3 +124,16 @@ class CompilerTests(Php2PyTestCase):
         transformer.transform(root_node)
         statement = self.compiler.statement_compile(get_body(root_node)["STATEMENT"])
         self.assertEqual('_g_.a = u"a" if 1 else u"b"', statement[0])
+
+    @parse_t
+    def test_compile_foreach(self, root_node):
+        """ Test foreach compilation
+        <?php
+        foreach ($parameters as $key => $value) {
+             $key;
+        }
+        """
+        transformer.transform(root_node)
+        pyfor = get_body(root_node)["PYFOR"]
+        fxc = self.compiler.pyfor_compile(pyfor)
+        self.assertEqual("for _g_.key, _g_.value in _g_.parameters.items():", fxc[0])

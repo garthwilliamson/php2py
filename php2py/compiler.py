@@ -278,9 +278,9 @@ class Compiler(object):
 
     def pyfor_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
-        seg.append("for {} in {}:".format(self.marshal_str(node[0]), self.marshal_str(node[1])))
+        seg.append("for {} in {}:".format(self.marshal_str(node["ARGSLIST"]), self.marshal_str(node["EXPRESSION"])))
         seg.indent()
-        seg.append(self.marshal(node[2]))
+        seg.append(self.marshal(node["BLOCK"]))
         seg.dedent()
         return seg
 
@@ -416,7 +416,10 @@ class Compiler(object):
 
     def operator2_compile_str(self, node):
         try:
-            return "({} {} {})".format(self.marshal_str(node[1]), node.value, self.marshal_str(node[0]))
+            fmt_str = "({} {} {})"
+            if node.value in ["."]:
+                fmt_str = "{}{}{}"
+            return fmt_str.format(self.marshal_str(node[1]), node.value, self.marshal_str(node[0]))
         except IndexError:
             raise CompileError(node, "Expected two children for {}".format(node))
 

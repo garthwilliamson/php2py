@@ -184,6 +184,9 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(for_node, "EXPRESSION")
         self.assertContainsNode(for_node, "ARGSLIST/GLOBALVAR")  # foreach is at global or function scope
         self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/GLOBALVAR")
+        self.assertContainsNode(for_node, "EXPRESSION/CALL/OPERATOR2/GLOBALVAR|parameters")
+        self.assertContainsNode(for_node, "EXPRESSION/CALL/OPERATOR2/IDENT|items")
+        self.assertContainsNode(for_node, "EXPRESSION/CALL/ARGSLIST")
 
     @parse_t
     def test_class_simple(self, root_node):
