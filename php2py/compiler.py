@@ -490,14 +490,14 @@ class Compiler(object):
         seg.indent()
         seg.append(self.block_compile(node.get("BLOCK")))
         seg.dedent()
-        for c in node[1:]:
+        for c in node.children[1:]:
             if c.node_type != "CATCH":
                 raise CompileError(node, "Expected catch block as child of try {}".format(c.token))
-            catch_match = c[0]
-            catch_block = c[1]
+            catch_match = c["EXCEPTION"]
+            catch_block = c["BLOCK"]
             seg.append("except {} as {}:".format(
-                self.marshal_str(catch_match[0][0]),
-                self.marshal_str(catch_match[0][1])
+                catch_match.value,
+                self.marshal_str(catch_match[0])
             ))
             seg.indent()
             seg.append(self.marshal(catch_block))

@@ -490,11 +490,13 @@ class ParserTests(Php2PyTestCase):
         """
         # print_tree(root_node)
         try_node = root_node.get("PHP")[0]
+        print_tree(try_node)
         self.assertEqual(try_node.node_type, "TRY")
         self.assertEqual(try_node[0].node_type, "BLOCK")
         self.assertEqual(try_node[1].node_type, "CATCH")
-        self.assertEqual(try_node[1][0].node_type, "EXCEPTION")
-        self.assertEqual(try_node[1][1].node_type, "BLOCK")
+        self.assertContainsNode(try_node, "CATCH/EXCEPTION|Exception/GLOBALVAR|e")
+        self.assertEqual(try_node["CATCH"][1].node_type, "BLOCK")
+        self.assertContainsNode(try_node, "CATCH/BLOCK/STATEMENT/EXPRESSION/INT|0")
 
     @parse_t
     def test_one_line_if(self, root_node):

@@ -137,3 +137,27 @@ class CompilerTests(Php2PyTestCase):
         pyfor = get_body(root_node)["PYFOR"]
         fxc = self.compiler.pyfor_compile(pyfor)
         self.assertEqual("for _g_.key, _g_.value in _g_.parameters.items():", fxc[0])
+
+    @parse_t
+    def test_compile_try(self, root_node):
+        """ Compile a try statement
+        <?php
+        try {
+            $a = $db;
+        } catch (ex $e) {
+            1;
+        }
+        """
+        transformer.transform(root_node)
+        print_tree(root_node)
+        statements = get_body(root_node)
+        lines = self.compiler.marshal(statements)
+        lines = [l[0] for l in lines.lines][1:]
+        expected_out = [
+            "try:",
+            "_g_.a = _g_.db",
+            "except ex as _g_.e:",
+            "1"
+        ]
+        for expected, got in zip(expected_out, lines):
+            self.assertEqual(expected, got)
