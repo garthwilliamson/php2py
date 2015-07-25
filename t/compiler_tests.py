@@ -212,9 +212,9 @@ class CompilerTests(Php2PyTestCase):
         <?php
         class A {
             private $a = 1;
-            public function play() {
+            public function plaY() {
                 $this->a++;
-                $this->play();
+                $this->pLay();
             }
         }
         """

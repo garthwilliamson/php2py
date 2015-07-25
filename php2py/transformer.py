@@ -139,7 +139,7 @@ def transform_attr(attr_node):
         call_node.append(object_node)
         yield call_node
         return
-    # If the attr node has a constant on the rhs, the constant is actuall just some kind of ident
+    # If the attr node has a constant on the rhs, the constant is actually just some kind of ident
     if attr_node[0].node_type == "CONSTANT":
         attr_node[0].node_type = "IDENT"
     yield attr_node
@@ -153,7 +153,12 @@ def transform_call(call_node):
     if lhs.node_type == "CONSTANT":
         lhs.node_type = "IDENT"
         # TODO: Cheating!
-        lhs.value = "_f_." + lhs.value
+        # Function calls are case insensitive
+        lhs.value = "_f_." + lhs.value.lower()
+    else:
+        # if lhs is an attr access, then the rhs of that is the function name. lowercase!
+        if lhs.node_type == "ATTR":
+            lhs[0].value = lhs[0].value.lower()
     yield call_node
 
 
