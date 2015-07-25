@@ -461,7 +461,7 @@ class Compiler(object):
     def commentblock_compile_str(self, node):
         if self.strip_comments:
             return ""
-        return '"""{}"""'.format(node.value)
+        return "# " + node.value
 
     def magic_compile_str(self, node):
         if node.value not in magic_map:
