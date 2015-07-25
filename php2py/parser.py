@@ -334,6 +334,7 @@ class PhpParser(Parser):
                 statement = self.pt.new("STATEMENT", self.peek())
                 en = self.parse_expression()
                 statement.append(en)
+                self.assert_next("ENDSTATEMENT", ";")
             else:
                 raise ExpectedCharError("function", self.peek().val)
         elif self.peek().kind == "RETURN":

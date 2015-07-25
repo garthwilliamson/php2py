@@ -41,7 +41,7 @@ class CompilerTests(Php2PyTestCase):
         """
         transformer.transform(root_node)
         wc = self.compiler.while_compile(get_body(root_node).get("WHILE"))
-        self.assertEqual("while (_g_.a == _g_.b):", wc[-2])
+        self.assertEqual("while _g_.a == _g_.b:", wc[-2])
 
     # TODO: Can valid php end a php block without a semicolon?
     @parse_t
@@ -204,4 +204,24 @@ class CompilerTests(Php2PyTestCase):
             "class A(_c_.PhpBase):",
             "def _php_construct(this):",
             "_f_.b()"
+        ], lines)
+
+    @compile_class_t
+    def test_self_attr_access(self, lines):
+        """ A class that plays with itself
+        <?php
+        class A {
+            private $a = 1;
+            public function play() {
+                $this->a++;
+                $this->play();
+            }
+        }
+        """
+        self.assertLinesMatch([
+            "class A(_c_.PhpBase):",
+            "a = 1",
+            "def play(this):",
+            "this.a += 1",
+            "this.play()"
         ], lines)

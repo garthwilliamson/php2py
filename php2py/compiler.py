@@ -415,10 +415,10 @@ class Compiler(object):
         return "{} {} {}".format(self.marshal_str(node[1]), node.value, self.marshal_str(node[0]))
 
     def operator2_compile_str(self, node):
+        fmt_str = "{} {} {}"
+        if node.value in ["."]:
+            fmt_str = "{}{}{}"
         try:
-            fmt_str = "({} {} {})"
-            if node.value in ["."]:
-                fmt_str = "{}{}{}"
             return fmt_str.format(self.marshal_str(node[1]), node.value, self.marshal_str(node[0]))
         except IndexError:
             raise CompileError(node, "Expected two children for {}".format(node))

@@ -139,15 +139,17 @@ def transform_attr(attr_node):
         call_node.append(object_node)
         yield call_node
         return
+    # If the attr node has a constant on the rhs, the constant is actuall just some kind of ident
+    if attr_node[0].node_type == "CONSTANT":
+        attr_node[0].node_type = "IDENT"
     yield attr_node
 
 
 @transforms("CALL")
 def transform_call(call_node):
+    transform_children(call_node)
     call_node[0].node_type = "ARGSLIST"
-    transform_children(call_node[0])
     lhs = call_node[1]
-    transform_children(lhs)
     if lhs.node_type == "CONSTANT":
         lhs.node_type = "IDENT"
         # TODO: Cheating!

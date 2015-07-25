@@ -269,3 +269,25 @@ class TransformerTests(Php2PyTestCase):
         assign = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT")
         self.assertContainsNode(assign, "GLOBALVAR|a")
         self.assertContainsNode(assign, "CALL/OPERATOR2|./IDENT|_c_")
+
+    @parse_t
+    def test_self_attr_access(self, root_node):
+        """ A class that plays with itself
+        <?php
+        class A {
+            private $a = 1;
+            public function play() {
+                $this->a++;
+                $this->play();
+            }
+        }
+        """
+        transformer.transform(root_node)
+        print_tree(root_node)
+        class_body = root_node["CLASS"]["BLOCK"]
+        method_body = class_body["METHOD"]["BLOCK"]
+        s1 = method_body[0]
+        self.assertContainsNode(s1, "EXPRESSION/OPERATOR2|+=/ATTR/IDENT|a")
+        s2 = method_body[1]
+        self.assertContainsNode(s2, "EXPRESSION/CALL/ATTR/IDENT|play")
+        self.assertContainsNode(s2, "EXPRESSION/CALL/ATTR/VAR|this")
