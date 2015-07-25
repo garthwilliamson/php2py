@@ -39,7 +39,7 @@ class TransformerTests(Php2PyTestCase):
         transformer.transform(root_node)
         self.assertContainsNode(root_node, "FUNCTION|foo")
         body = get_body(root_node)
-        self.assertContainsNode(body, "STATEMENT/ASSIGNMENT")
+        self.assertContainsNode(body, "STATEMENT/EXPRESSION/ASSIGNMENT")
 
     @parse_t
     def test_array_keyvalue(self, root_node):
@@ -203,7 +203,7 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(class_node, "EXTENDS|PhpBase")
         self.assertContainsNode(class_node, "BLOCK")
         bod = get_body(root_node)
-        self.assertContainsNode(bod, "STATEMENT/ASSIGNMENT/VAR|_c_.TestClass")
+        self.assertContainsNode(bod, "STATEMENT/EXPRESSION/ASSIGNMENT/VAR|_c_.TestClass")
 
     @parse_t
     def test_class_parents(self, root_node):

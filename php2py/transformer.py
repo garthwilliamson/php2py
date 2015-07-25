@@ -183,11 +183,10 @@ def transform_if(if_statement):
     # TODO: Maybe use python one liners? Not very pythonic though
     if "STATEMENT" in if_statement:
         s = if_statement["STATEMENT"]
-        block = ParseNode("BLOCK", s.token)
-        block.append(s)
+        if_block = block(s)
     else:
-        block = if_statement["BLOCK"]
-    transform_children(block)
+        if_block = if_statement["BLOCK"]
+    transform_children(if_block)
 
     if_op = if_statement["EXPRESSIONGROUP"]["EXPRESSION"][0]
     if_op = transform_single_node(if_op)
@@ -201,7 +200,7 @@ def transform_if(if_statement):
         if_op = if_op[1]
     if_ex = ParseNode("EXPRESSION", if_op.token)
     if_ex.append(if_op)
-    if_statement.children = [if_ex, block]
+    if_statement.children = [if_ex, if_block]
     for s in pre_statements:
         yield s
     pre_statements.clear()
@@ -272,18 +271,8 @@ def transform_foreach(foreach_statement: ParseNode):
 def transform_switch(switch_statement):
     # Rearrange to have _switch_choice = <expression> so expression is only run once
     decide_ex = switch_statement.get("EXPRESSIONGROUP").get("EXPRESSION")
-
-    assign = ParseNode("ASSIGNMENT", decide_ex.token, "=")
     switch_var = ParseNode("VAR", decide_ex.token, "_switch_choice")
-    assign.append(decide_ex[0])
-    assign.append(switch_var)
-
-    assign_ex = ParseNode("EXPRESSION", decide_ex.token, None)
-    assign_ex.append(assign)
-
-    assign_statement = ParseNode("STATEMENT", decide_ex.token, None)
-    assign_statement.append(assign_ex)
-    yield assign_statement
+    yield assignment_statement(switch_var, decide_ex[0])
 
     # The contents of the switch will be rearranged into a whole series of elif
     contents = switch_statement.get("BLOCK")
@@ -435,13 +424,10 @@ def transform_function(function_node: ParseNode):
     yield function_node
     # TODO: Highly cheating - need to make an attr access properly instead
     t = function_node.token
+
     attr_node = ParseNode("VAR", t, "_f_.{}".format(function_node.value))
-    assign_node = ParseNode("ASSIGNMENT", t, "=")
-    assign_node.append(ParseNode("VAR", t, function_node.value))
-    assign_node.append(attr_node)
-    statement_node = ParseNode("STATEMENT", t)
-    statement_node.append(assign_node)
-    yield statement_node
+    function_var = ParseNode("VAR", t, function_node.value)
+    yield assignment_statement(attr_node, function_var)
 
 
 @transforms("CLASS")
@@ -459,12 +445,8 @@ def transform_class(class_node: ParseNode):
 
     # TODO: Highly cheating - need to make an attr access properly instead
     attr_node = ParseNode("VAR", cnt, "_c_.{}".format(class_node.value))
-    assign_node = ParseNode("ASSIGNMENT", cnt, "=")
-    assign_node.append(ParseNode("VAR", cnt, class_node.value))
-    assign_node.append(attr_node)
-    statement_node = ParseNode("STATEMENT", cnt)
-    statement_node.append(assign_node)
-    yield statement_node
+    class_var = ParseNode("VAR", cnt, class_node.value)
+    yield assignment_statement(attr_node, class_var)
 
 
 @transforms("METHOD", "CLASSMETHOD")
