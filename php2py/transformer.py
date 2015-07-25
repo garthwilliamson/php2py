@@ -381,6 +381,7 @@ def transform_isset(isset_node: ParseNode):
 
     catch_st = assignment_statement(tempvar_node, ParseNode("IDENT", t, "False"))
     try_node = basic_try_catch(block(try_st), "NameError", block(catch_st))
+    try_node["CATCH"].append(ParseNode("EXCEPTION", t, "KeyError"))
 
     pre_statements.append(try_node)
     yield tempvar_node

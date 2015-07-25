@@ -258,7 +258,7 @@ class CompilerTests(Php2PyTestCase):
         self.assertLinesMatch([
             "try:",
             '_tempvar = _g_._POST[u"a"] is not None',
-            "except NameError:",
+            "except (NameError, KeyError):",
             "_tempvar = False",
             "if _tempvar:",
             "1"

@@ -496,8 +496,7 @@ class ParserTests(Php2PyTestCase):
         self.assertEqual(try_node.node_type, "TRY")
         self.assertEqual(try_node[0].node_type, "BLOCK")
         self.assertEqual(try_node[1].node_type, "CATCH")
-        self.assertContainsNode(try_node, "CATCH/EXCEPTION|Exception/GLOBALVAR|e")
-        self.assertEqual(try_node["CATCH"][1].node_type, "BLOCK")
+        self.assertContainsNode(try_node, "CATCH/AS/GLOBALVAR|e")
         self.assertContainsNode(try_node, "CATCH/BLOCK/STATEMENT/EXPRESSION/INT|0")
 
     @parse_t

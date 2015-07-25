@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 import logging
 
-from .parsetree import ParseTree, print_tree
+from .parsetree import ParseTree, print_tree, ParseNode
 from . import tokeniser
 
 
@@ -116,7 +116,7 @@ class Parser(object):
         self.pdebug("^^^^^^^" + str(self.current))
         return self.current
 
-    def peek(self):
+    def peek(self) -> tokeniser.Token:
         return self.tokens.peek()
 
     def next_while_kind(self, match):
@@ -453,15 +453,19 @@ class PhpParser(Parser):
         c.append(self.parse_block())
         return c
 
-    def parse_try(self):
+    def parse_try(self) -> ParseNode:
         try_node = self.pt.new("TRY", self.next())
         try_node.append(self.parse_block())
         for t in self.next_while(("catch",)):
             c = self.pt.new("CATCH", t)
             self.assert_next("STARTBRACE", "(")
             catchmatch = self.pt.new("EXCEPTION", self.next())
-            catchmatch.append(self.parse_variable(self.next()))
             c.append(catchmatch)
+
+            if self.peek().kind == "VARIABLE":
+                as_node = self.pt.new("AS", t)
+                as_node.append(self.parse_variable(self.next()))
+                c.append(as_node)
             self.assert_next("ENDBRACE", ")")
             c.append(self.parse_block())
             try_node.append(c)

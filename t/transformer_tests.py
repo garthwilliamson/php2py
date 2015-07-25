@@ -309,6 +309,7 @@ class TransformerTests(Php2PyTestCase):
         # catch NameError:
         #     _tempvar = False
         self.assertContainsNode(try_node, "CATCH/EXCEPTION|NameError")
+        self.assertContainsNode(try_node, "CATCH/EXCEPTION|KeyError")
         self.assertEqual(try_node["CATCH"][1].node_type, "BLOCK")
         self.assertContainsNode(try_node, "CATCH/BLOCK/STATEMENT/EXPRESSION/ASSIGNMENT/IDENT|False")
         # _g_.b = _tempvar

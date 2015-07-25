@@ -498,16 +498,21 @@ class Compiler(object):
         for c in node.children[1:]:
             if c.node_type != "CATCH":
                 raise CompileError(node, "Expected catch block as child of try {}".format(c.token))
-            catch_match = c["EXCEPTION"]
-            catch_block = c["BLOCK"]
-            if len(catch_match.children) > 0:
+            exception_nodes = list(c.get_all("EXCEPTION"))
+            if len(exception_nodes) == 1:
+                catch_matches = exception_nodes[0].value
+            else:
+                catch_matches = "({})".format(
+                    ", ".join([e.value for e in exception_nodes]))
+            if "AS" in c:
                 seg.append("except {} as {}:".format(
-                    catch_match.value,
-                    self.marshal_str(catch_match[0])
+                    catch_matches,
+                    self.marshal_str(c["AS"][0])
                 ))
             else:
-                seg.append("except {}:".format(catch_match.value))
+                seg.append("except {}:".format(catch_matches))
             seg.indent()
+            catch_block = c["BLOCK"]
             seg.append(self.marshal(catch_block))
             seg.dedent()
         return seg
