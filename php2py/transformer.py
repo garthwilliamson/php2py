@@ -412,7 +412,7 @@ def transform_method(node: ParseNode):
     if node.value.startswith("__"):
         node.value = "_php_" + node.value[2:]
     args = node["ARGSLIST"]
-    args.children.insert(0, ParseNode("VAR", args.token, value="self", parent=args))
+    args.children.insert(0, ParseNode("VAR", args.token, value="this", parent=args))
     transform_children(node["BLOCK"])
     # TODO: Probably have to rearrange some things here
     yield node

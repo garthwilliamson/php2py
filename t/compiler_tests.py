@@ -202,6 +202,6 @@ class CompilerTests(Php2PyTestCase):
         """
         self.assertLinesMatch([
             "class A(_c_.PhpBase):",
-            "def _php_construct(self):",
+            "def _php_construct(this):",
             "_f_.b()"
         ], lines)
