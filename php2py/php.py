@@ -101,19 +101,16 @@ class PhpApp(object):
         self.f = None
         self.c = PhpClasses()
         self.i = {}
-        self.root_dir = None
+        self.script_name = None
         self.error_level = self.constants.E_ALL
         self.ini = {}
 
     def __call__(self, environ, start_response):
         # TODO: This isn't thread safe at all
         # TODO: it probably isn't even cross request safe
-        self.reset()
+        self.initialize_environ(environ)
         import pprint
         pprint.pprint(environ)
-        self.g._SERVER["HTTP_HOST"] = environ["HTTP_HOST"]
-        # TODO: Get this from wsgi server somehow
-        self.g._SERVER["SCRIPT_NAME"] = "TODO"
         self.body()
         # If body didn't change the response code, we must be ok
         if self.response_code == 500:
@@ -125,7 +122,7 @@ class PhpApp(object):
         # should this be bytes?
         return [self.body_str.encode("utf-8")]
 
-    def reset(self):
+    def initialize_environ(self, environ):
         self.g.__init__()
         self.constants.__init__()
         self.f.__init__()
@@ -133,24 +130,32 @@ class PhpApp(object):
         self.i = {}
         self.body_str = ""
 
-    def init_http(self, body, root_dir):
+        self.g._SERVER["HTTP_HOST"] = environ["HTTP_HOST"]
+        # TODO: Get this from wsgi server somehow
+        # TODO: This is a hack to get things working. I think I'll need to use a full routing library in future
+        self.g._SERVER["SCRIPT_NAME"] = "//" # os.path.relpath(self.script_name).replace("\\", "/")
+
+    def init_console(self, body, script_name):
+        self.init_http(body, script_name)
+        # overrides
+        # root_dir = os.path.abspath(os.path.dirname(script_name))
+        self.g._SERVER["HTTP_HOST"] = ''
+        self.g._SERVER["SCRIPT_NAME"] = os.path.relpath(script_name).replace("\\", "/")
+
+    def init_http(self, body, script_name):
         """ Initialise the app
 
         Args:
             body: A callable which return a string for the body
-            root_dir: The root directory this application is being served from
+            root_dir: The main script this app is being served from
 
         """
         # HTTP
         self.body = body
 
         # Helpers for php engine
-        self.root_dir = root_dir
+        self.script_name = script_name
 
-        # Set POST, GET, SERVER etc variables
-        # TODO: SERVER and at least some others are reserved. Should probably treat them specially.
-        self.g._SERVER["HTTP_HOST"] = "TODO"
-        self.g._SERVER["SCRIPT_NAME"] = "TODO"
 
     # TODO: You are doing this wrong?
     @property
@@ -184,37 +189,10 @@ class PhpApp(object):
         """
         self.headers[name] = [value]
 
-    def http_headers_str(self):
-        self.body()
-        # If body didn't change the response code, we must be ok
-        if self.response_code == 500:
-            self.response_code = 200
-            self.response_msg = "OK"
-        out = "HTTP/1.1 {} {}".format(self.response_code, self.response_msg)
-        for name in self.headers:
-            for value in self.headers[name]:
-                out += "\r\n{}: {}".format(name, value)
-        return out
-
-    def full_http_response(self, body, root_dir):
-        self.init_http(body, root_dir)
-        # Globals and locals are the same for the entry point
-        try:
-            print(self.http_headers_str())
-            print()
-            print(self.body_str, end='')
-        except HttpRedirect as r:
-            self.response_code = r.response_code
-            print(self.http_headers_str())
-
-    def body_http_response(self, body, root_dir):
-        # Only print the body response
+    def console_response(self):
         # TODO: Should we allow interactive use here?
-        self.init_http(body, root_dir)
-        self.http_headers_str()
-        # TODO: Probably should check php's default encoding
-        # Write in binary mode This enables use of newlines consistent(ish) with php
-        sys.stdout.buffer.write(self.body_str.encode('utf-8'))
+        self.body()
+        return self.body_str.encode('utf-8')
 
     def write(self, item):
         # Write the item as a string to the body string

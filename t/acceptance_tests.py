@@ -32,6 +32,7 @@ tests = [
     "hello00",
     "hello01",
     "hello02",
+    "defines00",
 ]
 for t in tests:
     test_name = "test_{}".format(t)

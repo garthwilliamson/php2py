@@ -11,7 +11,7 @@ abspath = os.path.abspath(base_file)
 main_index = importlib.machinery.SourceFileLoader(abspath, abspath).load_module()
 
 # TODO: this should probably just be abspath
-app.init_http(main_index.body, os.path.abspath(os.path.dirname(__file__)))
+app.init_http(main_index.body, base_file)
 
 httpd = make_server('', 8000, app)
 print("Serving HTTP on port 8000...")

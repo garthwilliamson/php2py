@@ -169,7 +169,9 @@ class Compiler(object):
         self.compiled.append('if __name__ == "__main__":')
         self.compiled.indent()
         self.compiled.append('import os.path')
-        self.compiled.append('_app_.body_http_response(body, root_dir=os.path.abspath(os.path.dirname(__file__)))')
+        self.compiled.append('_app_.init_console(body, script_name=__file__)')
+        self.compiled.append('import sys')
+        self.compiled.append('sys.stdout.buffer.write(_app_.console_response())')
         self.compiled.dedent()
 
     def add_import(self, module: str, els=None):
