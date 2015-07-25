@@ -106,6 +106,14 @@ class PhpApp(object):
         self.ini = {}
 
     def __call__(self, environ, start_response):
+        # TODO: This isn't thread safe at all
+        # TODO: it probably isn't even cross request safe
+        self.reset()
+        import pprint
+        pprint.pprint(environ)
+        self.g._SERVER["HTTP_HOST"] = environ["HTTP_HOST"]
+        # TODO: Get this from wsgi server somehow
+        self.g._SERVER["SCRIPT_NAME"] = "TODO"
         self.body()
         # If body didn't change the response code, we must be ok
         if self.response_code == 500:
@@ -116,6 +124,14 @@ class PhpApp(object):
         start_response(status, headers)
         # should this be bytes?
         return [self.body_str.encode("utf-8")]
+
+    def reset(self):
+        self.g.__init__()
+        self.constants.__init__()
+        self.f.__init__()
+        self.c.__init__()
+        self.i = {}
+        self.body_str = ""
 
     def init_http(self, body, root_dir):
         """ Initialise the app
