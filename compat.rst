@@ -15,6 +15,13 @@ Identical Web Browser Output
 
 There aren't any. There needs to be a wsgi interface stuck on first
 
+At least index.php running
+--------------------------
+
+Programs which run at least the index.php part of themselves
+
+* mini (https://github.com/panique/mini)
+
 Doesn't Break the Compiler
 --------------------------
 
@@ -22,5 +29,4 @@ This is an important first step to running the programs. It is almost certain th
 have a ludicrous amount of bugs. It is also probably that code will have magically disappeared
 during the conversion process.
 
-* mini (https://github.com/panique/mini)
 * tiny (https://github.com/panique/tiny)

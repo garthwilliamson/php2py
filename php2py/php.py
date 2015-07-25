@@ -105,6 +105,18 @@ class PhpApp(object):
         self.error_level = self.constants.E_ALL
         self.ini = {}
 
+    def __call__(self, environ, start_response):
+        self.body()
+        # If body didn't change the response code, we must be ok
+        if self.response_code == 500:
+            self.response_code = 200
+            self.response_msg = "OK"
+        status = "{} {}".format(self.response_code, self.response_msg)
+        headers = list(self.headers.items())
+        start_response(status, headers)
+        # should this be bytes?
+        return [self.body_str.encode("utf-8")]
+
     def init_http(self, body, root_dir):
         """ Initialise the app
 
