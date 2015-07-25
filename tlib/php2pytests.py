@@ -51,6 +51,24 @@ def parse_t(f):
     return wrapper
 
 
+def compile_body_t(f):
+    """ Wraps a function to parse a php string given as a docstring
+
+    The wrapped function should take an argument of "lines" - these are the main lines of the function
+    """
+
+    @wraps(f)
+    def wrapper(self, *args, **kwargs):
+        root_node = parse_string(f.__doc__).get_tree()
+        transformer.transform(root_node)
+        body_block = get_body(root_node)
+        lines_seg = Compiler().marshal(body_block)
+        lines = [l[0] for l in lines_seg.lines[1:]]
+        f(self, lines, *args, **kwargs)
+
+    return wrapper
+
+
 class Php2PyTestCase(unittest.TestCase):
     def setUp(self):
         self.compiler = Compiler()
@@ -72,6 +90,10 @@ class Php2PyTestCase(unittest.TestCase):
             print("Actual node contents are:")
             print_tree(node)
             raise AssertionError(msg)
+
+    def assertLinesMatch(self, expected_lines, got_lines):
+        for expected, got in zip(expected_lines, got_lines):
+            self.assertEqual(expected, got)
 
 
 def get_body(root_node: ParseNode) -> ParseNode:

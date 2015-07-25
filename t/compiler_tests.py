@@ -152,8 +152,8 @@ class CompilerTests(Php2PyTestCase):
         fxc = self.compiler.pyfor_compile(pyfor)
         self.assertEqual("for _g_.b in _g_.a:", fxc[0])
 
-    @parse_t
-    def test_compile_try(self, root_node):
+    @compile_body_t
+    def test_compile_try(self, lines):
         """ Compile a try statement
         <?php
         try {
@@ -162,16 +162,20 @@ class CompilerTests(Php2PyTestCase):
             1;
         }
         """
-        transformer.transform(root_node)
-        print_tree(root_node)
-        statements = get_body(root_node)
-        lines = self.compiler.marshal(statements)
-        lines = [l[0] for l in lines.lines][1:]
-        expected_out = [
+        expected = [
             "try:",
             "_g_.a = _g_.db",
             "except ex as _g_.e:",
             "1"
         ]
-        for expected, got in zip(expected_out, lines):
-            self.assertEqual(expected, got)
+        self.assertLinesMatch(expected, lines)
+
+    @compile_body_t
+    def test_compile_dirname(self, lines):
+        """ Compile a dirname call
+        <?php
+            $a = dirname(__DIR__);
+        """
+        self.assertLinesMatch([
+            '_g_.a = _f_.dirname(_f_.dirname(__file__))'
+        ], lines)

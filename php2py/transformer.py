@@ -330,7 +330,7 @@ def transform_callspecial(cs_node: ParseNode):
         yield from transform_array(cs_node)
     elif cs_node.value == "__dir__":
         # We don't need to transform_call if we are generating the argslist entirely ourselves
-        cs_node["IDENT"].value = "dirname"
+        cs_node["IDENT"].value = "_f_.dirname"
         add_argument(cs_node, ParseNode("IDENT", cs_node.token, value="__file__"))
         yield cs_node
     else:
