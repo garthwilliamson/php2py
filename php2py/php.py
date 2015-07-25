@@ -26,6 +26,7 @@ class PhpGlobals(PhpVars):
         # Sets the super-global variables
         # $_POST etc
         self._SERVER = {}
+        self._GET = {}
         pass
 
 

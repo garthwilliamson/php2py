@@ -248,6 +248,7 @@ class ParserTests(Php2PyTestCase):
         function b()
         {
             echo $a;
+            $_GET;
         }
         test();
         """
@@ -255,6 +256,7 @@ class ParserTests(Php2PyTestCase):
         self.assertEqual(var_a.node_type, "GLOBALVAR")
         block_node = root_node.match("PHP/FUNCTION/BLOCK")
         self.assertEcho(block_node[0], "a", node_type="VAR")
+        self.assertContainsNode(block_node[1], "EXPRESSION/GLOBALVAR|_GET")
 
     def test_scopes_global(self):
         root_node = parse_string(scope_globalled).get_tree()[0]

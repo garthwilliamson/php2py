@@ -34,9 +34,23 @@ class UpTooMuchException(Exception):
     pass
 
 
+super_globals = [
+    "GLOBALS",
+    "_SERVER",
+    "_GET",
+    "_POST",
+    "_FILES",
+    "_COOKIE",
+    "_SESSION",
+    "_REQUEST",
+    "_ENV",
+]
+
+
 class Parser(object):
     def __init__(self, contents, name):
         self.scope = []
+        # TODO: This is probably not actually working - get globals working... or at least test them
         self.globals = []
         self.pt = ParseTree(name)
         self.chars = contents
@@ -59,7 +73,7 @@ class Parser(object):
         self.globals.pop()
 
     def is_global(self, variable):
-        if variable in self.globals[-1]:
+        if variable in self.globals[-1] or variable in super_globals:
             return True
         else:
             return False
