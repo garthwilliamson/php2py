@@ -416,6 +416,25 @@ def transform_method(node):
     yield node
 
 
+@transforms("NEW")
+def transform_new(node):
+    class_call = node["CALL"]
+    class_name = class_call[1]
+    # TODO: Think about this. If new had a different priority, it ought to be easier to do
+    if class_name.node_type == "CONSTANT":
+        op2 = ParseNode("OPERATOR2", class_name, ".")
+        class_name.node_type = "IDENT"
+        op2.append(class_name)
+        op2.append(ParseNode("IDENT", class_name, "_c_"))
+        class_call[1] = op2
+        transform_children(class_call[0])
+        class_call[0].node_type = "ARGSLIST"
+        yield node["CALL"]
+    else:
+        yield from transform_call(node["CALL"])
+
+
+
 def add_argument(node: ParseNode, argument: ParseNode):
     """ Add an expression or another node as an argument to a call function
 

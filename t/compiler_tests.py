@@ -179,3 +179,13 @@ class CompilerTests(Php2PyTestCase):
         self.assertLinesMatch([
             '_g_.a = _f_.dirname(_f_.dirname(__file__))'
         ], lines)
+
+    @compile_body_t
+    def test_compile_new(self, lines):
+        """ Compile creation of a new thing
+        <?php
+        $a = new B();
+        """
+        self.assertLinesMatch([
+            "_g_.a = _c_.B()"
+        ], lines)

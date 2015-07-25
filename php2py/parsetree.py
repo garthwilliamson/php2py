@@ -48,7 +48,8 @@ class ParseNode(object):
 
     def __setitem__(self, key, value):
         if isinstance(key, int):
-            return self.children[key]
+            self.children[key] = value
+            return
         i = 0
         while i < len(self.children):
             if self.children[i].node_type == key:

@@ -256,3 +256,16 @@ class TransformerTests(Php2PyTestCase):
         self.assertEqual(rhs.node_type, "CALL")
         self.assertContainsNode(rhs, "ARGSLIST")
         self.assertContainsNode(rhs, "ATTR/ATTR/GLOBALVAR|this")
+
+    @parse_t
+    def test_new(self, root_node):
+        """ Creation of an instance of a class
+        <?php
+        $a = new B();
+        """
+        print_tree(root_node)
+        transformer.transform(root_node)
+        print_tree(root_node)
+        assign = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT")
+        self.assertContainsNode(assign, "GLOBALVAR|a")
+        self.assertContainsNode(assign, "CALL/OPERATOR2|./IDENT|_c_")
