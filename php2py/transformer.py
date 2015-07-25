@@ -408,7 +408,9 @@ def transform_class(class_node: ParseNode):
 
 
 @transforms("METHOD", "CLASSMETHOD")
-def transform_method(node):
+def transform_method(node: ParseNode):
+    if node.value.startswith("__"):
+        node.value = "_php_" + node.value[2:]
     args = node["ARGSLIST"]
     args.children.insert(0, ParseNode("VAR", args.token, value="self", parent=args))
     transform_children(node["BLOCK"])

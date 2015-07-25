@@ -69,6 +69,23 @@ def compile_body_t(f):
     return wrapper
 
 
+def compile_class_t(f):
+    """ Wrap a function to parse a php string containing a class (from docstring)
+
+    The wrapped function should accept an argument lines which will contain all the lines of the class definition
+    """
+
+    @wraps(f)
+    def wrapper(self, *args, **kwargs):
+        root_node = parse_string(f.__doc__).get_tree()
+        transformer.transform(root_node)
+        class_block = root_node["CLASS"]
+        lines_seg = Compiler().marshal(class_block)
+        lines = [l[0] for l in lines_seg.lines]
+        f(self, lines, *args, **kwargs)
+
+    return wrapper
+
 class Php2PyTestCase(unittest.TestCase):
     def setUp(self):
         self.compiler = Compiler()

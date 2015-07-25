@@ -189,3 +189,19 @@ class CompilerTests(Php2PyTestCase):
         self.assertLinesMatch([
             "_g_.a = _c_.B()"
         ], lines)
+
+    @compile_class_t
+    def test_constructors(self, lines):
+        """ Compile a class with a constructor
+        <?php
+        class A {
+            public function __construct (  ) {
+                b()
+            }
+        }
+        """
+        self.assertLinesMatch([
+            "class A(_c_.PhpBase):",
+            "def _php_construct(self):",
+            "_f_.b()"
+        ], lines)
