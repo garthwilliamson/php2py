@@ -424,7 +424,7 @@ class Compiler(object):
             raise CompileError(node, "Expected two children for {}".format(node))
 
     def operator1_compile_str(self, node):
-        return "{} ({})".format(node.value, self.marshal_str(node[0]))
+        return "{} {}".format(node.value, self.marshal_str(node[0]))
 
     def operator3_compile_str(self, node):
         if node.value != "?":
@@ -463,6 +463,11 @@ class Compiler(object):
             return ""
         return "# " + node.value
 
+    def commentblock_compile(self, node):
+        seg = CompiledSegment()
+        seg.append(self.commentblock_compile_str(node))
+        return seg
+
     def magic_compile_str(self, node):
         if node.value not in magic_map:
             raise CompileError(node, "No magic value {} known".format(node.value))
@@ -495,10 +500,13 @@ class Compiler(object):
                 raise CompileError(node, "Expected catch block as child of try {}".format(c.token))
             catch_match = c["EXCEPTION"]
             catch_block = c["BLOCK"]
-            seg.append("except {} as {}:".format(
-                catch_match.value,
-                self.marshal_str(catch_match[0])
-            ))
+            if len(catch_match.children) > 0:
+                seg.append("except {} as {}:".format(
+                    catch_match.value,
+                    self.marshal_str(catch_match[0])
+                ))
+            else:
+                seg.append("except {}:".format(catch_match.value))
             seg.indent()
             seg.append(self.marshal(catch_block))
             seg.dedent()

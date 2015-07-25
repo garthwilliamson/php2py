@@ -6,6 +6,8 @@ from .parsetree import ParseNode
 
 
 transform_map = {}
+pre_statements = []
+post_statements = []
 
 
 def transforms(*args):
@@ -85,16 +87,16 @@ def transform_block(block_node):
     return block_node
 
 
+@transforms("STATEMENT")
 def transform_statement(statement_node: ParseNode):
-    pdebug("T STATEMENT", statement_node)
-    if statement_node.node_type in transform_map:
-        yield from transform_map[statement_node.node_type](statement_node)
-    elif statement_node[0].node_type == "EXPRESSION":
-        transform_expression(statement_node[0])
-        yield statement_node
-    else:
-        pdebug("UNKNOWN STATEMENT", statement_node)
-        yield statement_node
+    transform_children(statement_node)
+    for s in pre_statements:
+        yield s
+    pre_statements.clear()
+    yield statement_node
+    for s in post_statements:
+        yield s
+    post_statements.clear()
 
 
 @transforms("EXPRESSION")
@@ -128,6 +130,17 @@ def transform_operator(operator_node):
     # Check if the second argument is now "False" - then we should use the "blah is false" pattern.
     # Same True and None. I think "is" should be treated as an operator in this regard.
     yield operator_node
+
+
+@transforms("ASSIGNMENT")
+def transform_assignment(assign_node: ParseNode):
+    transform_children(assign_node)
+    if len(assign_node) > 2:
+        extras = assign_node.children[:-2]
+        assign_node.children = assign_node.children[-2:]
+        for e in extras:
+            yield e
+    yield assign_node
 
 
 @transforms("ATTR")
@@ -189,7 +202,13 @@ def transform_if(if_statement):
     if_ex = ParseNode("EXPRESSION", if_op.token)
     if_ex.append(if_op)
     if_statement.children = [if_ex, block]
+    for s in pre_statements:
+        yield s
+    pre_statements.clear()
     yield if_statement
+    for s in post_statements:
+        yield s
+    post_statements.clear()
 
 
 @transforms("TRY")
@@ -340,8 +359,42 @@ def transform_callspecial(cs_node: ParseNode):
         cs_node["IDENT"].value = "_f_.dirname"
         add_argument(cs_node, ParseNode("IDENT", cs_node.token, value="__file__"))
         yield cs_node
+    elif cs_node.value == "isset":
+        yield from transform_isset(cs_node)
     else:
         yield from transform_call(cs_node)
+
+
+def transform_isset(isset_node: ParseNode):
+    """
+    With input
+    VAR1 = isset(VAR2)
+    Expected output:
+    try:
+        _tempvar = not VAR2 is None
+    except NameError:
+        _tempvar = False
+    VAR1 =_tempvar
+    """
+    # TODO: Deal with more than one argument
+    transform_children(isset_node)
+    t = isset_node.token
+    none_node = ParseNode("IDENT", t, "None")
+    var2 = isset_node[0]
+    is_node = ParseNode("OPERATOR2", t, "is")
+    not_node = ParseNode("OPERATOR1", t, "not")
+    not_node.append(none_node)
+    is_node.append(not_node)
+    is_node.append(var2)
+
+    tempvar_node = ParseNode("VAR", t, "_tempvar")
+    try_st = assignment_statement(tempvar_node, is_node)
+
+    catch_st = assignment_statement(tempvar_node, ParseNode("IDENT", t, "False"))
+    try_node = basic_try_catch(block(try_st), "NameError", block(catch_st))
+
+    pre_statements.append(try_node)
+    yield tempvar_node
 
 
 @transforms("INDEX")
@@ -455,6 +508,53 @@ def add_argument(node: ParseNode, argument: ParseNode):
         e.append(argument)
         argument = e
     node.get("ARGSLIST").append(argument)
+
+
+def block(*args) -> ParseNode:
+    """ Create a block from all the args. Args are assumed to be allowed to be in a block
+    """
+    block_node = ParseNode("BLOCK", args[0].token)
+    for a in args:
+        block_node.append(a)
+    return block_node
+
+
+def basic_try_catch(try_block: ParseNode, ex_name: str, catch_block: ParseNode) -> ParseNode:
+    token = try_block.token
+    try_node = ParseNode("TRY", token)
+    try_node.append(try_block)
+
+    except_node = ParseNode("CATCH", token)
+    e_node = ParseNode("EXCEPTION", token, ex_name)
+    except_node.append(e_node)
+    except_node.append(catch_block)
+
+    try_node.append(except_node)
+
+    return try_node
+
+
+def assignment_statement(lhs, rhs) -> ParseNode:
+    token = lhs.token
+    op2 = ParseNode("ASSIGNMENT", token, "=")
+    op2.append(rhs)
+    op2.append(lhs)
+    expression = ParseNode("EXPRESSION", token)
+    expression.append(op2)
+    statement = ParseNode("STATEMENT", token)
+    statement.append(expression)
+    return statement
+
+
+def create_children_linear(parent, token, name_string: str):
+    """ Untested, probably not actually useful
+
+    """
+    cur = parent
+    for node_type, value in [n.split("|") for n in name_string.split("/")]:
+        new_node = ParseNode(node_type, token, value)
+        cur.append(new_node)
+        cur = new_node
 
 
 cast_map = {

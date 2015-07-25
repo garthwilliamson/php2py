@@ -225,3 +225,41 @@ class CompilerTests(Php2PyTestCase):
             "this.a += 1",
             "this.play()"
         ], lines)
+
+    @compile_body_t
+    def test_block_comments(self, lines):
+        """ Test the formatting of block comments
+        <?php
+        1;
+        /**
+        * a comment
+        * on two lines
+        */
+        2; /* Block after expression */
+        """
+        self.assertLinesMatch([
+            "1",
+            "# ",
+            "# a comment",
+            "# on two lines",
+            "# ",
+            "2",
+            "# Block after expression"
+        ], lines)
+
+    @compile_body_t
+    def test_isset_compilation(self, lines):
+        """ Isset with some added junk
+        <?php
+         if (isset($_POST["a"])) {
+            1;
+        }
+        """
+        self.assertLinesMatch([
+            "try:",
+            '_tempvar = _g_._POST[u"a"] is not None',
+            "except NameError:",
+            "_tempvar = False",
+            "if _tempvar:",
+            "1"
+        ], lines)

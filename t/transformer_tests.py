@@ -291,3 +291,39 @@ class TransformerTests(Php2PyTestCase):
         s2 = method_body[1]
         self.assertContainsNode(s2, "EXPRESSION/CALL/ATTR/IDENT|play")
         self.assertContainsNode(s2, "EXPRESSION/CALL/ATTR/VAR|this")
+
+    @parse_t
+    def test_isset_plain_variable(self, root_node):
+        """ php isset function on a normal variable
+        <?php
+        $b = isset($a);
+        """
+        transformer.transform(root_node)
+        print_tree(root_node)
+        bod = get_body(root_node)
+        try_node = bod[1]
+        self.assertEqual(try_node.node_type, "TRY")
+        self.assertEqual(try_node[0].node_type, "BLOCK")
+        # tempvar = not _g_.a is None
+        self.assertEqual(try_node[1].node_type, "CATCH")
+        # catch NameError:
+        #     _tempvar = False
+        self.assertContainsNode(try_node, "CATCH/EXCEPTION|NameError")
+        self.assertEqual(try_node["CATCH"][1].node_type, "BLOCK")
+        self.assertContainsNode(try_node, "CATCH/BLOCK/STATEMENT/EXPRESSION/ASSIGNMENT/IDENT|False")
+        # _g_.b = _tempvar
+
+    @parse_t
+    def test_isset_in_if(self, root_node):
+        """ Isset with some added junk
+        <?php
+         if (isset($_POST["a"])) {
+            1;
+        }
+        """
+        transformer.transform(root_node)
+        print_tree(root_node)
+        bod = get_body(root_node)
+        try_node = bod[1]
+        if_node = bod[2]
+        self.assertContainsNode(if_node, "EXPRESSION/VAR|_tempvar")
