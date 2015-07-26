@@ -328,3 +328,16 @@ class TransformerTests(Php2PyTestCase):
         try_node = bod[1]
         if_node = bod[2]
         self.assertContainsNode(if_node, "EXPRESSION/VAR|_tempvar")
+
+    @parse_t
+    def test_unset(self, root_node):
+        """ Try to unset some things
+        <?php
+        unset($a[0], $a[1])
+        """
+        print_tree(root_node)
+        transformer.transform(root_node)
+        print_tree(root_node)
+        bod = get_body(root_node)
+        self.assertContainsNode(bod, "STATEMENT/EXPRESSION/CALL/ARGSLIST/EXPRESSION/INDEX/EXPRESSION/INT|0")
+        self.assertContainsNode(bod, "STATEMENT/EXPRESSION/CALL/IDENT|del")

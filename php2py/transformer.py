@@ -341,6 +341,10 @@ def transform_default(default_node, i):
 def transform_callspecial(cs_node: ParseNode):
     cs_node.node_type = "CALL"
     cs_node.append(ParseNode("IDENT", cs_node.token, cs_node.value))
+
+    if cs_node.value == "unset":
+        cs_node["IDENT"].value = "del"
+
     if cs_node.value == "array":
         yield from transform_array(cs_node)
     elif cs_node.value == "__dir__":

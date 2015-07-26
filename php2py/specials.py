@@ -51,6 +51,12 @@ class array():
     def __len__(self):
         return len(self.data)
 
+    def __delitem__(self, key):
+        try:
+            del self.data[key]
+        except KeyError:
+            # TODO: Does php actually ignore this?
+            pass
 
 def clone():
     """ Clone the object.
