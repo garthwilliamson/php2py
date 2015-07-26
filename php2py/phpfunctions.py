@@ -137,7 +137,7 @@ def filter_var(input, filter, options=None):
     return filter(input, options)
 
 
-def explode(delim: str, target: str, limit: int = None):
+def explode(delim: str, target: str, limit: int = None) -> "array":
     """ COMPLETE?
 
     """
@@ -147,7 +147,7 @@ def explode(delim: str, target: str, limit: int = None):
         # raise NotImplementedError("Negative limits not implemented")
     if limit == None:
         limit = -1
-    return target.split(delim, limit)
+    return array(*target.split(delim, limit))
 
 
 def array_values(php_array: "array") -> "array":

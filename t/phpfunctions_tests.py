@@ -33,8 +33,8 @@ class PhpFunctionsTests(unittest.TestCase):
         self.assertRaises(NotImplementedError, phpfunctions.trim, "lol", "a..g")
 
     def test_explode(self):
-        self.assertEqual(["a", "b"], phpfunctions.explode(" ", "a b"))
-        self.assertEqual(["a", "b", "c"], phpfunctions.explode(",", "a,b,c,d", -1))
+        self.assertSequenceEqual(["a", "b"], phpfunctions.explode(" ", "a b"))
+        self.assertSequenceEqual(["a", "b", "c"], phpfunctions.explode(",", "a,b,c,d", -1))
 
     def test_array_values(self):
         php_array = phpfunctions.array(("a", "a"), ("b", "b"))
