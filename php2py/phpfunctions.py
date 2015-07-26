@@ -2,24 +2,11 @@ from __future__ import absolute_import
 
 import os.path
 import re
+import string
 
 from .exceptions import *
 from php2py.php import _g_, _app_, _constants_
 from .specials import *
-
-#def isset(name):
-#    """ Check whether a value was already set
-#
-#    Must be set in locals
-#
-#    """
-#    # TODO: does being set in globals mean anything?
-#    try:
-#        # TODO: We aren't using .l any  more
-#        p.l.__getattribute__(name)
-#        return True
-#    except AttributeError:
-#        return False
 
 
 def get__file__(_file_):
@@ -134,6 +121,17 @@ def is_string(item):
         return False
 
 
+def trim(target: str, mask: str = string.whitespace) -> str:
+    """ exactly the same as string.strip.
+
+    TODO: mask can contain character ranges apparently
+
+    """
+    if ".." in mask:
+        raise NotImplementedError("Can't do character ranges")
+    return target.strip(mask)
+
+
 functionlist = [
 #    ("isset", isset),
     ("stdClass", stdClass),
@@ -146,4 +144,5 @@ functionlist = [
     ("error_reporting", error_reporting),   # http://php.net/manual/en/function.error-reporting.php
     ("ini_set", ini_set),                   # http://php.net/manual/en/function.ini-set.php
     ("str_replace", str_replace),           # http://php.net/manual/en/function.str-replace.php
+    ("trim", trim),                         # http://php.net/manual/en/function.trim.php
 ]

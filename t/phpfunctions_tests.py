@@ -26,3 +26,8 @@ class PhpFunctionsTests(unittest.TestCase):
     def test_file_exists(self):
         self.assertTrue(phpfunctions.file_exists("php2py.py"))
         self.assertFalse(phpfunctions.file_exists("THISFILEDONTEXISTS"))
+
+    def test_trim(self):
+        self.assertEqual("a", phpfunctions.trim(" a "))
+        self.assertEqual(" lo", phpfunctions.trim(" lol", "l"))
+        self.assertRaises(NotImplementedError, phpfunctions.trim, "lol", "a..g")
