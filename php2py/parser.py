@@ -530,7 +530,6 @@ class PhpParser(Parser):
         ex = self.pt.new("EXPRESSION", self.peek(), "EX")
         self.pdebug("\033[94m########Starting new expression##########", 4)
         full_ex = []
-        tern = False
         noo1a = True  # We expect that the next item is a non-operator or an arrity 1 operator
         for t in self.next_until(ENDEXPRESSION):
             self.pdebug("Current token is {}".format(t))
@@ -546,7 +545,8 @@ class PhpParser(Parser):
                 full_ex.append(op_node)
                 self.pdebug("Appended an operator")
                 if t.val == "?":
-                    tern = True
+                    op_node.append((self.parse_expression()))
+                    self.assert_next("COLON", ":")
                 if t.val == "->{":
                     op_node.append(self.parse_expression())
                     self.assert_next("ENDBRACE", "}")
@@ -582,14 +582,14 @@ class PhpParser(Parser):
                     raise ParseError("function for parsing {} not yet implemented".format(t))
                 self.pdebug("Appended notoperator")
                 noo1a = False
-            if tern and self.peek().val == ":":
-                self.next()
         self.pdebug("Expresion nodes")
         self.pdebug([str(n) for n in full_ex])
 
         def shuffle_stacks(op_stack, opee_stack):
             o2 = op_stack.pop()
-            args = [opee_stack.pop() for _ in range(0, o2.arrity)]
+            # TODO: Spell arity correctly everywhere else
+            pretend_arity = 1 if o2.arrity == 1 else 2
+            args = [opee_stack.pop() for _ in range(0, pretend_arity)]
             [o2.children.append(a) for a in args]
             if o2.node_type not in ("CALL", "GETATTR"):
                 o2.node_type = lookup_op_type(o2.value)

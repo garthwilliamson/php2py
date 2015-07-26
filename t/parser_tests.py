@@ -572,6 +572,17 @@ class ParserTests(Php2PyTestCase):
         class_node = root_node["PHP"]["CLASS"]
         self.assertContainsNode(class_node, "BLOCK/STATEMENT/EXPRESSION/ASSIGNMENT/VAR")
 
+    @parse_t
+    def test_ternary(self, root_node):
+        """ Another version of isset
+        <?php
+        $f ? $u[1] : $n;
+        """
+        print_tree(root_node)
+        tern = root_node.match("PHP/STATEMENT/EXPRESSION/OPERATOR3|?")
+        self.assertContainsNode(tern, "EXPRESSION/INDEX/GLOBALVAR|u")
+        self.assertContainsNode(tern, "GLOBALVAR|f")
+
 
 if __name__ == "__main__":
     unittest.main()

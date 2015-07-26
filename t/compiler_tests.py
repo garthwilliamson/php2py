@@ -263,3 +263,13 @@ class CompilerTests(Php2PyTestCase):
             "if _tempvar:",
             "1"
         ], lines)
+
+    @compile_body_t
+    def test_ternary(self, lines):
+        """ Another version of isset
+        <?php
+        $a = $f ? $u[1] : $n;
+        """
+        self.assertLinesMatch([
+            "_g_.a = _g_.u[1] if _g_.f else _g_.n"
+        ], lines)
