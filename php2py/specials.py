@@ -96,8 +96,9 @@ def list(*args):
     # return tuple(*args)
 
 
-def unset(name):
-    del name
+def unset(*args):
+    for name in args:
+        del name
 
 
 def require_once(filename):

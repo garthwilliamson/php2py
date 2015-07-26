@@ -35,3 +35,10 @@ class PhpFunctionsTests(unittest.TestCase):
     def test_explode(self):
         self.assertEqual(["a", "b"], phpfunctions.explode(" ", "a b"))
         self.assertEqual(["a", "b", "c"], phpfunctions.explode(",", "a,b,c,d", -1))
+
+    def test_array_values(self):
+        php_array = phpfunctions.array(("a", "a"), ("b", "b"))
+        reindexed_array = phpfunctions.array_values(php_array)
+        self.assertEqual("a", reindexed_array[0])
+        self.assertEqual("b", reindexed_array[1])
+        self.assertRaises(KeyError, reindexed_array.__getitem__, "a")

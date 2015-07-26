@@ -150,6 +150,11 @@ def explode(delim: str, target: str, limit: int = None):
     return target.split(delim, limit)
 
 
+def array_values(php_array: "array") -> "array":
+    z = php_array.data.values()
+    return array(*php_array.data.values())
+
+
 functionlist = [
 #    ("isset", isset),
     ("stdClass", stdClass),
@@ -165,4 +170,5 @@ functionlist = [
     ("trim", trim),                         # http://php.net/manual/en/function.trim.php
     ("filter_var", filter_var),
     ("explode", explode),                   # http://php.net/manual/en/function.explode.php
+    ("array_values", array_values),         # http://php.net/manual/en/function.array-values.php
 ]
