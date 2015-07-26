@@ -6,7 +6,7 @@ from php2py import php
 
 class SpecialsTests(unittest.TestCase):
     def setUp(self):
-        self.app = php.PhpApp("")
+        self.app = php.PhpApp({"root": __file__})
         init_metavars(self.app)
 
     def test_echo(self):

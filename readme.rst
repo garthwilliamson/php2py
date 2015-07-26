@@ -21,7 +21,7 @@ Run the converted files on the command line:
     php2py_run.py php/index.py
 
 Run the php files under a web server:
-    simple_server.py php/index.php
+    simple_server.py php/config.json
 
 Motivation
 ----------

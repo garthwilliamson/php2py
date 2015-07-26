@@ -5,7 +5,7 @@ from php2py.engine.metavars import init_metavars, _f_ as phpfunctions
 
 class PhpFunctionsTests(unittest.TestCase):
     def setUp(self):
-        self.app = php.PhpApp(__file__)
+        self.app = php.PhpApp({"root": __file__})
         init_metavars(self.app)
 
     def test_define(self):

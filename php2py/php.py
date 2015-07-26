@@ -1,9 +1,8 @@
 from collections import OrderedDict
-import importlib.machinery
-import os.path
 import urllib.parse
-from typing import Callable
+from typing import Callable, List
 import sys
+import re
 
 from .engine.metavars import _f_, _c_, _g_, _constants_, init_metavars
 
@@ -12,7 +11,6 @@ class PhpApp(object):
     """ The inner application to be eventually served up.
 
     Attributes:
-        script_name: The name of the script we are running
         headers: A list of headers to be returned
         response_code: The http response code to use. Defaults to 500
         response_message: The http message to include along with the response code
@@ -21,8 +19,13 @@ class PhpApp(object):
 
 
     """
-    def __init__(self, script_name: str) -> None:
-        self.script_name = script_name
+    def __init__(self, config: dict) -> None:
+        self.config = config
+        self.root_dir = config["root"]
+        self.rewrites = []
+        if "rewrites" in config:
+            for r in config["rewrites"]:
+                self.rewrites.append((r["match"], r["dest"]))
 
         # TODO: body_str should be replaced with an iterable - list probably
         self.body_str = ""
@@ -81,16 +84,14 @@ class PhpApp(object):
         """
         self.headers[name] = [value]
 
-    def init_environ(self):
+    def init_environ(self, script_name: str) -> None:
         """ Initialise the globabls and superglobals
         """
+        self.g._SERVER["SCRIPT_NAME"] = script_name
         self.g._SERVER["HTTP_HOST"] = self.environ["HTTP_HOST"]
-        # TODO: Get this from wsgi server somehow
-        # TODO: This is a hack to get things working. I think I'll need to use a full routing library in future
-        self.g._SERVER["SCRIPT_NAME"] = self.script_name
+
         get = self.g._GET
-        get["url"] = self.environ["PATH_INFO"]
-        queries = urllib.parse.parse_qs(self.environ["QUERY_STRING"])
+        queries = urllib.parse.parse_qsl(self.environ["QUERY_STRING"])
         get.update(queries)
 
 
@@ -105,16 +106,39 @@ class WsgiApp(PhpApp):
         # TODO: This isn't thread safe at all
         # TODO: it probably isn't even cross request safe
         self.environ = environ
-        self.init_environ()
-        self.f.include(self.script_name)
+        self.rewrite()
+        script_name = self.root_dir + environ["PATH_INFO"]
+        self.init_environ(script_name)
+        self.f.include(script_name)
         # If body didn't change the response code, we must be ok
         if self.response_code == 500:
             self.response_code = 200
             self.response_msg = "OK"
         status = "{} {}".format(self.response_code, self.response_msg)
-        headers = list(self.headers.items())
+        headers = self.wsgi_headers()
         start_response(status, headers)
         return [self.body_str.encode("utf-8")]
+
+    def wsgi_headers(self) -> List[str]:
+        out = []
+        # TODO: Deal with multiple headers
+        for k, v in self.headers.items():
+            out.append((k, ", ".join(v)))
+        return out
+
+    def rewrite(self) -> None:
+        if len(self.rewrites) == 0:
+            return
+        path_query = self.environ["PATH_INFO"]
+        if "QUERY_STRING" in self.environ and len(self.environ["QUERY_STRING"]) != 0:
+            path_query = path_query + "?" + self.environ["QUERY_STRING"]
+        for match, repl in self.rewrites:
+            path_query = re.sub(match, repl, path_query)
+        # TODO: Can ? appear elsewhere in the url?
+        try:
+            self.environ["PATH_INFO"], self.environ["QUERY_STRING"] = path_query.split("?", 1)
+        except:
+            self.environ["PATH_INFO"], self.environ["QUERY_STRING"] = path_query, ""
 
 
 class ConsoleApp(WsgiApp):
@@ -130,3 +154,6 @@ class ConsoleApp(WsgiApp):
 
     def start_response(self, status: str, headers: str) -> str:
         return ""
+
+    def rewrite(self):
+        pass
