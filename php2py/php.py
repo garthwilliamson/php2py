@@ -4,6 +4,7 @@ import urllib.parse
 import sys
 
 from .exceptions import *
+from phpbaselib import filters
 
 
 class PhpVars(object):
@@ -72,6 +73,8 @@ class PhpConstants(PhpVars):
         self.E_DEPRECATED       = 8192 # Indicated deprecated functionality at run time
         self.E_USER_DEPRECATED  = 16384
         self.E_ALL              = 32797 # All errors and warnings
+
+        self.FILTER_SANITIZE_URL = filters.filter_sanitize_url
 
 
 class PhpApp(object):

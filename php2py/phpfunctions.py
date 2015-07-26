@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import os.path
 import re
 import string
+import urllib.parse
 
 from .exceptions import *
 from php2py.php import _g_, _app_, _constants_
@@ -132,6 +133,10 @@ def trim(target: str, mask: str = string.whitespace) -> str:
     return target.strip(mask)
 
 
+def filter_var(input, filter, options=None):
+    return filter(input, options)
+
+
 functionlist = [
 #    ("isset", isset),
     ("stdClass", stdClass),
@@ -145,4 +150,5 @@ functionlist = [
     ("ini_set", ini_set),                   # http://php.net/manual/en/function.ini-set.php
     ("str_replace", str_replace),           # http://php.net/manual/en/function.str-replace.php
     ("trim", trim),                         # http://php.net/manual/en/function.trim.php
+    ("filter_var", filter_var),
 ]
