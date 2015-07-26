@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import os.path
+import urllib.parse
 import sys
 
 from .exceptions import *
@@ -134,6 +135,10 @@ class PhpApp(object):
         # TODO: Get this from wsgi server somehow
         # TODO: This is a hack to get things working. I think I'll need to use a full routing library in future
         self.g._SERVER["SCRIPT_NAME"] = "//" # os.path.relpath(self.script_name).replace("\\", "/")
+        get = self.g._GET
+        get["url"] = environ["PATH_INFO"]
+        queries = urllib.parse.parse_qs(environ["QUERY_STRING"])
+        get.update(queries)
 
     def init_console(self, body, script_name):
         self.init_http(body, script_name)
