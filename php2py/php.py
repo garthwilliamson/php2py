@@ -3,6 +3,7 @@ import urllib.parse
 from typing import Callable, List
 import sys
 import re
+import os.path
 
 from .engine.metavars import _f_, _c_, _g_, _constants_, init_metavars
 
@@ -21,7 +22,8 @@ class PhpApp(object):
     """
     def __init__(self, config: dict) -> None:
         self.config = config
-        self.root_dir = config["root"]
+        self.http_root = config["root"]
+        self.code_root = config["code_root"]
         self.rewrites = []
         if "rewrites" in config:
             for r in config["rewrites"]:
@@ -99,7 +101,7 @@ class WsgiApp(PhpApp):
     """ Designed to implement the wgsi specifications
 
     """
-    def __call__(self, environ: dict, start_response: Callable):
+    def __call__(self, environ: dict, start_response):
         init_metavars(self)
         self.i = {}
         self.body_str = ""
@@ -107,7 +109,12 @@ class WsgiApp(PhpApp):
         # TODO: it probably isn't even cross request safe
         self.environ = environ
         self.rewrite()
-        script_name = self.root_dir + environ["PATH_INFO"]
+        # PHP on the console has the script name as you'd expect.
+        # On the server, there is always a leading "/"
+        if "script_name" in self.config:
+            script_name = self.config["script_name"]
+        else:
+            script_name = "/" + os.path.join(self.http_root, environ["PATH_INFO"].lstrip("/"))
         self.init_environ(script_name)
         self.f.include(script_name)
         # If body didn't change the response code, we must be ok
@@ -145,7 +152,7 @@ class ConsoleApp(WsgiApp):
     def run(self):
         environ = {
             "HTTP_HOST":    '',
-            "PATH_INFO": '',
+            "PATH_INFO":    self.config["script_name"],
             "QUERY_STRING": '',
         }
         res = self(environ, self.start_response)

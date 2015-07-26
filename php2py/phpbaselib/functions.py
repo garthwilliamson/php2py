@@ -84,6 +84,8 @@ class Functions:
         """ Return the parent directory of the given one
     
         """
+        if d == "":
+            return ""
         if d[-1] in "/\\":
             d = d[:-1]
         res = os.path.dirname(d)

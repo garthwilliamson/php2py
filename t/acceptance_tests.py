@@ -1,7 +1,9 @@
 import os.path
 import unittest
 import subprocess
+import logging
 
+logging.basicConfig(level=logging.INFO)
 
 php_interpreter = "php"
 python_interpreter = "python"

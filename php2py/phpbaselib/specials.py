@@ -80,9 +80,11 @@ class Specials:
         self.include(filename)
 
 
-    def include(self, fullpath: str) -> None:
+    def include(self, rel_code_path: str) -> None:
         # Remember, because the fullpath is calculated dynamically, this shouldn't break things on other machines
-        abspath = os.path.abspath(fullpath)
+        # abs_code_path is probably passed in with a leading /. It is in this format to help with urls
+        code_path = os.path.join(self.app.code_root, rel_code_path.lstrip("/"))
+        abspath = os.path.abspath(code_path)
         if abspath.endswith(".php"):
             abspath = abspath[0:-4] + ".py"
         try:

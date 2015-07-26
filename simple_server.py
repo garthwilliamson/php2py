@@ -1,12 +1,13 @@
 from wsgiref.simple_server import make_server
 import sys
 import json
+import os.path
 
 from php2py.php import WsgiApp
 
 # TODO: Check if json file or php file, deal appropriately
 config = json.load(open(sys.argv[1]))
-
+config["code_root"] = os.path.dirname(sys.argv[1])
 app = WsgiApp(config)
 
 httpd = make_server('', 8000, app)
