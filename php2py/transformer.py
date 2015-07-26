@@ -175,10 +175,8 @@ def transform_call(call_node):
     yield call_node
 
 
-@transforms("IF")
+@transforms("IF", "ELIF")
 def transform_if(if_statement):
-    pdebug("T IF", if_statement)
-
     # Check if this if was a one liner
     # TODO: Maybe use python one liners? Not very pythonic though
     if "STATEMENT" in if_statement:
@@ -200,7 +198,14 @@ def transform_if(if_statement):
         if_op = if_op[1]
     if_ex = ParseNode("EXPRESSION", if_op.token)
     if_ex.append(if_op)
-    if_statement.children = [if_ex, if_block]
+    old_children = if_statement.children
+    if_statement.children = []
+    if_statement.append(if_ex)
+    if_statement.append(if_block)
+    for c in old_children:
+        if c.node_type in ["ELIF", "ELSE"]:
+            if_statement.append(transform_single_node(c))
+
     for s in pre_statements:
         yield s
     pre_statements.clear()

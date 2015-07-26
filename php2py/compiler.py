@@ -268,11 +268,23 @@ class Compiler(object):
         seg.append(self.marshal(node.get("BLOCK")))
         # TODO: We should catch failure to get somewhere at the top level. IndexError maybe?
         seg.dedent()
+        for n in node.get_all("ELIF"):
+            seg.append(self.elif_compile(n))
+        for n in node.get_all("ELSE"):
+            seg.append(self.else_compile(n))
         return seg
 
     def elif_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
         seg = CompiledSegment()
         seg.append("elif {}:".format(self.expression_compile_str(node.get("EXPRESSION"))))
+        seg.indent()
+        seg.append(self.marshal(node.get("BLOCK")))
+        seg.dedent()
+        return seg
+
+    def else_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
+        seg = CompiledSegment()
+        seg.append("else:")
         seg.indent()
         seg.append(self.marshal(node.get("BLOCK")))
         seg.dedent()

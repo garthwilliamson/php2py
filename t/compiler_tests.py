@@ -255,6 +255,7 @@ class CompilerTests(Php2PyTestCase):
             1;
         }
         """
+        print(lines)
         self.assertLinesMatch([
             "try:",
             '_tempvar = _g_._POST[u"a"] is not None',
