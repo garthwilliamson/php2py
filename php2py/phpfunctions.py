@@ -137,6 +137,19 @@ def filter_var(input, filter, options=None):
     return filter(input, options)
 
 
+def explode(delim: str, target: str, limit: int = None):
+    """ COMPLETE?
+
+    """
+    if limit is not None and limit < 0:
+        # Negative limits mean we return all but the last n
+        return target.split(delim)[:limit]
+        # raise NotImplementedError("Negative limits not implemented")
+    if limit == None:
+        limit = -1
+    return target.split(delim, limit)
+
+
 functionlist = [
 #    ("isset", isset),
     ("stdClass", stdClass),
@@ -151,4 +164,5 @@ functionlist = [
     ("str_replace", str_replace),           # http://php.net/manual/en/function.str-replace.php
     ("trim", trim),                         # http://php.net/manual/en/function.trim.php
     ("filter_var", filter_var),
+    ("explode", explode),                   # http://php.net/manual/en/function.explode.php
 ]

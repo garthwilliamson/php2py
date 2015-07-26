@@ -31,3 +31,7 @@ class PhpFunctionsTests(unittest.TestCase):
         self.assertEqual("a", phpfunctions.trim(" a "))
         self.assertEqual(" lo", phpfunctions.trim(" lol", "l"))
         self.assertRaises(NotImplementedError, phpfunctions.trim, "lol", "a..g")
+
+    def test_explode(self):
+        self.assertEqual(["a", "b"], phpfunctions.explode(" ", "a b"))
+        self.assertEqual(["a", "b", "c"], phpfunctions.explode(",", "a,b,c,d", -1))
