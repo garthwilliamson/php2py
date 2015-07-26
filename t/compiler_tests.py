@@ -11,7 +11,7 @@ class CompilerTests(Php2PyTestCase):
         transformer.transform(root_node)
         print_tree(root_node)
         sc = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual('echo(u"Hello World")', sc[0])
+        self.assertEqual('_f_.echo(u"Hello World")', sc[0])
 
     @parse_t
     def test_asign(self, root_node):

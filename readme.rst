@@ -18,10 +18,10 @@ Convert the files to python:
     Run php2py.py --search php/ to attempt to compile all the php files in a given directory
 
 Run the converted files on the command line:
-    php/index.py
+    php2py_run.py php/index.py
 
 Run the php files under a web server:
-    TODO!
+    simple_server.py php/index.php
 
 Motivation
 ----------

@@ -1,11 +1,13 @@
 import unittest
-from php2py import php, specials
+
+from php2py.engine.metavars import init_metavars, _f_ as specials
+from php2py import php
 
 
 class SpecialsTests(unittest.TestCase):
     def setUp(self):
-        self.app = php.PhpApp()
-        specials._app_ = self.app
+        self.app = php.PhpApp("")
+        init_metavars(self.app)
 
     def test_echo(self):
         specials.echo("hello")

@@ -13,14 +13,10 @@ if os.path.isfile("t/config.py"):
 
 def comparison_factory(php_file_name):
     def unit_test_actual(self):
-        dir_name, _file_name = os.path.split(php_file_name)
-        file_name, ext = os.path.splitext(_file_name)
-        python_file_name = os.path.join(dir_name, file_name + ".py")
-
         subprocess.call([python_interpreter, "php2py.py", php_file_name])
         php_result = subprocess.check_output([php_interpreter, php_file_name])
-        python_result = subprocess.check_output([python_interpreter, python_file_name])
-        self.assertEqual(php_result, python_result)
+        python_result = subprocess.check_output([python_interpreter, "php2py_run.py", php_file_name])
+        self.assertSequenceEqual(php_result.split(b"\n"), python_result.split(b"\n"))
     return unit_test_actual
 
 

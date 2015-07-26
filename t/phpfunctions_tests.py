@@ -1,11 +1,12 @@
 import unittest
-from php2py import php, phpfunctions
+from php2py import php
+from php2py.engine.metavars import init_metavars, _f_ as phpfunctions
 
 
 class PhpFunctionsTests(unittest.TestCase):
     def setUp(self):
-        self.app = php.PhpApp()
-        phpfunctions._app_ = self.app
+        self.app = php.PhpApp(__file__)
+        init_metavars(self.app)
 
     def test_define(self):
         predef = phpfunctions.define("YOHOHO", "A bottle of rum")

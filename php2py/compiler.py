@@ -102,7 +102,7 @@ def compiled_line(string: str) -> CompiledSegment:
 
 
 def echo(value: str) -> str:
-    return "echo({0})".format(value)
+    return "_app_.write({0})".format(value)
 
 
 def python_safe(ident):
@@ -130,8 +130,7 @@ class Compiler(object):
     def __init__(self, tree=None, strip_comments=False):
         self.strip_comments = strip_comments
         self.imports = collections.defaultdict(list)
-        self.imports["php2py.php"] = ["_app_", "_f_", "_g_", "_c_", "_constants_"]
-        self.imports["php2py.specials"].append("*")
+        self.imports["php2py.engine.metavars"] = ["_f_", "_g_", "_c_", "_constants_"]
         self.compiled = CompiledSegment()
         self.compiled.br(2)
         self.tree = tree
@@ -168,10 +167,7 @@ class Compiler(object):
         self.compiled.br()
         self.compiled.append('if __name__ == "__main__":')
         self.compiled.indent()
-        self.compiled.append('import os.path')
-        self.compiled.append('_app_.init_console(body, script_name=__file__)')
-        self.compiled.append('import sys')
-        self.compiled.append('sys.stdout.buffer.write(_app_.console_response())')
+        self.compiled.append('print("Try running php2py_run.py <script_name>")')
         self.compiled.dedent()
 
     def add_import(self, module: str, els=None):

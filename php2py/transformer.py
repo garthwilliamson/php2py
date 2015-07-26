@@ -347,6 +347,8 @@ def transform_callspecial(cs_node: ParseNode):
     cs_node.node_type = "CALL"
     cs_node.append(ParseNode("IDENT", cs_node.token, cs_node.value))
 
+    cs_node["IDENT"].value = "_f_." + cs_node["IDENT"].value
+
     if cs_node.value == "unset":
         cs_node["IDENT"].value = "del"
 
