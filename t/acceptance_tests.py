@@ -24,11 +24,13 @@ class ComparisonTests(unittest.TestCase):
     pass
 
 
+# TODO: autogeneration of list
 tests = [
     "hello00",
     "hello01",
     "hello02",
     "defines00",
+    "defines01",
 ]
 for t in tests:
     test_name = "test_{}".format(t)

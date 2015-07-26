@@ -43,3 +43,6 @@ class PhpFunctionsTests(unittest.TestCase):
         self.assertEqual("a", reindexed_array[0])
         self.assertEqual("b", reindexed_array[1])
         self.assertRaises(KeyError, reindexed_array.__getitem__, "a")
+
+    def test_str_replace(self):
+        self.assertEqual("php/", phpfunctions.str_replace(u"public", u"", u"php/public"))

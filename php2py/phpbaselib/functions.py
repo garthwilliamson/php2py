@@ -1,7 +1,7 @@
 import os
 import re
 import string
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from php2py.engine.exceptions import HttpRedirect
 from .phptypes import array
@@ -65,7 +65,7 @@ class Functions:
         return old
     
     
-    def str_replace(self, search: str, replace: str, subject: str, count: int = 0) -> str:
+    def str_replace(self, search: str, replace: str, subject: str, count: Optional[int] = None) -> str:
         """ Replaces instances of a string
     
         Note that this can accept either arrays of strings...........
@@ -73,6 +73,8 @@ class Functions:
         TODO: Implement arrays, check functionality
     
         """
+        if count is None:
+            count = -1
         if not isinstance(subject, str):
             raise NotImplementedError
         return subject.replace(search, replace, count)
