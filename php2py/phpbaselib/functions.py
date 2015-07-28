@@ -4,7 +4,7 @@ import string
 from typing import Any, Callable, Optional
 
 from php2py.engine.exceptions import HttpRedirect
-from .phptypes import array
+from .phptypes import PhpArray
 
 
 class Functions:
@@ -101,7 +101,7 @@ class Functions:
     
     
     def preg_replace(self, pattern: str, replacement: str, subject: str, limit: int = -1) -> str:
-        if isinstance(pattern, array) or isinstance(replacement, array):
+        if isinstance(pattern, PhpArray) or isinstance(replacement, PhpArray):
             raise NotImplementedError("Php can take arrays as args to preg_replace")
         # TODO: There are a lot of differences between regex engines in different languages
         if limit == -1:
@@ -132,7 +132,7 @@ class Functions:
         return filter(input, options)
     
     
-    def explode(self, delim: str, target: str, limit: int = None) -> array:
+    def explode(self, delim: str, target: str, limit: int = None) -> PhpArray:
         """ COMPLETE?
     
         """
@@ -142,11 +142,11 @@ class Functions:
             # raise NotImplementedError("Negative limits not implemented")
         if limit == None:
             limit = -1
-        return array(*target.split(delim, limit))
+        return PhpArray(*target.split(delim, limit))
     
     
-    def array_values(self, php_array: array) -> array:
+    def array_values(self, php_array: PhpArray) -> PhpArray:
         z = php_array.data.values()
-        return array(*php_array.data.values())
+        return PhpArray(*php_array.data.values())
 
     abspath = os.path.abspath

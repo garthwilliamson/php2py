@@ -4,14 +4,15 @@ import sys
 from typing import TypeVar, List, Any
 from ..engine.exceptions import PhpImportWarning, PhpError
 
-from .phptypes import array
+from .phptypes import PhpArray
 
 
 StringOrInt = TypeVar("StringOrInt", str, int)
 
 
 class Specials:
-    array = array
+    def array(self, *args) -> PhpArray:
+        return PhpArray(*args)
 
     def clone(self):
         """ Clone the object.

@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 
-class array():
+class PhpArray():
     def __init__(self, *args):
         """ Args should be a series of key, value tuples
 
