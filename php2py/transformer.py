@@ -12,8 +12,8 @@ post_statements = []
 
 def transforms(*args):
     def wrap(f):
-        for node_type in args:
-            transform_map[node_type] = f
+        for kind in args:
+            transform_map[kind] = f
         return f
     return wrap
 
@@ -36,13 +36,13 @@ def transform(root_node: ParseNode):
 
     for tln in root_node:
         pdebug("Transforming top level node {}".format(tln))
-        if tln.node_type == "PHP":
+        if tln.kind == "PHP":
             pdebug("T PHP")
             for php_child in tln:
                 for n in transform_node(php_child):
-                    if n.node_type == "FUNCTION":
+                    if n.kind == "FUNCTION":
                         functions.append(n)
-                    elif n.node_type == "CLASS":
+                    elif n.kind == "CLASS":
                         classes.append(n)
                     else:
                         block.append(n)
@@ -61,8 +61,8 @@ def transform(root_node: ParseNode):
 
 
 def transform_node(node):
-    if node.node_type in transform_map:
-        yield from transform_map[node.node_type](node)
+    if node.kind in transform_map:
+        yield from transform_map[node.kind](node)
     else:
         pdebug("UNKNOWN TRANSFORM", node)
         transform_children(node)
@@ -123,7 +123,7 @@ def transform_operator(operator_node):
     if operator_node.value == "++":
         operator_node.value = "+="
         operator_node.children.insert(0, ParseNode("INT", operator_node.token, 1))
-        operator_node.node_type = "OPERATOR2"
+        operator_node.kind = "OPERATOR2"
     elif operator_node.value in op_map:
         operator_node.value = op_map[operator_node.value]
     transform_children(operator_node)
@@ -146,32 +146,32 @@ def transform_assignment(assign_node: ParseNode):
 @transforms("ATTR")
 def transform_attr(attr_node):
     transform_children(attr_node)
-    if attr_node[0].node_type == "CALL":
+    if attr_node[0].kind == "CALL":
         call_node = attr_node[0]
         object_node = attr_node[1]
-        call_node.node_type = "METHODCALL"
+        call_node.kind = "METHODCALL"
         call_node.append(object_node)
         yield call_node
         return
     # If the attr node has a constant on the rhs, the constant is actually just some kind of ident
-    if attr_node[0].node_type == "CONSTANT":
-        attr_node[0].node_type = "IDENT"
+    if attr_node[0].kind == "CONSTANT":
+        attr_node[0].kind = "IDENT"
     yield attr_node
 
 
 @transforms("CALL")
 def transform_call(call_node):
     transform_children(call_node)
-    call_node[0].node_type = "ARGSLIST"
+    call_node[0].kind = "ARGSLIST"
     lhs = call_node[1]
-    if lhs.node_type == "CONSTANT":
-        lhs.node_type = "IDENT"
+    if lhs.kind == "CONSTANT":
+        lhs.kind = "IDENT"
         # TODO: Cheating!
         # Function calls are case insensitive
         lhs.value = "_f_." + lhs.value.lower()
     else:
         # if lhs is an attr access, then the rhs of that is the function name. lowercase!
-        if lhs.node_type == "ATTR":
+        if lhs.kind == "ATTR":
             lhs[0].value = lhs[0].value.lower()
     yield call_node
 
@@ -190,7 +190,7 @@ def transform_if(if_statement):
     if_op = if_statement["EXPRESSIONGROUP"]["EXPRESSION"][0]
     if_op = transform_single_node(if_op)
     # TODO: This probably only deals with the most basic cases. Need to go down tree and extract all assignments.
-    if if_op.node_type == "ASSIGNMENT":
+    if if_op.kind == "ASSIGNMENT":
         assign_statement = ParseNode("STATEMENT", if_op.token)
         assign_ex = ParseNode("EXPRESSION", if_op.token)
         assign_ex.append(if_op)
@@ -204,7 +204,7 @@ def transform_if(if_statement):
     if_statement.append(if_ex)
     if_statement.append(if_block)
     for c in old_children:
-        if c.node_type in ["ELIF", "ELSE"]:
+        if c.kind in ["ELIF", "ELSE"]:
             if_statement.append(transform_single_node(c))
 
     for s in pre_statements:
@@ -263,7 +263,7 @@ def transform_foreach(foreach_statement: ParseNode):
         attr_lookup.append(in_)
         items_call.append(attr_lookup)
         expr.append(items_call)
-        var.node_type = "ARGSLIST"
+        var.kind = "ARGSLIST"
         var.children.reverse()
     else:
         expr.append(in_)
@@ -287,20 +287,20 @@ def transform_switch(switch_statement):
     i = 0
     extras = []
     for c in contents:
-        if c.node_type == "CASE":
+        if c.kind == "CASE":
             yield transform_case(switch_var, c, i, extras)
             i += 1
             extras = []
-        elif c.node_type == "DEFAULT":
+        elif c.kind == "DEFAULT":
             yield transform_default(c, i)
             i += 1
-        elif c.node_type == "CASEFALLTHROUGH":
+        elif c.kind == "CASEFALLTHROUGH":
             ctf_node = transform_case(switch_var, c, i, extras)
             yield ctf_node
             extras.append(ctf_node.get("EXPRESSION").get("COMPARATOR"))
-            # raise TransformException("Implement new case type for " + c.node_type)
+            # raise TransformException("Implement new case type for " + c.kind)
             i += 1
-        elif c.node_type == "STATEMENT":
+        elif c.kind == "STATEMENT":
             # Probably a statement with a comment
             # TODO: check for non comment
             pass
@@ -346,7 +346,7 @@ def transform_default(default_node, i):
 
 @transforms("CALLSPECIAL")
 def transform_callspecial(cs_node: ParseNode):
-    cs_node.node_type = "CALL"
+    cs_node.kind = "CALL"
     cs_node.append(ParseNode("IDENT", cs_node.token, cs_node.value))
 
     cs_node["IDENT"].value = "_f_." + cs_node["IDENT"].value
@@ -432,7 +432,7 @@ def transform_array(array_node):
 
 @transforms("GLOBALVAR")
 def transform_globalvar(node: ParseNode):
-    node.node_type = "VAR"
+    node.kind = "VAR"
     node.value = "_g_." + node.value
     yield node
 
@@ -486,14 +486,14 @@ def transform_new(node):
     class_call = node["CALL"]
     class_name = class_call[1]
     # TODO: Think about this. If new had a different priority, it ought to be easier to do
-    if class_name.node_type == "CONSTANT":
+    if class_name.kind == "CONSTANT":
         op2 = ParseNode("OPERATOR2", class_name, ".")
-        class_name.node_type = "IDENT"
+        class_name.kind = "IDENT"
         op2.append(class_name)
         op2.append(ParseNode("IDENT", class_name, "_c_"))
         class_call[1] = op2
         transform_children(class_call[0])
-        class_call[0].node_type = "ARGSLIST"
+        class_call[0].kind = "ARGSLIST"
         yield node["CALL"]
     else:
         yield from transform_call(node["CALL"])
@@ -506,7 +506,7 @@ def add_argument(node: ParseNode, argument: ParseNode):
     Will wrap a non-expression argument up in an expression
 
     """
-    if argument.node_type != "EXPRESSION":
+    if argument.kind != "EXPRESSION":
         e = ParseNode("EXPRESSION", argument.token)
         e.append(argument)
         argument = e
@@ -554,8 +554,8 @@ def create_children_linear(parent, token, name_string: str):
 
     """
     cur = parent
-    for node_type, value in [n.split("|") for n in name_string.split("/")]:
-        new_node = ParseNode(node_type, token, value)
+    for kind, value in [n.split("|") for n in name_string.split("/")]:
+        new_node = ParseNode(kind, token, value)
         cur.append(new_node)
         cur = new_node
 

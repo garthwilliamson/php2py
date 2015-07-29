@@ -202,10 +202,10 @@ class Compiler(object):
 
         """
         try:
-            res = getattr(self, node.node_type.lower() + "_compile")(node)
+            res = getattr(self, node.kind.lower() + "_compile")(node)
             return res
         except AttributeError:
-            raise UnimplementedCompileError(node, "Unimplemented method " + node.node_type.lower() + "_compile")
+            raise UnimplementedCompileError(node, "Unimplemented method " + node.kind.lower() + "_compile")
         except CompileError:
             raise
         except Exception as e:
@@ -213,11 +213,11 @@ class Compiler(object):
 
     def marshal_str(self, node: parsetree.ParseNode) -> str:
         try:
-            res = getattr(self, node.node_type.lower() + "_compile_str")(node)
+            res = getattr(self, node.kind.lower() + "_compile_str")(node)
             assert isinstance(res, str)
             return res
         except AttributeError:
-            raise UnimplementedCompileError(node, "Unimplemented method " + node.node_type.lower() + "_compile_str")
+            raise UnimplementedCompileError(node, "Unimplemented method " + node.kind.lower() + "_compile_str")
         except CompileError:
             raise
         except Exception as e:
@@ -332,7 +332,7 @@ class Compiler(object):
         kwarg_list = []
         if len(node.get("ARGSLIST")) > 0:
             for e in node.get("ARGSLIST"):
-                if e.node_type == "KEYVALUE":
+                if e.kind == "KEYVALUE":
                     kwarg_list.append(self.keyvalue_compile_str(e))
                 else:
                     arg_list.append(self.expression_compile_str(e))
@@ -503,7 +503,7 @@ class Compiler(object):
         seg.append(self.block_compile(node.get("BLOCK")))
         seg.dedent()
         for c in node.children[1:]:
-            if c.node_type != "CATCH":
+            if c.kind != "CATCH":
                 raise CompileError(node, "Expected catch block as child of try {}".format(c.token))
             exception_nodes = list(c.get_all("EXCEPTION"))
             if len(exception_nodes) == 1:

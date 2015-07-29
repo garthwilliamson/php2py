@@ -13,7 +13,7 @@ class TransformerTests(Php2PyTestCase):
         <?php echo "Hello World"; ?>
         """
         transformer.transform(root_node)
-        self.assertEqual("FUNCTION", root_node[0].node_type)
+        self.assertEqual("FUNCTION", root_node[0].kind)
         self.assertContainsNode(root_node, "FUNCTION|body/BLOCK")
 
     @parse_t
@@ -54,13 +54,13 @@ class TransformerTests(Php2PyTestCase):
         print_tree(root_node)
         ex = get_body(root_node).get("STATEMENT").get("EXPRESSION")
         od = ex.get("ASSIGNMENT")[0]
-        self.assertEqual("CALL", od.node_type)
+        self.assertEqual("CALL", od.kind)
         self.assertEqual(od.value, "array")
         l = od.get("ARGSLIST").get("EXPRESSION")[0]
-        self.assertEqual("LIST", l.node_type)
-        self.assertEqual(l[0].node_type, "TUPLE")
-        self.assertEqual(l[0][0].node_type, "STRING")
-        self.assertEqual(l[0][1].node_type, "INT")
+        self.assertEqual("LIST", l.kind)
+        self.assertEqual(l[0].kind, "TUPLE")
+        self.assertEqual(l[0][0].kind, "STRING")
+        self.assertEqual(l[0][1].kind, "INT")
         # TODO: Move to compiler tests
         self.assertEqual(self.compiler.expression_compile_str(ex), '_g_.a = _f_.array([(u"b", 1), (u"c", 2)])')
 
@@ -74,8 +74,8 @@ class TransformerTests(Php2PyTestCase):
         assign_t = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT")
         rhs = assign_t[0]
         lhs = assign_t[1]
-        self.assertEqual("INDEX", lhs.node_type)
-        self.assertEqual("STRING", rhs.node_type)
+        self.assertEqual("INDEX", lhs.kind)
+        self.assertEqual("STRING", rhs.kind)
         print_tree(root_node)
         self.assertContainsNode(lhs, "VAR|_g_.a")
         self.assertContainsNode(lhs, "EXPRESSION/STRING|MagicEmptyArrayIndex")
@@ -252,7 +252,7 @@ class TransformerTests(Php2PyTestCase):
         # TODO: The precendence of calls might be too low. or too high. I've forgotten this stuff already
         transformer.transform(root_node)
         rhs = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT/CALL")
-        self.assertEqual(rhs.node_type, "CALL")
+        self.assertEqual(rhs.kind, "CALL")
         self.assertContainsNode(rhs, "ARGSLIST")
         self.assertContainsNode(rhs, "ATTR/ATTR/VAR|_g_.this")
 
@@ -301,15 +301,15 @@ class TransformerTests(Php2PyTestCase):
         print_tree(root_node)
         bod = get_body(root_node)
         try_node = bod[1]
-        self.assertEqual(try_node.node_type, "TRY")
-        self.assertEqual(try_node[0].node_type, "BLOCK")
+        self.assertEqual(try_node.kind, "TRY")
+        self.assertEqual(try_node[0].kind, "BLOCK")
         # tempvar = not _g_.a is None
-        self.assertEqual(try_node[1].node_type, "CATCH")
+        self.assertEqual(try_node[1].kind, "CATCH")
         # catch NameError:
         #     _tempvar = False
         self.assertContainsNode(try_node, "CATCH/EXCEPTION|NameError")
         self.assertContainsNode(try_node, "CATCH/EXCEPTION|KeyError")
-        self.assertEqual(try_node["CATCH"][1].node_type, "BLOCK")
+        self.assertEqual(try_node["CATCH"][1].kind, "BLOCK")
         self.assertContainsNode(try_node, "CATCH/BLOCK/STATEMENT/EXPRESSION/ASSIGNMENT/IDENT|False")
         # _g_.b = _tempvar
 

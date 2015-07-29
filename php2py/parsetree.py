@@ -18,10 +18,10 @@ def get_next_id():
 
 
 class ParseNode(object):
-    def __init__(self, node_type, token, value=None, parent=None):
-        if not isinstance(node_type, str):
-            raise ParseTreeError("node_type must be a string, not {}".format(node_type))
-        self.node_type = node_type
+    def __init__(self, kind, token, value=None, parent=None):
+        if not isinstance(kind, str):
+            raise ParseTreeError("kind must be a string, not {}".format(kind))
+        self.kind = kind
         self.parent = parent
         self.value = value
         self.children = []
@@ -37,9 +37,9 @@ class ParseNode(object):
 
     def to_list(self):
         if len(self.children) > 0:
-            return self.node_type, self.value, [c.to_list() for c in self.children]
+            return self.kind, self.value, [c.to_list() for c in self.children]
         else:
-            return self.node_type, self.value
+            return self.kind, self.value
 
     def __getitem__(self, key):
         if isinstance(key, int):
@@ -52,7 +52,7 @@ class ParseNode(object):
             return
         i = 0
         while i < len(self.children):
-            if self.children[i].node_type == key:
+            if self.children[i].kind == key:
                 self.children[i] = value
                 return
         self.append(value)
@@ -62,9 +62,9 @@ class ParseNode(object):
 
     def __str__(self):
         if self.value is not None:
-            return self.node_type + ":" + repr(self.value) + ":" + str(self.id_)
+            return self.kind + ":" + repr(self.value) + ":" + str(self.id_)
         else:
-            return self.node_type + ":" + str(self.id_)
+            return self.kind + ":" + str(self.id_)
 
     def __iter__(self):
         return iter(self.children)
@@ -79,11 +79,11 @@ class ParseNode(object):
         except KeyError:
             return False
 
-    def get(self, node_type) -> 'ParseNode':
+    def get(self, kind) -> 'ParseNode':
         for c in self.children:
-            if c.node_type == node_type:
+            if c.kind == kind:
                 return c
-        raise KeyError("No node of type {} is a child of {}".format(node_type, self))
+        raise KeyError("No node of type {} is a child of {}".format(kind, self))
 
     def insert_after(self, search, new_node):
         i = self.children.index(search) + 1
@@ -94,10 +94,10 @@ class ParseNode(object):
         print("inserting {} in {} before {}".format(new_node, self, self[i]))
         self.children.insert(i, new_node)
 
-    def trim_childless_children(self, node_type):
+    def trim_childless_children(self, kind):
         new_children = []
         for i in range(0, len(self.children)):
-            if self.children[i].node_type == node_type and len(self.children[i].children) == 0:
+            if self.children[i].kind == kind and len(self.children[i].children) == 0:
                 pass
             else:
                 new_children.append(self.children[i])
@@ -107,7 +107,7 @@ class ParseNode(object):
         """ Takes a forwardslash delimited string and returns the node matching
 
         Examples:
-            match("PHP*") - returns all children of this node of node_type "PHP"
+            match("PHP*") - returns all children of this node of kind "PHP"
             match("PHP/FUNCTION*/BLOCK") - Tries to return all blocks of functions which are children
                                           of the first PHP child of this node
             match("FUNCTION|body/BLOCK") - Tries to return the BLOCK of the function which is a child
@@ -149,13 +149,13 @@ class ParseNode(object):
             raise NoMatchesError()
         return matches
 
-    def get_all(self, node_type: str, node_name: str = None) -> 'ParseNode':
+    def get_all(self, kind: str, node_name: str = None) -> 'ParseNode':
         for c in self.children:
             if node_name is None:
-                if c.node_type == node_type:
+                if c.kind == kind:
                     yield c
             else:
-                if c.node_type == node_type and str(c.value) == node_name:
+                if c.kind == kind and str(c.value) == node_name:
                     yield c
 
 
@@ -179,7 +179,7 @@ class ParseTree(object):
                     print_tree(c, indent + 4)
         print_tree(node, 0)
 
-    def new(self, node_type: str, token, value=None) -> ParseNode:
+    def new(self, kind: str, token, value=None) -> ParseNode:
         """ Create a new ParseNode
 
         If value is None, then we get the value from the token
@@ -187,7 +187,7 @@ class ParseTree(object):
         """
         if value is None:
             value = token.val
-        n = ParseNode(node_type, token, value=value)
+        n = ParseNode(kind, token, value=value)
         # print("New node: {}".format(n))
         return n
 

@@ -90,12 +90,12 @@ class Php2PyTestCase(unittest.TestCase):
     def setUp(self):
         self.compiler = Compiler()
 
-    def assertEcho(self, node, string, node_type="STRING"):
-        self.assertEqual(node[0].node_type, "EXPRESSION")
-        self.assertEqual(node[0][0].node_type, "CALLSPECIAL")
-        self.assertEqual(node[0][0][0].node_type, "ARGSLIST")
-        self.assertEqual(node[0][0][0][0].node_type, "EXPRESSION")
-        self.assertEqual(node[0][0][0][0][0].node_type, node_type)
+    def assertEcho(self, node, string, kind="STRING"):
+        self.assertEqual(node[0].kind, "EXPRESSION")
+        self.assertEqual(node[0][0].kind, "CALLSPECIAL")
+        self.assertEqual(node[0][0][0].kind, "ARGSLIST")
+        self.assertEqual(node[0][0][0][0].kind, "EXPRESSION")
+        self.assertEqual(node[0][0][0][0][0].kind, kind)
         self.assertEqual(node[0][0][0][0][0].value, string)
 
     def assertContainsNode(self, node: ParseNode, match_str: str, msg=None):

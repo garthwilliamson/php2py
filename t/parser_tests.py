@@ -100,8 +100,8 @@ class ParserTests(Php2PyTestCase):
     def test_html_direct(self):
         parsed = parse_string(html)
         res = parsed.get_tree()
-        self.assertEqual(res.node_type, "ROOT")
-        self.assertEqual(res[0].node_type, "HTML")
+        self.assertEqual(res.kind, "ROOT")
+        self.assertEqual(res[0].kind, "HTML")
         self.assertEqual(res[0].value, html)
 
     @parse_t
@@ -110,7 +110,7 @@ class ParserTests(Php2PyTestCase):
         <?php echo "Hello World"; ?>
         """
         php = root_node[1]
-        self.assertEqual(php.node_type, "PHP")
+        self.assertEqual(php.kind, "PHP")
         self.assertEcho(php[0], "Hello World")
 
     @parse_t
@@ -149,13 +149,13 @@ class ParserTests(Php2PyTestCase):
         """
         # print_tree(root_node)
         statement = root_node.get("PHP")[0]
-        self.assertEqual(statement.node_type, "STATEMENT")
+        self.assertEqual(statement.kind, "STATEMENT")
         expression = statement[0]
-        self.assertEqual(expression.node_type, "EXPRESSION")
+        self.assertEqual(expression.kind, "EXPRESSION")
         assignment = expression[0]
         self.assertEqual(assignment.value, "=")
         to_assign = assignment[0]
-        self.assertEqual(to_assign.node_type, "INT")
+        self.assertEqual(to_assign.kind, "INT")
         assign_to = assignment[1]
         self.assertEqual(assign_to.value, "a")
 
@@ -170,7 +170,7 @@ class ParserTests(Php2PyTestCase):
         echo "world"
         """
         while_node = root_node.get("PHP")[0]
-        self.assertEqual(while_node.node_type, "WHILE")
+        self.assertEqual(while_node.kind, "WHILE")
         expr_node = while_node["EXPRESSIONGROUP"]["EXPRESSION"]
         self.assertContainsNode(expr_node, "OPERATOR2")
         echo_world_statement = root_node.get("PHP")[1]
@@ -202,9 +202,9 @@ class ParserTests(Php2PyTestCase):
         arg_list = function_node[0]
         self.assertEqual(len(arg_list.children), 0)
         function_block = function_node[1]
-        self.assertEqual(function_block.node_type, "BLOCK")
+        self.assertEqual(function_block.kind, "BLOCK")
         return_statement = function_block[0]
-        self.assertEqual(return_statement.node_type, "RETURN")
+        self.assertEqual(return_statement.kind, "RETURN")
         return_expression = return_statement.get("EXPRESSION")
         self.assertContainsNode(return_expression, "INT|0")
 
@@ -218,13 +218,13 @@ class ParserTests(Php2PyTestCase):
         self.assertEqual(function_args[0][0].value, "arg1")
         function_body = function_node[1]
         return_statement = function_body[1]
-        self.assertEqual(return_statement.node_type, "RETURN")
+        self.assertEqual(return_statement.kind, "RETURN")
         self.assertEqual(return_statement.get("EXPRESSION").get("OPERATOR2")[0].value, "True")
 
     def test_double_function(self):
         t = parse_string(double_function, True).get_tree()
         function_call = t[0][1][0][0]
-        self.assertEqual(function_call.node_type, "CALL")
+        self.assertEqual(function_call.kind, "CALL")
         self.assertEqual(function_call[1].value, "foo")
 
     @parse_t
@@ -238,7 +238,7 @@ class ParserTests(Php2PyTestCase):
         print_tree(root_node)
         php_node = root_node.get("PHP")
         self.assertEcho(php_node[0], "Before blank")
-        self.assertEqual("NOOP", php_node[1].node_type)
+        self.assertEqual("NOOP", php_node[1].kind)
 
     @parse_t
     def test_scope(self, root_node):
@@ -253,9 +253,9 @@ class ParserTests(Php2PyTestCase):
         test();
         """
         var_a = root_node.match("PHP/STATEMENT/EXPRESSION/ASSIGNMENT")[1]
-        self.assertEqual(var_a.node_type, "GLOBALVAR")
+        self.assertEqual(var_a.kind, "GLOBALVAR")
         block_node = root_node.match("PHP/FUNCTION/BLOCK")
-        self.assertEcho(block_node[0], "a", node_type="VAR")
+        self.assertEcho(block_node[0], "a", kind="VAR")
         self.assertContainsNode(block_node[1], "EXPRESSION/GLOBALVAR|_GET")
 
     def test_scopes_global(self):
@@ -264,9 +264,9 @@ class ParserTests(Php2PyTestCase):
         self.assertEqual(function_node.value, "sum")
         # We don't actually output the global node anywhere
         assignment_expression = function_node.get("BLOCK")[1].get("EXPRESSION")
-        self.assertEqual(assignment_expression[0].node_type, "ASSIGNMENT")
+        self.assertEqual(assignment_expression[0].kind, "ASSIGNMENT")
         self.assertEqual(assignment_expression[0][0].value, "a")
-        self.assertEqual(assignment_expression[0][0].node_type, "GLOBALVAR")
+        self.assertEqual(assignment_expression[0][0].kind, "GLOBALVAR")
 
     @parse_t
     def test_comments(self, root_node):
@@ -303,9 +303,9 @@ class ParserTests(Php2PyTestCase):
         statement_1 = root_node["PHP"][0]
         assignment = statement_1.get("EXPRESSION").get("ASSIGNMENT")
         new = assignment[0]
-        self.assertEqual(new.node_type, "NEW")
+        self.assertEqual(new.kind, "NEW")
         call = new[0]
-        self.assertEqual(call.node_type, "CALL")
+        self.assertEqual(call.kind, "CALL")
         self.assertEqual(call["CONSTANT"].value, "B")
 
     @parse_t
@@ -319,7 +319,7 @@ class ParserTests(Php2PyTestCase):
         );
         """
         fcall = root_node.match("PHP/STATEMENT/EXPRESSION")[0]
-        self.assertEqual(fcall.node_type, "CALL")
+        self.assertEqual(fcall.kind, "CALL")
         self.assertEqual(fcall["CONSTANT"].value, "F")
         self.assertEqual(fcall.get("EXPRESSIONGROUP")[0][0].value, "a")
 
@@ -334,7 +334,7 @@ class ParserTests(Php2PyTestCase):
         );
         """
         fcall = root_node.get("PHP")[0][0][0]
-        self.assertEqual(fcall.node_type, "CALL")
+        self.assertEqual(fcall.kind, "CALL")
         self.assertEqual(fcall[1].value, "F")
         self.assertEqual(fcall[0][0][0].value, "a")
 
@@ -347,9 +347,9 @@ class ParserTests(Php2PyTestCase):
         );
         """
         fcall = root_node.match("PHP/STATEMENT/EXPRESSION")[0]
-        self.assertEqual(fcall.node_type, "CALL")
+        self.assertEqual(fcall.kind, "CALL")
         self.assertEqual(fcall[1].value, "c")
-        self.assertEqual(fcall[0].get("EXPRESSION")[0].node_type, "OPERATOR2")
+        self.assertEqual(fcall[0].get("EXPRESSION")[0].kind, "OPERATOR2")
         self.assertEqual(fcall[0].get("EXPRESSION")[0][1].value, "d")
 
     @parse_t
@@ -360,7 +360,7 @@ class ParserTests(Php2PyTestCase):
         """
         require_once = root_node.match("PHP/STATEMENT/EXPRESSION/CALLSPECIAL")
         dirname = require_once.match("ARGSLIST/EXPRESSION/OPERATOR2/CALL")
-        self.assertEqual(dirname.node_type, "CALL")
+        self.assertEqual(dirname.kind, "CALL")
         self.assertContainsNode(dirname, "EXPRESSIONGROUP/EXPRESSION/INT|1")
 
     @parse_t
@@ -385,12 +385,12 @@ class ParserTests(Php2PyTestCase):
         # print_tree(root_node)
         if_s = root_node.match("PHP/IF")
         eg = if_s[0]
-        self.assertEqual(eg.get("EXPRESSION")[0].node_type, "INT")
+        self.assertEqual(eg.get("EXPRESSION")[0].kind, "INT")
         if_b = if_s[1]
-        self.assertEqual(if_b.node_type, "BLOCK")
+        self.assertEqual(if_b.kind, "BLOCK")
         self.assertEcho(if_b.get("STATEMENT"), "1")
         else_s = if_s[2]
-        self.assertEqual(else_s.node_type, "ELSE")
+        self.assertEqual(else_s.kind, "ELSE")
 
     """
     def test_multi_space_comment(self):
@@ -429,12 +429,12 @@ class ParserTests(Php2PyTestCase):
         """
         assign_1 = root_node.match("PHP/STATEMENT/EXPRESSION/ASSIGNMENT")
         rhs, lhs = tuple(assign_1.children)
-        self.assertEqual(lhs.node_type, "INDEX")
+        self.assertEqual(lhs.kind, "INDEX")
         var_a = lhs[1]
-        self.assertEqual(var_a.node_type, "GLOBALVAR")
+        self.assertEqual(var_a.kind, "GLOBALVAR")
         self.assertEqual(var_a.value, "a")
         index_lookup = lhs[0]
-        self.assertEqual(index_lookup[0].node_type, "STRING")
+        self.assertEqual(index_lookup[0].kind, "STRING")
         self.assertEqual(index_lookup[0].value, "a")
 
     @parse_t
@@ -446,18 +446,18 @@ class ParserTests(Php2PyTestCase):
         """
         ex1, ex2 = root_node.match("PHP/STATEMENT*/EXPRESSION")
         array_index = ex1[0]
-        self.assertEqual(array_index.node_type, "INDEX")
+        self.assertEqual(array_index.kind, "INDEX")
         attr = array_index[1]
-        self.assertEqual(attr.node_type, "ATTR")
+        self.assertEqual(attr.kind, "ATTR")
         assign = ex2[0]
-        self.assertEqual(assign.node_type, "ASSIGNMENT")
+        self.assertEqual(assign.kind, "ASSIGNMENT")
         rhs = assign[0]
         index_node = rhs
-        self.assertEqual(index_node.node_type, "INDEX")
+        self.assertEqual(index_node.kind, "INDEX")
         indexee = index_node[1]
         indexer = index_node[0]
-        self.assertEqual(indexee.node_type, "CALL")
-        self.assertEqual(indexer[0].node_type, "STRING")
+        self.assertEqual(indexee.kind, "CALL")
+        self.assertEqual(indexer[0].kind, "STRING")
 
     @parse_t
     def test_statement_comment(self, root_node):
@@ -472,7 +472,7 @@ class ParserTests(Php2PyTestCase):
         """
         if_s = root_node.get("PHP")[0]
         comment_s = if_s[1][0]
-        self.assertEqual(comment_s[0].node_type, "COMMENTLINE")
+        self.assertEqual(comment_s[0].kind, "COMMENTLINE")
 
     def test_dynamic_class_creation(self):
         parse_string(dynamic_class_creation, False).get_tree()
@@ -493,9 +493,9 @@ class ParserTests(Php2PyTestCase):
         # print_tree(root_node)
         try_node = root_node.get("PHP")[0]
         print_tree(try_node)
-        self.assertEqual(try_node.node_type, "TRY")
-        self.assertEqual(try_node[0].node_type, "BLOCK")
-        self.assertEqual(try_node[1].node_type, "CATCH")
+        self.assertEqual(try_node.kind, "TRY")
+        self.assertEqual(try_node[0].kind, "BLOCK")
+        self.assertEqual(try_node[1].kind, "CATCH")
         self.assertContainsNode(try_node, "CATCH/AS/GLOBALVAR|e")
         self.assertContainsNode(try_node, "CATCH/BLOCK/STATEMENT/EXPRESSION/INT|0")
 
@@ -520,8 +520,8 @@ class ParserTests(Php2PyTestCase):
         """
         # print_tree(root_node)
         class_node = root_node.get("PHP")[0]
-        self.assertEqual(class_node.node_type, "CLASS")
-        self.assertEqual(class_node[0].node_type, "BLOCK")
+        self.assertEqual(class_node.kind, "CLASS")
+        self.assertEqual(class_node[0].kind, "BLOCK")
 
     @parse_t
     def test_class_with_method(self, root_node):
@@ -539,7 +539,7 @@ class ParserTests(Php2PyTestCase):
         """
         print_tree(root_node)
         class_node = root_node.get("PHP")[0]
-        self.assertEqual(class_node.node_type, "CLASS")
+        self.assertEqual(class_node.kind, "CLASS")
         classmethod_node = class_node.get("BLOCK").get("CLASSMETHOD")
         self.assertEqual(classmethod_node.value, "blah")
         self.assertEqual(classmethod_node.get("VISIBILITY").value, "public")

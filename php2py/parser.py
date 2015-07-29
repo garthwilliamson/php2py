@@ -428,7 +428,7 @@ class PhpParser(Parser):
             block.append(self.parse_statement())
         if self.peek().kind != "BREAK":
             # self.next()
-            case.node_type = "CASEFALLTHROUGH"
+            case.kind = "CASEFALLTHROUGH"
         else:
             self.assert_next("BREAK")
         case.append(block)
@@ -519,9 +519,9 @@ class PhpParser(Parser):
         # For now, methods are functions with visibility
         f = self.parse_function()
         if static:
-            f.node_type = "CLASSMETHOD"
+            f.kind = "CLASSMETHOD"
         else:
-            f.node_type = "METHOD"
+            f.kind = "METHOD"
         if visibility is not None:
             f.append(self.pt.new("VISIBILITY", visibility))
         return f
@@ -537,7 +537,7 @@ class PhpParser(Parser):
                 op_node = self.parse_operator(t)
                 if noo1a and op_node.arrity > 1:
                     if op_node.value == "&":
-                        op_node.node_type = "REFERENCE"
+                        op_node.kind = "REFERENCE"
                         op_node.arrity = 1
                         op_node.assoc = "right"
                     else:
@@ -591,8 +591,8 @@ class PhpParser(Parser):
             pretend_arity = 1 if o2.arrity == 1 else 2
             args = [opee_stack.pop() for _ in range(0, pretend_arity)]
             [o2.children.append(a) for a in args]
-            if o2.node_type not in ("CALL", "GETATTR"):
-                o2.node_type = lookup_op_type(o2.value)
+            if o2.kind not in ("CALL", "GETATTR"):
+                o2.kind = lookup_op_type(o2.value)
             opee_stack.append(o2)
 
         # Here follows the shunting algorithm(ish)
@@ -601,7 +601,7 @@ class PhpParser(Parser):
         for n in full_ex:
             if n is None:
                 continue
-            if n.node_type not in ("OPERATOR", "INDEX", "REFERENCE", "CALL", "GETATTR"):
+            if n.kind not in ("OPERATOR", "INDEX", "REFERENCE", "CALL", "GETATTR"):
                 opee_stack.append(n)
             else:
                 if len(op_stack) == 0:
@@ -631,14 +631,14 @@ class PhpParser(Parser):
         self.debug_indent -= 4
         return ex
 
-    def parse_expression_group(self, start_token, node_type="EXPRESSIONGROUP"):
-        eg = self.parse_comma_list(node_type)
+    def parse_expression_group(self, start_token, kind="EXPRESSIONGROUP"):
+        eg = self.parse_comma_list(kind)
         self.assert_next("ENDBRACE", ")")
         return eg
 
-    def parse_comma_list(self, node_type="COMMALIST"):
+    def parse_comma_list(self, kind="COMMALIST"):
         self.pdebug("COMMA LIST", 4)
-        cl = self.pt.new(node_type, self.peek())
+        cl = self.pt.new(kind, self.peek())
         self.pdebug(self.peek())
         for _ in self.peek_until(ENDGROUP):
             cl.append(self.parse_expression())
