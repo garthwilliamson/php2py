@@ -380,9 +380,6 @@ class Compiler(object):
     def subvar_compile_str(self, node: parsetree.ParseNode) -> str:
         return '.{0}'.format(node.value)
 
-    def globalvar_compile_str(self, node):
-        return "_g_." + self.var_compile_str(node).lstrip()
-
     def ident_compile_str(self, node):
         return node.value
 

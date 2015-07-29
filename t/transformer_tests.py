@@ -26,7 +26,7 @@ class TransformerTests(Php2PyTestCase):
         statement_node = get_body(root_node).get("STATEMENT")
         op_node = statement_node.get("EXPRESSION")[0]
         self.assertEqual("+=", op_node.value)
-        self.assertContainsNode(op_node, "GLOBALVAR|i")
+        self.assertContainsNode(op_node, "VAR|_g_.i")
         self.assertContainsNode(op_node, "INT|1")
 
     @parse_t
@@ -77,7 +77,7 @@ class TransformerTests(Php2PyTestCase):
         self.assertEqual("INDEX", lhs.node_type)
         self.assertEqual("STRING", rhs.node_type)
         print_tree(root_node)
-        self.assertContainsNode(lhs, "GLOBALVAR|a")
+        self.assertContainsNode(lhs, "VAR|_g_.a")
         self.assertContainsNode(lhs, "EXPRESSION/STRING|MagicEmptyArrayIndex")
 
     @parse_t
@@ -91,8 +91,8 @@ class TransformerTests(Php2PyTestCase):
         body_block = get_body(root_node)
         assign_statement = body_block.get("STATEMENT")
         if_statement = body_block.get("IF")
-        self.assertContainsNode(assign_statement, "EXPRESSION/ASSIGNMENT/GLOBALVAR|a")
-        self.assertContainsNode(if_statement, "EXPRESSION/GLOBALVAR|a")
+        self.assertContainsNode(assign_statement, "EXPRESSION/ASSIGNMENT/VAR|_g_.a")
+        self.assertContainsNode(if_statement, "EXPRESSION/VAR|_g_.a")
 
     @parse_t
     def test_one_line_if(self, root_node):
@@ -166,8 +166,8 @@ class TransformerTests(Php2PyTestCase):
         for_node = bod["PYFOR"]
 
         self.assertContainsNode(for_node, "EXPRESSION")
-        self.assertContainsNode(for_node, "GLOBALVAR|key")  # foreach is at global or function scope
-        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/GLOBALVAR")
+        self.assertContainsNode(for_node, "VAR|_g_.key")  # foreach is at global or function scope
+        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/VAR|_g_.key")
 
     @parse_t
     def test_foreach_tricky(self, root_node):
@@ -182,9 +182,9 @@ class TransformerTests(Php2PyTestCase):
         for_node = bod["PYFOR"]
 
         self.assertContainsNode(for_node, "EXPRESSION")
-        self.assertContainsNode(for_node, "ARGSLIST/GLOBALVAR")  # foreach is at global or function scope
-        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/GLOBALVAR")
-        self.assertContainsNode(for_node, "EXPRESSION/CALL/OPERATOR2/GLOBALVAR|parameters")
+        self.assertContainsNode(for_node, "ARGSLIST/VAR")  # foreach is at global or function scope
+        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/VAR")
+        self.assertContainsNode(for_node, "EXPRESSION/CALL/OPERATOR2/VAR|_g_.parameters")
         self.assertContainsNode(for_node, "EXPRESSION/CALL/OPERATOR2/IDENT|items")
         self.assertContainsNode(for_node, "EXPRESSION/CALL/ARGSLIST")
 
@@ -250,12 +250,11 @@ class TransformerTests(Php2PyTestCase):
         c = $this->a->b();
         """
         # TODO: The precendence of calls might be too low. or too high. I've forgotten this stuff already
-        print_tree(root_node)
         transformer.transform(root_node)
         rhs = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT/CALL")
         self.assertEqual(rhs.node_type, "CALL")
         self.assertContainsNode(rhs, "ARGSLIST")
-        self.assertContainsNode(rhs, "ATTR/ATTR/GLOBALVAR|this")
+        self.assertContainsNode(rhs, "ATTR/ATTR/VAR|_g_.this")
 
     @parse_t
     def test_new(self, root_node):
@@ -267,7 +266,7 @@ class TransformerTests(Php2PyTestCase):
         transformer.transform(root_node)
         print_tree(root_node)
         assign = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT")
-        self.assertContainsNode(assign, "GLOBALVAR|a")
+        self.assertContainsNode(assign, "VAR|_g_.a")
         self.assertContainsNode(assign, "CALL/OPERATOR2|./IDENT|_c_")
 
     @parse_t

@@ -145,6 +145,7 @@ def transform_assignment(assign_node: ParseNode):
 
 @transforms("ATTR")
 def transform_attr(attr_node):
+    transform_children(attr_node)
     if attr_node[0].node_type == "CALL":
         call_node = attr_node[0]
         object_node = attr_node[1]
@@ -224,7 +225,7 @@ def transform_try(try_statement):
 @transforms("WHILE")
 def transform_while(while_statement):
     pdebug("T WHILE", while_statement)
-    transform_children(while_statement[1])
+    transform_children(while_statement)
     yield while_statement
 
 
@@ -248,6 +249,7 @@ def transform_foreach(foreach_statement: ParseNode):
 
     """
     as_ = foreach_statement.match("EXPRESSIONGROUP/EXPRESSION/OPERATOR2")
+    transform_children(as_)
     var = as_[0]
     in_ = as_[1]
 
@@ -426,6 +428,13 @@ def transform_array(array_node):
     l_e.append(list_node)
     array_node.get("ARGSLIST").children = [l_e]
     yield array_node
+
+
+@transforms("GLOBALVAR")
+def transform_globalvar(node: ParseNode):
+    node.node_type = "VAR"
+    node.value = "_g_." + node.value
+    yield node
 
 
 @transforms("FUNCTION")
