@@ -5,7 +5,8 @@ import logging
 from php2py.parser import PhpParser
 from php2py.compiler import Compiler
 from php2py import transformer, compiler    # Used by the kiddies
-from php2py.parsetree import ParseNode, print_tree
+from php2py.parsetree import ParseNode, print_tree, MatchableNode
+from intermediate import BlockNode
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -18,21 +19,32 @@ def parse_string(s: str, debug=False) -> PhpParser:
         parser.pt.print_()
     return parser
 
-# TODO: Is this useless because debugging requires to be able to inspect pre and post transform?
-"""
+
 def transform_t(f):
+    """
     Wrap a function to supply root_node and root_node_t
 
     Uses the docstring as the source code
+    """
 
     @wraps(f)
     def wrapper(self, *args, **kwargs):
         root_node = parse_string(f.__doc__).get_tree()
-        root_node_t = transformer.transform(root_node)
-        f(self, root_node, root_node_t, *args, **kwargs)
+        try:
+            root_node_t = transformer.transform(root_node)
+        except:
+            print_tree(root_node)
+            raise
+        try:
+            f(self, root_node_t, *args, **kwargs)
+        except:
+            print_tree(root_node)
+            print("------------------")
+            print_tree(root_node_t)
+            raise
+
 
     return wrapper
-    """
 
 
 def parse_t(f):
@@ -46,7 +58,11 @@ def parse_t(f):
 
         """
         root_node = parse_string(f.__doc__).get_tree()
-        f(self, root_node, *args, **kwargs)
+        try:
+            f(self, root_node, *args, **kwargs)
+        except:
+            print_tree(root_node)
+            raise
 
     return wrapper
 
@@ -98,7 +114,7 @@ class Php2PyTestCase(unittest.TestCase):
         self.assertEqual(node[0][0][0][0][0].kind, kind)
         self.assertEqual(node[0][0][0][0][0].value, string)
 
-    def assertContainsNode(self, node: ParseNode, match_str: str, msg=None):
+    def assertContainsNode(self, node: MatchableNode, match_str: str, msg=None):
         try:
             node.match(match_str)
         except:
@@ -113,7 +129,7 @@ class Php2PyTestCase(unittest.TestCase):
             self.assertEqual(expected, got)
 
 
-def get_body(root_node: ParseNode) -> ParseNode:
+def get_body(root_node: ParseNode) -> BlockNode:
     """ Get the main block of the "body" function
 
     Use post-transform

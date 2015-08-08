@@ -7,41 +7,36 @@ class TransformerTests(Php2PyTestCase):
     Parser needs to be working properly first.
 
     """
-    @parse_t
+    @transform_t
     def test_creates_body(self, root_node):
         """ Simple echo
         <?php echo "Hello World"; ?>
         """
-        transformer.transform(root_node)
-        self.assertEqual("FUNCTION", root_node[0].kind)
         self.assertContainsNode(root_node, "FUNCTION|body/BLOCK")
 
-    @parse_t
+    @transform_t
     def test_increment(self, root_node):
         """ Transform an unary increment operator
         <?php
         $i++;
         """
-        transformer.transform(root_node)
-        statement_node = get_body(root_node).get("STATEMENT")
-        op_node = statement_node.get("EXPRESSION")[0]
+        op_node = get_body(root_node)["EX_STATEMENT"]["OPERATOR2"]
         self.assertEqual("+=", op_node.value)
-        self.assertContainsNode(op_node, "VAR|_g_.i")
+        self.assertContainsNode(op_node, "OPERATOR2|./VAR|i")
         self.assertContainsNode(op_node, "INT|1")
 
-    @parse_t
+    @transform_t
     def test_function_simple(self, root_node):
         """Simple function transform
         <?php
         function foo() {
             return 0;
         }"""
-        transformer.transform(root_node)
         self.assertContainsNode(root_node, "FUNCTION|foo")
         body = get_body(root_node)
-        self.assertContainsNode(body, "STATEMENT/EXPRESSION/ASSIGNMENT")
+        self.assertContainsNode(body, "EX_STATEMENT/ASSIGNMENT")
 
-    @parse_t
+    @transform_t
     def test_array_keyvalue(self, root_node):
         """ Array creation with key value assigments
         <?php
@@ -50,62 +45,55 @@ class TransformerTests(Php2PyTestCase):
           'c' => 2,
         );
         """
-        transformer.transform(root_node)
-        print_tree(root_node)
-        ex = get_body(root_node).get("STATEMENT").get("EXPRESSION")
-        od = ex.get("ASSIGNMENT")[0]
+        ex = get_body(root_node).get("EX_STATEMENT")
+        od = ex.get("ASSIGNMENT").rhs
         self.assertEqual("CALL", od.kind)
         self.assertEqual(od.value, "array")
-        l = od.get("ARGSLIST").get("EXPRESSION")[0]
+        l = od.args[0]
         self.assertEqual("LIST", l.kind)
-        self.assertEqual(l[0].kind, "TUPLE")
-        self.assertEqual(l[0][0].kind, "STRING")
-        self.assertEqual(l[0][1].kind, "INT")
+        t = l.children[0]
+        self.assertEqual(t.kind, "TUPLE")
+        self.assertEqual(t.children[0].kind, "STRING")
+        self.assertEqual(t.children[1].kind, "INT")
         # TODO: Move to compiler tests
-        self.assertEqual(self.compiler.expression_compile_str(ex), '_g_.a = _f_.array([(u"b", 1), (u"c", 2)])')
+        # self.assertEqual(self.compiler.expression_compile_str(ex), '_g_.a = _f_.array([(u"b", 1), (u"c", 2)])')
 
-    @parse_t
+    @transform_t
     def test_array_assign_lookup(self, root_node):
         """ Array lookup which is actually an append
         <?php
         $a[] = "bob";
         """
-        transformer.transform(root_node)
-        assign_t = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT")
-        rhs = assign_t[0]
-        lhs = assign_t[1]
-        self.assertEqual("INDEX", lhs.kind)
-        self.assertEqual("STRING", rhs.kind)
-        print_tree(root_node)
-        self.assertContainsNode(lhs, "VAR|_g_.a")
-        self.assertContainsNode(lhs, "EXPRESSION/STRING|MagicEmptyArrayIndex")
+        assign = get_body(root_node)["EX_STATEMENT"].child
+        self.assertEqual("INDEX", assign.lhs.kind)
+        self.assertEqual("STRING", assign.rhs.kind)
+        self.assertContainsNode(assign.lhs, "OPERATOR2|./VAR|a")
+        self.assertContainsNode(assign.lhs, "STRING|MagicEmptyArrayIndex")
 
-    @parse_t
+    @transform_t
     def test_assign_in_if(self, root_node):
         """ Assign in an if statment
         <?php
         if ($a = 3) {
         }
         """
-        transformer.transform(root_node)
         body_block = get_body(root_node)
-        assign_statement = body_block.get("STATEMENT")
+        assign_statement = body_block.get("EX_STATEMENT")
         if_statement = body_block.get("IF")
-        self.assertContainsNode(assign_statement, "EXPRESSION/ASSIGNMENT/VAR|_g_.a")
-        self.assertContainsNode(if_statement, "EXPRESSION/VAR|_g_.a")
+        self.assertContainsNode(assign_statement, "ASSIGNMENT/OPERATOR2|./VAR|a")
+        self.assertContainsNode(if_statement, "OPERATOR2|./VAR|a")
 
-    @parse_t
+    @transform_t
     def test_one_line_if(self, root_node):
         """ If on one line
         <?php
         if (1) echo "hi";
         """
-        transformer.transform(root_node)
         if_node = get_body(root_node)["IF"]
-        self.assertContainsNode(if_node, "EXPRESSION/INT|1")
-        self.assertContainsNode(if_node, "BLOCK/STATEMENT/EXPRESSION")
+        self.assertContainsNode(if_node, "INT|1")
+        self.assertContainsNode(if_node, "BLOCK/EX_STATEMENT")
 
-    @parse_t
+    @transform_t
     def test_switch_simple(self, root_node):
         """ Switch statement as simple as possible
         <?php
@@ -114,10 +102,9 @@ class TransformerTests(Php2PyTestCase):
                 break;
         }
         """
-        transformer.transform(root_node)
-        self.assertContainsNode(get_body(root_node), "STATEMENT/EXPRESSION/ASSIGNMENT|=")
+        self.assertContainsNode(get_body(root_node), "EX_STATEMENT/ASSIGNMENT|=")
 
-    @parse_t
+    @transform_t
     def test_switch(self, root_node):
         """ Switch statement without fallthrough
         <?php
@@ -132,26 +119,22 @@ class TransformerTests(Php2PyTestCase):
                 echo "default";
         }
         """
-        transformer.transform(root_node)
-        self.assertContainsNode(get_body(root_node), "STATEMENT/EXPRESSION/ASSIGNMENT|=")
+        self.assertContainsNode(get_body(root_node), "EX_STATEMENT/ASSIGNMENT|=")
 
-    @parse_t
+    @transform_t
     def test_comments(self, root_node):
         """ Test single line comments
         <?php
         // Comment 1
         $a = 1; // Comment 2
         """
-        print_tree(root_node)
-        transformer.transform(root_node)
         bod = get_body(root_node)
-        print_tree(root_node)
-        statements = bod.match("STATEMENT*")
-        self.assertContainsNode(statements[0], "COMMENTLINE")
-        self.assertContainsNode(statements[1], "COMMENTLINE")
-        self.assertContainsNode(statements[1], "EXPRESSION")
+        statements = bod.children
+        self.assertContainsNode(statements[1], "COMMENT")
+        self.assertContainsNode(statements[2], "COMMENT")
+        self.assertEqual(statements[2].kind, "EX_STATEMENT")
 
-    @parse_t
+    @transform_t
     def test_foreach(self, root_node):
         """ Test foreach statement
         <?php
@@ -159,17 +142,13 @@ class TransformerTests(Php2PyTestCase):
              $key;
         }
         """
-        print_tree(root_node)
-        transformer.transform(root_node)
-        print_tree(root_node)
         bod = get_body(root_node)
-        for_node = bod["PYFOR"]
+        for_node = bod["FOR"]
+        self.assertContainsNode(for_node.thing, "VAR|key")
+        self.assertContainsNode(for_node.items, "VAR|parameters")  # foreach is at global or function scope
+        self.assertContainsNode(for_node, "BLOCK/EX_STATEMENT/OPERATOR2|./VAR|key")
 
-        self.assertContainsNode(for_node, "EXPRESSION")
-        self.assertContainsNode(for_node, "VAR|_g_.key")  # foreach is at global or function scope
-        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/VAR|_g_.key")
-
-    @parse_t
+    @transform_t
     def test_foreach_tricky(self, root_node):
         """ Test foreach statement
         <?php
@@ -177,48 +156,43 @@ class TransformerTests(Php2PyTestCase):
              $key;
         }
         """
-        transformer.transform(root_node)
         bod = get_body(root_node)
-        for_node = bod["PYFOR"]
+        for_node = bod["FOR"]
 
-        self.assertContainsNode(for_node, "EXPRESSION")
-        self.assertContainsNode(for_node, "ARGSLIST/VAR")  # foreach is at global or function scope
-        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/VAR")
-        self.assertContainsNode(for_node, "EXPRESSION/CALL/OPERATOR2/VAR|_g_.parameters")
-        self.assertContainsNode(for_node, "EXPRESSION/CALL/OPERATOR2/IDENT|items")
-        self.assertContainsNode(for_node, "EXPRESSION/CALL/ARGSLIST")
+        self.assertContainsNode(for_node.thing, "OPERATOR2|./VAR|value")
+        self.assertContainsNode(for_node.thing, "OPERATOR2|./VAR|key")
+        self.assertContainsNode(for_node, "BLOCK/EX_STATEMENT/OPERATOR2|./VAR|key")
+        self.assertEqual("CALL", for_node.items.kind)
+        self.assertContainsNode(for_node.items.callee, "VAR|items")
+        self.assertContainsNode(for_node.items.callee, "OPERATOR2|./VAR|parameters")
 
-    @parse_t
+    @transform_t
     def test_class_simple(self, root_node):
         """ A simple class with no content
         <?php
         class TestClass
         {
-            $a;
+            $a = 1;
         }
         """
-        transformer.transform(root_node)
         class_node = root_node["CLASS"]
         self.assertEqual("TestClass", class_node.value)
-        self.assertContainsNode(class_node, "EXTENDS|PhpBase")
-        self.assertContainsNode(class_node, "BLOCK")
+        self.assertEqual("PhpBase", class_node.parent.value)
         bod = get_body(root_node)
-        self.assertContainsNode(bod, "STATEMENT/EXPRESSION/ASSIGNMENT/VAR|_c_.TestClass")
+        self.assertContainsNode(bod, "EX_STATEMENT/ASSIGNMENT/OPERATOR2|./VAR|TestClass")
 
-    @parse_t
+    @transform_t
     def test_class_parents(self, root_node):
         """ A class with parents
         <?php
         class TestClass extends TestBaseClass{
-            $a;
+            $a = 1;
         }
         """
-        print_tree(root_node)
-        transformer.transform(root_node)
         class_node = root_node["CLASS"]
-        self.assertContainsNode(class_node, "EXTENDS|TestBaseClass")
+        self.assertEqual("TestBaseClass", class_node.parent.value)
 
-    @parse_t
+    @transform_t
     def test_class_transform_function_body(self, root_node):
         """ The body of static functions should compile properly
         <?php
@@ -230,46 +204,37 @@ class TransformerTests(Php2PyTestCase):
             }
         }
         """
-        transformer.transform(root_node)
-        print_tree(root_node)
         # Function names are case insensitive, so lowercase all
-        function_node = root_node.match("CLASS|TestClass42/BLOCK/CLASSMETHOD|testfunction")
+        function_node = root_node.match("CLASS|TestClass42/CLASSMETHOD|testfunction")
         # TODO: if we can get away with it, avoid making things static etc.
         # self.assertContainsNode(function_node("PROPERTY|php_static"))
-        for_node = function_node["BLOCK"]["PYFOR"]
-        self.assertContainsNode(for_node, "EXPRESSION")
-        self.assertContainsNode(for_node, "ARGSLIST/VAR")
-        self.assertContainsNode(for_node, "BLOCK/STATEMENT/EXPRESSION/VAR")
+        for_node = function_node["BLOCK"]["FOR"]
+        self.assertContainsNode(for_node, "BLOCK/EX_STATEMENT/VAR")
 
     # TODO: Need to work out what rules php uses to strip a newline at end of file and replicate
 
-    @parse_t
+    @transform_t
     def test_deep_attr(self, root_node):
         """ Compile something with deep attributes
         <?php
         c = $this->a->b();
         """
         # TODO: The precendence of calls might be too low. or too high. I've forgotten this stuff already
-        transformer.transform(root_node)
-        rhs = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT/CALL")
+        rhs = get_body(root_node)["EX_STATEMENT"].child["CALL"]
         self.assertEqual(rhs.kind, "CALL")
-        self.assertContainsNode(rhs, "ARGSLIST")
-        self.assertContainsNode(rhs, "ATTR/ATTR/VAR|_g_.this")
+        self.assertContainsNode(rhs, "OPERATOR2|./OPERATOR2|./OPERATOR2|./VAR|this")
 
-    @parse_t
+    @transform_t
     def test_new(self, root_node):
         """ Creation of an instance of a class
         <?php
         $a = new B();
         """
-        print_tree(root_node)
-        transformer.transform(root_node)
-        print_tree(root_node)
-        assign = get_body(root_node).match("STATEMENT/EXPRESSION/ASSIGNMENT")
-        self.assertContainsNode(assign, "VAR|_g_.a")
-        self.assertContainsNode(assign, "CALL/OPERATOR2|./IDENT|_c_")
+        assign = get_body(root_node)["EX_STATEMENT"].child
+        self.assertContainsNode(assign, "OPERATOR2|./VAR|a")
+        self.assertContainsNode(assign, "CALL/OPERATOR2|./VAR|_c_")
 
-    @parse_t
+    @transform_t
     def test_self_attr_access(self, root_node):
         """ A class that plays with itself
         <?php
@@ -281,39 +246,33 @@ class TransformerTests(Php2PyTestCase):
             }
         }
         """
-        transformer.transform(root_node)
-        print_tree(root_node)
-        class_body = root_node["CLASS"]["BLOCK"]
-        method_body = class_body["METHOD"]["BLOCK"]
-        s1 = method_body[0]
-        self.assertContainsNode(s1, "EXPRESSION/OPERATOR2|+=/ATTR/IDENT|a")
-        s2 = method_body[1]
-        self.assertContainsNode(s2, "EXPRESSION/CALL/ATTR/IDENT|play")
-        self.assertContainsNode(s2, "EXPRESSION/CALL/ATTR/VAR|this")
+        class_ = root_node["CLASS"]
+        method_body = class_["METHOD"]["BLOCK"]
+        s1 = method_body.children[0]
+        self.assertContainsNode(s1, "OPERATOR2|+=/OPERATOR2|./IDENT|a")
+        s2 = method_body.children[1]
+        self.assertContainsNode(s2, "CALL/OPERATOR2|./IDENT|play")
+        self.assertContainsNode(s2, "CALL/OPERATOR2|./VAR|this")
 
-    @parse_t
+    @transform_t
     def test_isset_plain_variable(self, root_node):
         """ php isset function on a normal variable
         <?php
         $b = isset($a);
         """
-        transformer.transform(root_node)
-        print_tree(root_node)
         bod = get_body(root_node)
-        try_node = bod[1]
+        try_node = bod.children[1]
         self.assertEqual(try_node.kind, "TRY")
-        self.assertEqual(try_node[0].kind, "BLOCK")
         # tempvar = not _g_.a is None
-        self.assertEqual(try_node[1].kind, "CATCH")
+        self.assertEqual(try_node.catches[0].kind, "CATCH")
         # catch NameError:
         #     _tempvar = False
         self.assertContainsNode(try_node, "CATCH/EXCEPTION|NameError")
         self.assertContainsNode(try_node, "CATCH/EXCEPTION|KeyError")
-        self.assertEqual(try_node["CATCH"][1].kind, "BLOCK")
-        self.assertContainsNode(try_node, "CATCH/BLOCK/STATEMENT/EXPRESSION/ASSIGNMENT/IDENT|False")
+        self.assertContainsNode(try_node, "CATCH/BLOCK/EX_STATEMENT/ASSIGNMENT/BOOL|False")
         # _g_.b = _tempvar
 
-    @parse_t
+    @transform_t
     def test_isset_in_if(self, root_node):
         """ Isset with some added junk
         <?php
@@ -321,22 +280,16 @@ class TransformerTests(Php2PyTestCase):
             1;
         }
         """
-        transformer.transform(root_node)
-        print_tree(root_node)
         bod = get_body(root_node)
-        try_node = bod[1]
-        if_node = bod[2]
-        self.assertContainsNode(if_node, "EXPRESSION/VAR|_tempvar")
+        if_node = bod.children[2]
+        self.assertContainsNode(if_node, "VAR|_tempvar")
 
-    @parse_t
+    @transform_t
     def test_unset(self, root_node):
         """ Try to unset some things
         <?php
         unset($a[0], $a[1])
         """
-        print_tree(root_node)
-        transformer.transform(root_node)
-        print_tree(root_node)
-        bod = get_body(root_node)
-        self.assertContainsNode(bod, "STATEMENT/EXPRESSION/CALL/ARGSLIST/EXPRESSION/INDEX/EXPRESSION/INT|0")
-        self.assertContainsNode(bod, "STATEMENT/EXPRESSION/CALL/IDENT|del")
+        call = get_body(root_node)["EX_STATEMENT"].child
+        self.assertContainsNode(call, "INDEX/INT|0")
+        self.assertContainsNode(call, "IDENT|del")

@@ -17,7 +17,83 @@ def get_next_id():
     return next_id - 1
 
 
-class ParseNode(object):
+class MatchableNode(object):
+    """ Mixin to provide matching functionality to nodes
+
+    """
+    def __iter__(self):
+        raise NotImplementedError("MatchableNodeClasses must implement __iter__")
+
+    def match(self, match_str: str):
+        """ Takes a forwardslash delimited string and returns the node matching
+
+        Examples:
+            match("PHP*") - returns all children of this node of kind "PHP"
+            match("PHP/FUNCTION*/BLOCK") - Tries to return all blocks of functions which are children
+                                          of the first PHP child of this node
+            match("FUNCTION|body/BLOCK") - Tries to return the BLOCK of the function which is a child
+                                           of this node and is called "body"
+
+        Returns:
+            Either a single ParseNode object if no * is specified or a list if * is.
+        """
+        next_match = None
+        this_match = match_str
+        try:
+            this_match, next_match = match_str.split("/", 1)
+        except ValueError:
+            pass
+        child_name = None
+        single = this_match[-1] != "*"
+        if not single:
+            this_match = this_match[:-1]
+        try:
+            this_match, child_name = this_match.split("|")
+        except ValueError:
+            pass
+        # print("Matching {},{} {} times.".format(this_match, child_name, "one" if single else "many"))
+        matches = []
+        for c in self.get_all(this_match, child_name):
+            child_matched = c
+            if next_match is not None:
+                # Look deeper
+                try:
+                    child_matched = c.match(next_match)
+                except NoMatchesError:
+                    child_matched = None
+            if child_matched is not None:
+                if single:
+                    return child_matched
+                else:
+                    matches.append(child_matched)
+        if len(matches) == 0:
+            raise NoMatchesError()
+        return matches
+
+    def get_all(self, kind: str, node_name: str = None):
+        for c in self:
+            if node_name is None:
+                if c.kind == kind:
+                    yield c
+            else:
+                if c.kind == kind and str(c.value) == node_name:
+                    yield c
+
+    def get(self, kind):
+        """ Returns the first instance of a node kind which is a child of this node
+        """
+        for c in self:
+            if c.kind == kind:
+                return c
+        raise KeyError("No node of type {} is a child of {}".format(kind, self))
+
+    def __getitem__(self, item):
+        """ Returns the first item of a node kind which is a child of this node
+        """
+        return self.get(item)
+
+
+class ParseNode(MatchableNode):
     def __init__(self, kind, token, value=None, parent=None):
         if not isinstance(kind, str):
             raise ParseTreeError("kind must be a string, not {}".format(kind))
@@ -29,8 +105,8 @@ class ParseNode(object):
         self.token = token
 
     def append(self, node):
-        if not isinstance(node, ParseNode):
-            raise ParseTreeError("Expected a node, saw a {} as a child of {}".format(node, self))
+        # if not isinstance(node, ParseNode):
+        #     raise ParseTreeError("Expected a node, saw a {} as a child of {}".format(type(node), self))
         self.children.append(node)
         node.parent = self
         return node
@@ -79,12 +155,6 @@ class ParseNode(object):
         except KeyError:
             return False
 
-    def get(self, kind) -> 'ParseNode':
-        for c in self.children:
-            if c.kind == kind:
-                return c
-        raise KeyError("No node of type {} is a child of {}".format(kind, self))
-
     def insert_after(self, search, new_node):
         i = self.children.index(search) + 1
         self.children.insert(i, new_node)
@@ -102,61 +172,6 @@ class ParseNode(object):
             else:
                 new_children.append(self.children[i])
         self.children = new_children
-
-    def match(self, match_str: str):
-        """ Takes a forwardslash delimited string and returns the node matching
-
-        Examples:
-            match("PHP*") - returns all children of this node of kind "PHP"
-            match("PHP/FUNCTION*/BLOCK") - Tries to return all blocks of functions which are children
-                                          of the first PHP child of this node
-            match("FUNCTION|body/BLOCK") - Tries to return the BLOCK of the function which is a child
-                                           of this node and is called "body"
-
-        Returns:
-            Either a single ParseNode object if no * is specified or a list if * is.
-        """
-        next_match = None
-        this_match = match_str
-        try:
-            this_match, next_match = match_str.split("/", 1)
-        except ValueError:
-            pass
-        child_name = None
-        single = this_match[-1] != "*"
-        if not single:
-            this_match = this_match[:-1]
-        try:
-            this_match, child_name = this_match.split("|")
-        except ValueError:
-            pass
-        # print("Matching {},{} {} times.".format(this_match, child_name, "one" if single else "many"))
-        matches = []
-        for c in self.get_all(this_match, child_name):
-            child_matched = c
-            if next_match is not None:
-                # Look deeper
-                try:
-                    child_matched = c.match(next_match)
-                except NoMatchesError:
-                    child_matched = None
-            if child_matched is not None:
-                if single:
-                    return child_matched
-                else:
-                    matches.append(child_matched)
-        if len(matches) == 0:
-            raise NoMatchesError()
-        return matches
-
-    def get_all(self, kind: str, node_name: str = None) -> 'ParseNode':
-        for c in self.children:
-            if node_name is None:
-                if c.kind == kind:
-                    yield c
-            else:
-                if c.kind == kind and str(c.value) == node_name:
-                    yield c
 
 
 class ParseTree(object):
