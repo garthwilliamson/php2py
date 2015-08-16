@@ -46,3 +46,15 @@ class PhpFunctionsTests(unittest.TestCase):
 
     def test_str_replace(self):
         self.assertEqual("php/", phpfunctions.str_replace(u"public", u"", u"php/public"))
+
+    def test_method_exists(self):
+        class A:
+            value_a = "1"
+            def method_a(self):
+                pass
+        a = A()
+        phpfunctions.c.A = A
+        self.assertTrue(phpfunctions.method_exists(a, "method_a"))
+        self.assertFalse(phpfunctions.method_exists(a, "method_b"))
+        self.assertFalse(phpfunctions.method_exists(a, "value_a"))
+        self.assertTrue(phpfunctions.method_exists("A", "method_a"))

@@ -149,4 +149,16 @@ class Functions:
         z = php_array.data.values()
         return PhpArray(*php_array.data.values())
 
+    def method_exists(self, obj: Any, method_name: str) -> bool:
+        if isinstance(obj, str):
+            obj = getattr(self.c, obj)
+        try:
+            m = getattr(obj, method_name)
+            if callable(m):
+                return True
+            else:
+                return False
+        except:
+            return False
+
     abspath = os.path.abspath
