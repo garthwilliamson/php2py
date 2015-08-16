@@ -309,11 +309,7 @@ class ClassNode(IntermediateNode):
         cs.append("class {}({}):".format(self.value, self.parent.compile()))
         cs.indent()
         # TODO: Move as appropriate to __init__
-        for a in self.attributes:
-            cs.append(a.compile())
-        for m in self.methods:
-            cs.append(m.compile())
-        cs.dedent()
+        cs.append(self.body.compile())
         return cs
 
 
@@ -399,6 +395,12 @@ class BlockStatement(StatementNode):
 class ElseNode(BlockStatement):
     kind = "ELSE"
 
+    def compile(self):
+        cs = CompiledSegment()
+        cs.append("else:")
+        cs.append(self.block.compile())
+        return cs
+
 
 class ElifNode(ElseNode):
     kind = "ELIF"
@@ -413,6 +415,12 @@ class ElifNode(ElseNode):
     def __iter__(self):
         yield self.condition
         yield from super().__iter__()
+
+    def compile(self):
+        cs = CompiledSegment()
+        cs.append("elif {}:".format(self.condition.compile()))
+        cs.append(self.block.compile())
+        return cs
 
 
 class IfNode(BlockStatement):

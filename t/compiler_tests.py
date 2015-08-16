@@ -264,3 +264,26 @@ class CompilerTests(Php2PyTestCase):
         self.assertLinesMatch([
             "_g_.a = _g_.u[1] if _g_.f else _g_.n"
         ], lines)
+
+
+    @compile_body_t
+    def test_if_else(self, lines):
+        """ If with an elseif and an else
+        <?php
+        if (1) {
+            2;
+        } elseif (2) {
+            4;
+        } else {
+            6;
+        }
+        """
+        self.assertSequenceEqual([
+            "if 1:",
+            "2",
+            "elif 2:",
+            "4",
+            "else:",
+            "6",
+            "",
+        ], lines)
