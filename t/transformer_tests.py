@@ -261,6 +261,20 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(assign, "CALL/OPERATOR2|./VAR|_c_")
 
     @transform_t
+    def test_new_attr(self, root_node):
+        """ New class defined by a variable
+        <?php
+        $a = new $b->C(1);
+        """
+        # $b->C in this case is actually probably always a string variable
+        # Transforms to getattr(_c_, b.C)(1)
+        assign = get_body(root_node)["EX_STATEMENT"].child
+        self.assertContainsNode(assign, "CALL/CALL/IDENT|getattr")
+        self.assertContainsNode(assign, "CALL/CALL/OPERATOR2|./OPERATOR2|./VAR|b")
+        self.assertContainsNode(assign, "CALL/CALL/VAR|_c_")
+        self.assertContainsNode(assign, "CALL/INT|1")
+
+    @transform_t
     def test_self_attr_access(self, root_node):
         """ A class that plays with itself
         <?php

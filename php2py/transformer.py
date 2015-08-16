@@ -115,6 +115,11 @@ def transform_class(node: ParseNode) -> ClassNode:
     return ClassNode(node, parent, BlockNode("", body), attribs, methods)
 
 
+@transforms("HTML")
+def transform_html(node: ParseNode) -> HtmlNode:
+    return HtmlNode(node)
+
+
 @transforms("FUNCTION")
 def transform_function(node: ParseNode) -> FunctionNode:
     args = []
@@ -382,7 +387,7 @@ def transform_array(node: ParseNode) -> CallNode:
             assert isinstance(el, Operator2Node)
             children.append(TupleNode(el.parse_node, [el.lhs, el.rhs]))
         else:
-            index = IntNode(ParseNode("INT", el.parse_node.token, str(i)))
+            index = IntNode(str(i))
             i += 1
             children.append(TupleNode(el.parse_node, [index, el]))
     ln = ListNode(node, children)
@@ -460,7 +465,7 @@ def transform_call(node: ParseNode):
     return CallNode(node, lhs, args)
 
 
-@transforms("ATTR")
+@transforms("ATTR", "STATICATTR")
 def transform_attr(node: ParseNode) -> Operator2Node:
     lhs = t.transform_expr_node(node[1])
     # right hand side of attrs are just idents
@@ -481,8 +486,13 @@ def transform_new(node: ParseNode) -> CallNode:
             args.append(t.transform_expr_node(a))
         return CallNode(node, access_node, args)
     else:
-        raise NotImplementedError("This should be implemented")
-        return transform_call(node["CALL"])
+        ga = IdentNode("getattr")
+        ga_args = [VariableNode("_c_"), t.transform_expr_node(node["CALL"][1])]
+        ga_call = CallNode("node", ga, ga_args)
+        args = []
+        for a in node["CALL"]["EXPRESSIONGROUP"]:
+            args.append(t.transform_expr_node(a))
+        return CallNode(node, ga_call, args)
 
 
 @transforms("GETATTR")
