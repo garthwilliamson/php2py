@@ -1,4 +1,5 @@
 import os.path
+from typing import Any
 
 from php2py.phpbaselib import filters
 from php2py.phpbaselib.specials import Specials
@@ -15,13 +16,16 @@ class PhpVars(object):
         self.c = app.c
         self.constants = app.constants
 
-    def __getattr__(self, name):
+    def __getattribute__(self, name):
         """ Apparently getattr is called after first searching to see if there is already an attribute attr
 
         I think we have to do this because php eats undefined variables for breakfast
 
         """
-        return None
+        try:
+            return super().__getattribute__(name)
+        except:
+            return None
 
 
 class PhpFunctions(PhpVars, Specials, Functions):
@@ -40,6 +44,12 @@ class PhpGlobals(PhpVars):
 class PhpClasses(PhpVars):
     def __init__(self) -> None:
         self.PhpBase = PhpBase
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        super().__setattr__(key.lower(), value)
+
+    def __getattribute__(self, item: str) -> Any:
+        return super().__getattribute__(item.lower())
 
 
 class PhpConstants(PhpVars):
