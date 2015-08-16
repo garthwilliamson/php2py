@@ -58,3 +58,7 @@ class PhpFunctionsTests(unittest.TestCase):
         self.assertFalse(phpfunctions.method_exists(a, "method_b"))
         self.assertFalse(phpfunctions.method_exists(a, "value_a"))
         self.assertTrue(phpfunctions.method_exists("A", "method_a"))
+
+    def test_strlen(self):
+        self.assertEqual(0, phpfunctions.strlen(""))
+        self.assertEqual(1, phpfunctions.strlen("a"))
