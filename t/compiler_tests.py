@@ -156,9 +156,10 @@ class CompilerTests(Php2PyTestCase):
             "try:",
             "_g_.a = _g_.db",
             "except ex as _g_.e:",
-            "1"
+            "1",
+            "",
         ]
-        self.assertLinesMatch(expected, lines)
+        self.assertSequenceEqual(expected, lines)
 
     @compile_body_t
     def test_compile_dirname(self, lines):
@@ -166,8 +167,9 @@ class CompilerTests(Php2PyTestCase):
         <?php
             $a = dirname(__DIR__);
         """
-        self.assertLinesMatch([
-            '_g_.a = _f_.dirname(_f_.dirname(__file__))'
+        self.assertSequenceEqual([
+            '_g_.a = _f_.dirname(_f_.dirname(__file__))',
+            "",
         ], lines)
 
     @compile_body_t
@@ -176,8 +178,9 @@ class CompilerTests(Php2PyTestCase):
         <?php
         $a = new B();
         """
-        self.assertLinesMatch([
-            "_g_.a = _c_.B()"
+        self.assertSequenceEqual([
+            "_g_.a = _c_.B()",
+            "",
         ], lines)
 
     @compile_class_t
@@ -185,12 +188,12 @@ class CompilerTests(Php2PyTestCase):
         """ Compile a class with a constructor
         <?php
         class A {
-            public function __construct (  ) {
-                b()
+            function __construct () {
+                b();
             }
         }
         """
-        self.assertLinesMatch([
+        self.assertSequenceEqual([
             "class A(_c_.PhpBase):",
             "def _php_construct(this):",
             "_f_.b()"
@@ -208,7 +211,7 @@ class CompilerTests(Php2PyTestCase):
             }
         }
         """
-        self.assertLinesMatch([
+        self.assertSequenceEqual([
             "class A(_c_.PhpBase):",
             "a = 1",
             "def play(this):",
@@ -227,14 +230,15 @@ class CompilerTests(Php2PyTestCase):
         */
         2; /* Block after expression */
         """
-        self.assertLinesMatch([
+        self.assertSequenceEqual([
             "1",
             "# ",
             "# a comment",
             "# on two lines",
             "# ",
             "2",
-            "# Block after expression"
+            "# Block after expression",
+            ""
         ], lines)
 
     @compile_body_t
@@ -246,13 +250,14 @@ class CompilerTests(Php2PyTestCase):
         }
         """
         print(lines)
-        self.assertLinesMatch([
+        self.assertSequenceEqual([
             "try:",
             '_tempvar = _g_._POST["a"] is not None',
             "except (NameError, KeyError):",
             "_tempvar = False",
             "if _tempvar:",
-            "1"
+            "1",
+            ""
         ], lines)
 
     @compile_body_t
@@ -261,8 +266,9 @@ class CompilerTests(Php2PyTestCase):
         <?php
         $a = $f ? $u[1] : $n;
         """
-        self.assertLinesMatch([
-            "_g_.a = _g_.u[1] if _g_.f else _g_.n"
+        self.assertSequenceEqual([
+            "_g_.a = _g_.u[1] if _g_.f else _g_.n",
+            "",
         ], lines)
 
 

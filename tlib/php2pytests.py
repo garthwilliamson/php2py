@@ -104,7 +104,11 @@ def compile_class_t(f):
         class_ = root_node_t["CLASS"]
         lines_seg = class_.compile()
         lines = [l[0] for l in lines_seg.lines]
-        f(self, lines, *args, **kwargs)
+        try:
+            f(self, lines, *args, **kwargs)
+        except:
+            print_tree(root_node_t)
+            raise
 
     return wrapper
 

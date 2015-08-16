@@ -163,6 +163,9 @@ class Functions:
 
     def strlen(self, s: str) -> int:
         # TODO: should return number of bytes rather than chars
+        # TODO: Work out if None is actually allowed in php
+        if s is None:
+            return 0
         return len(s)
 
     abspath = os.path.abspath

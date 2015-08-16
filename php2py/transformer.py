@@ -102,7 +102,7 @@ def transform_class(node: ParseNode) -> ClassNode:
     methods = []
     body = []
     for c in node["BLOCK"]:
-        if c.kind in ("METHOD", "CLASSMETHOD"):
+        if c.kind in ("METHOD", "CLASSMETHOD", "FUNCTION"):
             m = transform_method(c)
             methods.append(m)
             body.append(m)
