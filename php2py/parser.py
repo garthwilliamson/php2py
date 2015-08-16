@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 import logging
 
-from clib.parsetree import ParseTree, print_tree, ParseNode
+from .clib.parsetree import ParseTree, print_tree, ParseNode
 from . import tokeniser
 
 

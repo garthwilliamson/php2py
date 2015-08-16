@@ -212,7 +212,7 @@ class TransformerTests(Php2PyTestCase):
         }
         """
         # Function names are case insensitive, so lowercase all
-        function_node = root_node.match("CLASS|TestClass42/CLASSMETHOD|testfunction")
+        function_node = root_node.match("CLASS|TestClass42/BLOCK/CLASSMETHOD|testfunction")
         # TODO: if we can get away with it, avoid making things static etc.
         # self.assertContainsNode(function_node("PROPERTY|php_static"))
         for_node = function_node["BLOCK"]["FOR"]
@@ -253,13 +253,27 @@ class TransformerTests(Php2PyTestCase):
             }
         }
         """
-        class_ = root_node["CLASS"]
+        class_ = root_node["CLASS"]["BLOCK"]
         method_body = class_["METHOD"]["BLOCK"]
         s1 = method_body.children[0]
         self.assertContainsNode(s1, "OPERATOR2|+=/OPERATOR2|./IDENT|a")
         s2 = method_body.children[1]
         self.assertContainsNode(s2, "CALL/OPERATOR2|./IDENT|play")
         self.assertContainsNode(s2, "CALL/OPERATOR2|./VAR|this")
+
+    @transform_t
+    def test_class_with_comment(self, root_node):
+        """ A comment in the body of the class
+        <?php
+        class A {
+            private $a = 1;
+            /**
+             * Block comment
+             */
+        }
+        """
+        class_block = root_node["CLASS"]["BLOCK"]
+        self.assertContainsNode(class_block, "EX_STATEMENT/COMMENT")
 
     @transform_t
     def test_isset_plain_variable(self, root_node):

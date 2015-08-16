@@ -2,9 +2,9 @@ from __future__ import unicode_literals
 
 import collections
 
-from clib.segment import CompiledSegment
+from .clib.segment import CompiledSegment
 from php2py import transformer
-from clib import parsetree
+from .clib import parsetree
 
 
 constant_map = {

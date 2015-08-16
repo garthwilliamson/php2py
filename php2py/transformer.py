@@ -100,15 +100,19 @@ def transform_class(node: ParseNode) -> ClassNode:
         parent = c_access(node["EXTENDS"])
     attribs = []
     methods = []
+    body = []
     for c in node["BLOCK"]:
         if c.kind in ("METHOD", "CLASSMETHOD"):
-            methods.append(transform_method(c))
+            m = transform_method(c)
+            methods.append(m)
+            body.append(m)
         elif c.kind == "STATEMENT":
-            # Construct an attribute
-            a = transform_assignment(c["EXPRESSION"]["ASSIGNMENT"])
-            attribs.append(AttributeNode(a.lhs.value, a.lhs, a.rhs))
+            ex_s = transform_plain_statement(c)
+            if ex_s.child.kind == "ASSIGNMENT":
+                attribs.append(ex_s.child)
+            body.append(ex_s)
     t.post_statements.append(assignment_statement(c_access(node), VariableNode(node)))
-    return ClassNode(node, parent, attribs, methods)
+    return ClassNode(node, parent, BlockNode("", body), attribs, methods)
 
 
 @transforms("FUNCTION")
@@ -136,7 +140,7 @@ def transform_method(node: ParseNode) -> MethodNode:
 
 
 @transforms("STATEMENT")
-def transform_plain_statement(node: ParseNode) -> StatementNode:
+def transform_plain_statement(node: ParseNode) -> ExpressionStatement:
     """ We expect plain statements to contain just an EXPRESSION
 
     """

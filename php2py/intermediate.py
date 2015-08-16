@@ -1,7 +1,7 @@
 from typing import Optional, List, TypeVar
 
-from clib.segment import CompiledSegment
-from clib.parsetree import *
+from php2py.clib.segment import CompiledSegment
+from php2py.clib.parsetree import *
 
 # TODO: Check usage of typevar
 
@@ -290,18 +290,19 @@ class ClassNode(IntermediateNode):
 
     def __init__(self,
                  parse_node: PnOrStr,
-                 parent: VariableNode,
+                 parent: ExpressionNode,
+                 body: BlockNode,
                  attributes: List[AttributeNode],
                  methods: List[MethodNode]):
         super().__init__(parse_node)
         self.parent = parent
+        self.body = body
         self.attributes = attributes
         self.methods = methods
 
     def __iter__(self):
         yield self.parent
-        yield from self.attributes
-        yield from self.methods
+        yield self.body
 
     def compile(self):
         cs = CompiledSegment()
