@@ -101,6 +101,25 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(if_node, "BLOCK/EX_STATEMENT")
 
     @transform_t
+    def test_if_else(self, root_node):
+        """ If with an elseif and an else
+        <?php
+        if (1) {
+            2;
+        } elseif (2) {
+            4;
+        } else {
+            6;
+        }
+        """
+        if_node = get_body(root_node)["IF"]
+        self.assertContainsNode(if_node, "INT|1")
+        self.assertContainsNode(if_node, "BLOCK/EX_STATEMENT/INT|2")
+        self.assertContainsNode(if_node, "ELIF/INT|2")
+        self.assertContainsNode(if_node, "ELIF/BLOCK/EX_STATEMENT/INT|4")
+        self.assertContainsNode(if_node, "ELSE/BLOCK/EX_STATEMENT/INT|6")
+
+    @transform_t
     def test_switch_simple(self, root_node):
         """ Switch statement as simple as possible
         <?php

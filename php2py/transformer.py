@@ -187,6 +187,20 @@ def transform_if(node: ParseNode) -> IfNode:
     return IfNode(node, if_op, if_block, elses)
 
 
+def transform_elif(node: ParseNode) -> ElifNode:
+    # TODO: One liners
+    t.hoisting = True
+    condition = t.transform_expr_node(node["EXPRESSIONGROUP"]["EXPRESSION"][0])
+    t.hoisting = False
+    block = transform_block(node["BLOCK"])
+    return ElifNode(node, condition, block)
+
+
+def transform_else(node: ParseNode) -> ElseNode:
+    # TODO: One liners
+    return ElseNode(node, transform_block(node["BLOCK"]))
+
+
 @transforms("FOREACH")
 def transform_foreach(node: ParseNode):
     as_ = node.match("EXPRESSIONGROUP/EXPRESSION/OPERATOR2")
