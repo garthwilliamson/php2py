@@ -15,6 +15,13 @@ class TransformerTests(Php2PyTestCase):
         self.assertContainsNode(root_node, "FUNCTION|body/BLOCK")
 
     @transform_t
+    def test_echo(self, root_node):
+        """ Simple echo
+        <?php echo "Hello World"; ?>
+        """
+        self.assertContainsNode(root_node, "FUNCTION|body/BLOCK/EX_STATEMENT")
+
+    @transform_t
     def test_increment(self, root_node):
         """ Transform an unary increment operator
         <?php
@@ -177,7 +184,7 @@ class TransformerTests(Php2PyTestCase):
         """
         class_node = root_node["CLASS"]
         self.assertEqual("TestClass", class_node.value)
-        self.assertEqual("PhpBase", class_node.parent.value)
+        self.assertEqual("PhpBase", class_node.parent.rhs.value)
         bod = get_body(root_node)
         self.assertContainsNode(bod, "EX_STATEMENT/ASSIGNMENT/OPERATOR2|./VAR|TestClass")
 
@@ -190,7 +197,7 @@ class TransformerTests(Php2PyTestCase):
         }
         """
         class_node = root_node["CLASS"]
-        self.assertEqual("TestBaseClass", class_node.parent.value)
+        self.assertEqual("TestBaseClass", class_node.parent.rhs.value)
 
     @transform_t
     def test_class_transform_function_body(self, root_node):

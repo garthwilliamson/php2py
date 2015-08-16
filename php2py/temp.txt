@@ -1,8 +1,0 @@
-isset now transforms into a try catch block
-
-* Unary operators now don't put brackets around arguments
-* Commentblocks are now compiled straightup
-* except statements without as can now compile
-* Statement type nodes "STATEMENT" and "IF" now can have pre and post
-  statements
-* Added some helper methods to create new nodes in transform

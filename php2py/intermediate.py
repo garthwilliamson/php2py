@@ -1,6 +1,7 @@
 from typing import Optional, List, TypeVar
 
-from php2py.parsetree import *
+from clib.segment import CompiledSegment
+from clib.parsetree import *
 
 # TODO: Check usage of typevar
 
@@ -40,10 +41,28 @@ class ExpressionNode(IntermediateNode):
     base_kind = "EX"
     kind = None
 
+    def compile(self) -> str:
+        return str(self.value)
+
 
 class StatementNode(IntermediateNode):
     base_kind = "STATEMENT"
     kind = None
+
+    def compile(self) -> CompiledSegment:
+        cs = CompiledSegment()
+        for c in self:
+            cs.append(c.compile())
+        return cs
+
+
+class HtmlNode(StatementNode):
+    kind = "HTML"
+
+    def compile(self) -> CompiledSegment:
+        cs = CompiledSegment()
+        cs.append("_app_.write({})".format(repr(self.value)))
+        return cs
 
 
 class BlockNode(IntermediateNode):
@@ -57,6 +76,14 @@ class BlockNode(IntermediateNode):
     def __iter__(self):
         yield from self.children
 
+    def compile(self) -> CompiledSegment:
+        cs = CompiledSegment()
+        cs.indent()
+        for c in self:
+            cs.append(c.compile())
+        cs.dedent()
+        return cs
+
 
 class CommentNode(IntermediateNode):
     base_kind = "COMMENT"
@@ -64,6 +91,9 @@ class CommentNode(IntermediateNode):
 
     def __init__(self, parse_node: ParseNode) -> None:
         super().__init__(parse_node)
+
+    def compile(self):
+        return "# " + self.value
 
 
 class ExpressionStatement(StatementNode):
@@ -82,6 +112,17 @@ class ExpressionStatement(StatementNode):
         if self.comment is not None:
             yield self.comment
 
+    def compile(self):
+        cs = CompiledSegment()
+        line = self.child.compile()
+        if self.comment is not None:
+            if line == "":
+                line = self.comment.compile()
+            else:
+                line = "{} {}".format(line, self.comment.compile())
+        cs.append(line)
+        return cs
+
 
 class VariableNode(ExpressionNode):
     kind = "VAR"
@@ -97,9 +138,15 @@ class CommaListNode(ExpressionNode):
     def __iter__(self):
         yield from self.children
 
+    def compile(self):
+        return ", ".join([c.compile() for c in self.children])
+
 
 class StringNode(ExpressionNode):
     kind = "STRING"
+
+    def compile(self):
+        return '"{}"'.format(self.value)
 
 
 class IntNode(ExpressionNode):
@@ -112,6 +159,9 @@ class BoolNode(ExpressionNode):
 
 class NoneNode(ExpressionNode):
     kind = "NONE"
+
+    def compile(self):
+        return "None"
 
 
 class ListNode(CommaListNode):
@@ -134,7 +184,7 @@ class FunctionNode(IntermediateNode):
     base_kind = "FUNCTION"
     kind = "FUNCTION"
 
-    def __init__(self, parse_node: ParseNode, args: Optional[List[ExpressionNode]], body: BlockNode):
+    def __init__(self, parse_node: PnOrStr, args: Optional[List[ExpressionNode]], body: BlockNode):
         super().__init__(parse_node)
         if args is None:
             args = []
@@ -144,6 +194,13 @@ class FunctionNode(IntermediateNode):
     def __iter__(self):
         yield from self.args
         yield self.body
+
+    def compile(self):
+        cs = CompiledSegment()
+        args = ", ".join([a.compile() for a in self.args])
+        cs.append("def {}({}):".format(self.value, args))
+        cs.append(self.body.compile())
+        return cs
 
 
 class MethodNode(FunctionNode):
@@ -169,6 +226,35 @@ class Operator2Node(ExpressionNode):
         yield self.lhs
         yield self.rhs
 
+    def compile(self):
+        # TODO: Think about putting "." operators in own class
+        if self.value in ("."):
+            return "{}{}{}".format(self.lhs.compile(), self.value, self.rhs.compile())
+        else:
+            return "{} {} {}".format(self.lhs.compile(), self.value, self.rhs.compile())
+
+
+class Operator3Node(ExpressionNode):
+    kind = "OPERATOR3"
+
+    def __init__(self,
+                 parse_node: PnOrStr,
+                 condition: ExpressionNode,
+                 true_res: ExpressionNode,
+                 false_res: ExpressionNode):
+        super().__init__(parse_node)
+        self.condition = condition
+        self.true_res = true_res
+        self.false_res = false_res
+
+    def __iter__(self):
+        yield self.condition
+        yield self.true_res
+        yield self.false_res
+
+    def compile(self):
+        return "{} if {} else {}".format(self.true_res.compile(), self.condition.compile(), self.false_res.compile())
+
 
 class Operator1Node(ExpressionNode):
     kind = "OPERATOR1"
@@ -180,12 +266,18 @@ class Operator1Node(ExpressionNode):
     def __iter__(self):
         yield self.child
 
+    def compile(self) -> str:
+        return "{} {}".format(self.value, self.child.compile())
+
 
 class AssignmentNode(Operator2Node):
     kind = "ASSIGNMENT"
 
     # TODO: Add new method annotate_types
     # lhs.type = rhs.type
+
+    def compile(self):
+        return "{} = {}".format(self.lhs.compile(), self.rhs.compile())
 
 
 class AttributeNode(AssignmentNode):
@@ -211,6 +303,18 @@ class ClassNode(IntermediateNode):
         yield from self.attributes
         yield from self.methods
 
+    def compile(self):
+        cs = CompiledSegment()
+        cs.append("class {}({}):".format(self.value, self.parent.compile()))
+        cs.indent()
+        # TODO: Move as appropriate to __init__
+        for a in self.attributes:
+            cs.append(a.compile())
+        for m in self.methods:
+            cs.append(m.compile())
+        cs.dedent()
+        return cs
+
 
 class RootNode(IntermediateNode):
     base_kind = "ROOT"
@@ -229,9 +333,18 @@ class RootNode(IntermediateNode):
 class ReturnNode(ExpressionStatement):
     kind = "RETURN_STATEMENT"
 
+    def compile(self):
+        cs = CompiledSegment()
+        cs.append("return {}".format(self.child.compile()))
+        # TODO: Comments
+        return cs
+
 
 class NoopNode(ExpressionNode):
     kind = "NOOP"
+
+    def compile(self) -> str:
+        return ""
 
 
 class CallNode(ExpressionNode):
@@ -245,6 +358,10 @@ class CallNode(ExpressionNode):
     def __iter__(self):
         yield self.callee
         yield from self.args
+
+    def compile(self) -> str:
+        args = ", ".join([a.compile() for a in self.args])
+        return "{}({})".format(self.callee.compile(), args)
 
 
 class PySpecial(VariableNode):
@@ -262,6 +379,9 @@ class IndexNode(ExpressionNode):
     def __iter__(self):
         yield self.target
         yield self.key
+
+    def compile(self) -> str:
+        return "{}[{}]".format(self.target.compile(), self.key.compile())
 
 
 class BlockStatement(StatementNode):
@@ -284,13 +404,13 @@ class ElifNode(ElseNode):
 
     def __init__(self,
                  parse_node: PnOrStr,
-                 decision: ExpressionNode,
+                 condition: ExpressionNode,
                  block: BlockNode):
         super().__init__(parse_node, block)
-        self.decision = decision
+        self.condition = condition
 
     def __iter__(self):
-        yield self.decision
+        yield self.condition
         yield from super().__iter__()
 
 
@@ -299,17 +419,46 @@ class IfNode(BlockStatement):
 
     def __init__(self,
                  parse_node: PnOrStr,
-                 decision: ExpressionNode,
+                 condition: ExpressionNode,
                  block: BlockNode,
                  elses: List[ElseNode]):
         super().__init__(parse_node, block)
-        self.decision = decision
+        self.condition = condition
         self.elses = elses
 
     def __iter__(self):
-        yield self.decision
+        yield self.condition
         yield from super().__iter__()
         yield from self.elses
+
+    def compile(self):
+        cs = CompiledSegment()
+        cs.append("if {}:".format(self.condition.compile()))
+        cs.append(self.block.compile())
+        for e in self.elses:
+            cs.append(e.compile())
+        return cs
+
+
+class WhileNode(BlockStatement):
+    kind = "WHILE"
+
+    def __init__(self,
+                 parse_node: PnOrStr,
+                 condition: ExpressionNode,
+                 block: BlockNode):
+        super().__init__(parse_node, block)
+        self.condition = condition
+
+    def __iter__(self):
+        yield self.condition
+        yield from super().__iter__()
+
+    def compile(self):
+        cs = CompiledSegment()
+        cs.append("while {}:".format(self.condition.compile()))
+        cs.append(self.block.compile())
+        return cs
 
 
 class ForNode(BlockStatement):
@@ -329,20 +478,42 @@ class ForNode(BlockStatement):
         yield self.items
         yield from super().__iter__()
 
+    def compile(self):
+        cs = CompiledSegment()
+        cs.append("for {} in {}:".format(self.thing.compile(), self.items.compile()))
+        cs.append(self.block.compile())
+        return cs
+
 
 class CatchNode(BlockStatement):
     kind = "CATCH"
 
     def __init__(self,
                  parse_node: PnOrStr,
-                 exception: ExceptionNode,
+                 exceptions: List[ExceptionNode],
+                 exc_name: Optional[ExpressionNode],
                  block: BlockNode) -> None:
         super().__init__(parse_node, block)
-        self.exception = exception
+        self.exceptions = exceptions
+        self.exc_name = exc_name
 
     def __iter__(self):
-        yield self.exception
+        yield from self.exceptions
         yield from super().__iter__()
+
+    def compile(self):
+        cs = CompiledSegment()
+        if len(self.exceptions) > 1:
+            exceptions = "({})".format(", ".join([e.compile() for e in self.exceptions]))
+        else:
+            exceptions = self.exceptions[0].compile()
+
+        if self.exc_name is None:
+            cs.append("except {}:".format(exceptions))
+        else:
+            cs.append("except {} as {}:".format(exceptions, self.exc_name.compile()))
+        cs.append(self.block.compile())
+        return cs
 
 
 class TryNode(BlockStatement):
@@ -358,3 +529,11 @@ class TryNode(BlockStatement):
     def __iter__(self):
         yield from super().__iter__()
         yield from self.catches
+
+    def compile(self):
+        cs = CompiledSegment()
+        cs.append("try:")
+        cs.append(self.block.compile())
+        for c in self.catches:
+            cs.append(c.compile())
+        return cs

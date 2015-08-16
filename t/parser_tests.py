@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
 from tlib.php2pytests import *
-from php2py.parsetree import print_tree
+from clib.parsetree import print_tree
 
 html = "<div>hello</div>"
 
@@ -417,9 +417,6 @@ class ParserTests(Php2PyTestCase):
         self.assertEqual(b.value, "*")
         i = b[0]
         self.assertEqual(i.value, 3)
-
-        # TODO: Move to compiler_tests
-        self.assertEqual(self.compiler.expression_compile_str(ex), "1 + 2 * 3 ^ 4 / 5 + 6")
 
     @parse_t
     def test_array_lookups(self, root_node):

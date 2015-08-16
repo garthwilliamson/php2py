@@ -1,9 +1,10 @@
 from __future__ import unicode_literals
 
 import collections
-import logging
 
-from . import parsetree, transformer
+from clib.segment import CompiledSegment
+from php2py import transformer
+from clib import parsetree
 
 
 constant_map = {
@@ -31,65 +32,6 @@ class CompileError(Exception):
 class UnimplementedCompileError(CompileError):
     pass
 
-
-class CompiledSegment(object):
-    def __init__(self) -> 'CompiledSegment':
-        self._indent = 0
-        self.lines = []
-
-    def append(self, item):
-        """ Append a string or CompiledSegment to the end of this segment
-
-        """
-        if item is None:
-            raise TypeError("Can't append a null item to compiled segment")
-        if isinstance(item, CompiledSegment):
-            for l, i in item:
-                self.lines.append((l, i + self._indent))
-        else:
-            self.lines.append((item, self._indent))
-
-    def indent(self):
-        """ Increase the indent level by one
-
-        """
-        self._indent += 1
-
-    def dedent(self):
-        """ Decrease the indent level by one
-
-        """
-        self._indent -= 1
-
-    def br(self, number=1):
-        """ Add a blank line to this segment
-
-        """
-
-        for i in range(0, number):
-            # Direct call to results to avoid extra spaces
-            self.lines.append(("", 0))
-
-    def prepend(self, line):
-        """ Insert a zero indented item at the start of this segment
-
-        """
-        self.lines.insert(0, (line, 0))
-
-    def __str__(self):
-        out = ""
-        for l, i in self.lines:
-            out += "    " * i + l + "\n"
-        return out
-
-    def __iter__(self):
-        return iter(self.lines)
-
-    def __len__(self):
-        return len(self.lines)
-
-    def __getitem__(self, item):
-        return self.lines[item][0]
 
 
 def compiled_line(string: str) -> CompiledSegment:
@@ -138,13 +80,15 @@ class Compiler(object):
     def compile(self, tree=None) -> str:
         if tree is None:
             tree = self.tree
-        transformer.transform(tree)
+        tree = transformer.transform(tree)
 
+        if not tree.kind == "ROOT":
+            raise CompilationFailure("Must pass instance of RootNode to compile")
         success = True
         errors = []
         for c in tree:
             try:
-                self.compiled.append(self.marshal(c))
+                self.compiled.append(c.compile())
             except CompileError as e:
                 success = False
                 errors.append(e)
@@ -188,139 +132,11 @@ class Compiler(object):
             els = ", ".join([python_safe(e) for e in els])
             self.compiled.prepend("from {0} import {1}".format(module, els))
 
-    def marshal(self, node: parsetree.ParseNode) -> CompiledSegment:
-        """ Tries to find the correct function from a given node from the parse tree
-
-        When given a node, tries to find a compile_<node_name> function.
-
-        Args:
-            node: The node to try to compile
-
-        Raises:
-            CompileError: A common error to be returned is the CompileError when a given node type doesn't
-                          have an appropriate compile method defined yet.
-
-        """
-        try:
-            res = getattr(self, node.kind.lower() + "_compile")(node)
-            return res
-        except AttributeError:
-            raise UnimplementedCompileError(node, "Unimplemented method " + node.kind.lower() + "_compile")
-        except CompileError:
-            raise
-        except Exception as e:
-            raise CompileError(node, "Unexpected error compiling node", e)
-
-    def marshal_str(self, node: parsetree.ParseNode) -> str:
-        try:
-            res = getattr(self, node.kind.lower() + "_compile_str")(node)
-            assert isinstance(res, str)
-            return res
-        except AttributeError:
-            raise UnimplementedCompileError(node, "Unimplemented method " + node.kind.lower() + "_compile_str")
-        except CompileError:
-            raise
-        except Exception as e:
-            raise CompileError(node, "Unexpected error compiling node", e)
-
-    def php_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        php_segment = CompiledSegment()
-        for c in node:
-            php_segment.append(self.marshal(c))
-        return php_segment
-
-    def html_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        # return self.echo(repr(node.value))
-        return compiled_line(echo(repr(node.value)))
-
+class Junk:
     def noop_compile(self, _) -> CompiledSegment:
         cs = CompiledSegment()
         cs.br()
         return cs
-
-    def noop_compile_str(self, _) -> str:
-        return ""
-
-    def while_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        seg = CompiledSegment()
-        seg.append("while {0}:".format(self.expression_compile_str(node["EXPRESSIONGROUP"]["EXPRESSION"])))
-        seg.indent()
-        seg.append(self.block_compile(node["BLOCK"]))
-        seg.dedent()
-        return seg
-
-    def if_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        seg = CompiledSegment()
-        try:
-            # print("Compiled " + "if {0}:".format(self.expression_compile(node.get("EXPRESSION"))))
-            # print("from")
-            # parsetree.print_tree(node.get("EXPRESSION"))
-            seg.append("if {0}:".format(self.expression_compile_str(node.get("EXPRESSION"))))
-        except IndexError:
-            print("Compile Error at ", node.token)
-            parsetree.print_tree(node)
-            raise
-        seg.indent()
-        seg.append(self.marshal(node.get("BLOCK")))
-        # TODO: We should catch failure to get somewhere at the top level. IndexError maybe?
-        seg.dedent()
-        for n in node.get_all("ELIF"):
-            seg.append(self.elif_compile(n))
-        for n in node.get_all("ELSE"):
-            seg.append(self.else_compile(n))
-        return seg
-
-    def elif_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        seg = CompiledSegment()
-        seg.append("elif {}:".format(self.expression_compile_str(node.get("EXPRESSION"))))
-        seg.indent()
-        seg.append(self.marshal(node.get("BLOCK")))
-        seg.dedent()
-        return seg
-
-    def else_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        seg = CompiledSegment()
-        seg.append("else:")
-        seg.indent()
-        seg.append(self.marshal(node.get("BLOCK")))
-        seg.dedent()
-        return seg
-
-    def pyfor_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        seg = CompiledSegment()
-        seg.append("for {} in {}:".format(self.marshal_str(node[0]), self.marshal_str(node["EXPRESSION"])))
-        seg.indent()
-        seg.append(self.marshal(node["BLOCK"]))
-        seg.dedent()
-        return seg
-
-    def function_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        seg = CompiledSegment()
-        args = []
-        for v in node["ARGSLIST"]:
-            args.append(self.marshal_str(v))
-        # seg.append("@phpfunc")
-        seg.append("def {0}({1}):".format(node.value, ", ".join(args)))
-        seg.indent()
-        seg.append(self.marshal(node["BLOCK"]))
-        seg.dedent()
-        return seg
-
-    def class_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        seg = CompiledSegment()
-        seg.append("class {}(_c_.{}):".format(node.value, node["EXTENDS"].value))
-        seg.indent()
-        seg.append(self.marshal(node.get("BLOCK")))
-        seg.dedent()
-        return seg
-
-    def classmethod_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        # TODO: This is wrong - we should do _most_ of the function compile, but not the adding to php functions bit
-        return self.function_compile(node)
-
-    def method_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        # TODO: Ditto
-        return self.function_compile(node)
 
     def call_compile_str(self, node: parsetree.ParseNode) -> str:
         """ Compile a function or method call
@@ -356,20 +172,10 @@ class Compiler(object):
         raise Exception("We actually got here")
         # return "return " + self.expression_compile_str(node[0])
 
-    def return_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        return compiled_line("return {}".format(self.expression_compile_str(node[0])))
 
     def pass_compile_str(self, _) -> str:
         return "pass"
 
-    def expression_compile_str(self, node: parsetree.ParseNode) -> str:
-        # print("Compiling expression")
-        # print("from")
-        # parsetree.print_tree(node)
-        if len(node) == 0:
-            return ""
-        r = "".join([self.marshal_str(c) for c in node]).lstrip()
-        return r
 
     def var_compile_str(self, node: parsetree.ParseNode) -> str:
         sub_var = ""
@@ -380,14 +186,6 @@ class Compiler(object):
     def subvar_compile_str(self, node: parsetree.ParseNode) -> str:
         return '.{0}'.format(node.value)
 
-    def ident_compile_str(self, node):
-        return node.value
-
-    def index_compile_str(self, node):
-        return "{}[{}]".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
-
-    def attr_compile_str(self, node):
-        return "{}.{}".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
 
     def getattr_compile_str(self, node):
         return "getattr({}, {})".format(self.marshal_str(node[1]), self.marshal_str(node[0]))
@@ -406,52 +204,11 @@ class Compiler(object):
     def global_compile_str(self, _):
         return ""
 
-    def block_compile(self, node: parsetree.ParseNode) -> CompiledSegment:
-        seg = CompiledSegment()
-        for c in node:
-            seg.append(self.marshal(c))
-        return seg
-
     def string_compile_str(self, node):
         fmt = ""
         if len(node) > 0:
             fmt = ".format({})".format(", ".join([v.value for v in node]))
         return 'u"' + node.value + '"' + fmt
-
-    def assignment_compile_str(self, node):
-        return "{} {} {}".format(self.marshal_str(node[1]), node.value, self.marshal_str(node[0]))
-
-    def operator2_compile_str(self, node):
-        fmt_str = "{} {} {}"
-        if node.value in ["."]:
-            fmt_str = "{}{}{}"
-        try:
-            return fmt_str.format(self.marshal_str(node[1]), node.value, self.marshal_str(node[0]))
-        except IndexError:
-            raise CompileError(node, "Expected two children for {}".format(node))
-
-    def operator1_compile_str(self, node):
-        return "{} {}".format(node.value, self.marshal_str(node[0]))
-
-    def operator3_compile_str(self, node):
-        if node.value != "?":
-            raise UnimplementedCompileError("There are ternaries not called ?")
-        return "{} if {} else {}".format(
-            self.marshal_str(node[0]),
-            self.marshal_str(node[2]),
-            self.marshal_str(node[1]))
-
-    def statement_compile(self, node) -> CompiledSegment:
-        if len(node) != 0:
-            # for n in node:
-            # print(n)
-            cs = CompiledSegment()
-            for c in node:
-                cs.append(self.marshal_str(c))
-            return cs
-
-    def int_compile_str(self, node):
-        return str(node.value)
 
     def oct_compile_str(self, node):
         return "0o" + node.value

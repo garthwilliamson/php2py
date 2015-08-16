@@ -8,18 +8,18 @@ class CompilerTests(Php2PyTestCase):
         """ Simple echo
         <?php echo "Hello World"; ?>
         """
-        transformer.transform(root_node)
+        root_node = transformer.transform(root_node)
         print_tree(root_node)
-        sc = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual('_f_.echo(u"Hello World")', sc[0])
+        sc = get_body(root_node).get("EX_STATEMENT").compile()
+        self.assertEqual('_f_.echo("Hello World")', sc[0])
 
     @parse_t
     def test_asign(self, root_node):
         """Simple assignment
         <?php $a = 1; ?>
         """
-        transformer.transform(root_node)
-        cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
+        root_node = transformer.transform(root_node)
+        cs = get_body(root_node).get("EX_STATEMENT").compile()
         self.assertEqual("_g_.a = 1", cs[0])
 
     @parse_t
@@ -27,9 +27,9 @@ class CompilerTests(Php2PyTestCase):
         """ I don't have much to say about this
         <?php $a[] = "bob"; ?>
         """
-        transformer.transform(root_node)
-        cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual('_g_.a[u"MagicEmptyArrayIndex"] = u"bob"', cs[0])
+        root_node = transformer.transform(root_node)
+        cs = get_body(root_node).get("EX_STATEMENT").compile()
+        self.assertEqual('_g_.a["MagicEmptyArrayIndex"] = "bob"', cs[0])
 
     @parse_t
     def test_while(self, root_node):
@@ -39,8 +39,8 @@ class CompilerTests(Php2PyTestCase):
             $b++;
         }
         """
-        transformer.transform(root_node)
-        wc = self.compiler.while_compile(get_body(root_node).get("WHILE"))
+        root_node = transformer.transform(root_node)
+        wc = get_body(root_node).get("WHILE").compile()
         self.assertEqual("while _g_.a == _g_.b:", wc[-2])
 
     # TODO: Can valid php end a php block without a semicolon?
@@ -50,10 +50,10 @@ class CompilerTests(Php2PyTestCase):
         <?php
         a("B", C, $d);
         """
-        transformer.transform(root_node)
+        root_node = transformer.transform(root_node)
         print_tree(root_node)
-        cs = self.compiler.statement_compile(get_body(root_node).get("STATEMENT"))
-        self.assertEqual('_f_.a(u"B", _constants_.C, _g_.d)', cs[0])
+        cs = get_body(root_node).get("EX_STATEMENT").compile()
+        self.assertEqual('_f_.a("B", _constants_.C, _g_.d)', cs[0])
 
     @parse_t
     def test_blank_line(self, root_node):
@@ -63,12 +63,10 @@ class CompilerTests(Php2PyTestCase):
 
         echo("After blank");
         """
+        root_node = transformer.transform(root_node)
+        print("----------")
         print_tree(root_node)
-        transformer.transform(root_node)
-        print_tree(root_node)
-        main = self.compiler.block_compile(get_body(root_node))
-        from pprint import pprint
-        pprint(main.lines)
+        main = get_body(root_node).compile()
         self.assertEqual("", main[2].strip())
 
     @parse_t
@@ -85,9 +83,9 @@ class CompilerTests(Php2PyTestCase):
             }
         }
         """
-        transformer.transform(root_node)
+        root_node = transformer.transform(root_node)
         print_tree(root_node)
-        cc = self.compiler.class_compile(root_node.match("CLASS|TestClass2"))
+        cc = root_node.match("CLASS|TestClass2").compile()
         self.assertEqual("class TestClass2(_c_.PhpBase):", cc[0])
 
     @parse_t
@@ -97,10 +95,10 @@ class CompilerTests(Php2PyTestCase):
         c = $this->a->b();
         """
         print_tree(root_node)
-        transformer.transform(root_node)
+        root_node = transformer.transform(root_node)
         print("-" * 50)
         print_tree(root_node)
-        main = self.compiler.block_compile(get_body(root_node))
+        main = get_body(root_node).compile()
         print_tree(root_node)
         print(main)
 
@@ -110,10 +108,9 @@ class CompilerTests(Php2PyTestCase):
         <?php
         $r = $s->{"a"};
         """
-        transformer.transform(root_node)
-        print_tree(root_node)
-        statement = self.compiler.statement_compile(get_body(root_node)["STATEMENT"])
-        self.assertEqual('_g_.r = getattr(_g_.s, u"a")', statement[0])
+        root_node = transformer.transform(root_node)
+        statement = get_body(root_node)["EX_STATEMENT"].compile()
+        self.assertEqual('_g_.r = getattr(_g_.s, "a")', statement[0])
 
     @parse_t
     def test_compile_ternary(self, root_node):
@@ -121,36 +118,29 @@ class CompilerTests(Php2PyTestCase):
         <?php
         $a = 1 ? "a" : "b";
         """
-        transformer.transform(root_node)
-        statement = self.compiler.statement_compile(get_body(root_node)["STATEMENT"])
-        self.assertEqual('_g_.a = u"a" if 1 else u"b"', statement[0])
+        root_node = transformer.transform(root_node)
+        statement = get_body(root_node)["EX_STATEMENT"].compile()
+        self.assertEqual('_g_.a = "a" if 1 else "b"', statement[0])
 
-    @parse_t
-    def test_compile_foreach(self, root_node):
+    @compile_body_t
+    def test_compile_foreach(self, lines):
         """ Test foreach compilation
         <?php
         foreach ($parameters as $key => $value) {
              $key;
         }
         """
-        transformer.transform(root_node)
-        pyfor = get_body(root_node)["PYFOR"]
-        fxc = self.compiler.pyfor_compile(pyfor)
-        self.assertEqual("for _g_.key, _g_.value in _g_.parameters.items():", fxc[0])
+        self.assertEqual("for _g_.key, _g_.value in _g_.parameters.items():", lines[0])
 
-    @parse_t
-    def test_compile_foreach2(self, root_node):
+    @compile_body_t
+    def test_compile_foreach2(self, lines):
         """ A simpler kind of foreach compilation
         <?php
         foreach ($a as $b) {
             1;
         }
         """
-        transformer.transform(root_node)
-        print_tree(root_node)
-        pyfor = get_body(root_node)["PYFOR"]
-        fxc = self.compiler.pyfor_compile(pyfor)
-        self.assertEqual("for _g_.b in _g_.a:", fxc[0])
+        self.assertEqual("for _g_.b in _g_.a:", lines[0])
 
     @compile_body_t
     def test_compile_try(self, lines):
@@ -258,7 +248,7 @@ class CompilerTests(Php2PyTestCase):
         print(lines)
         self.assertLinesMatch([
             "try:",
-            '_tempvar = _g_._POST[u"a"] is not None',
+            '_tempvar = _g_._POST["a"] is not None',
             "except (NameError, KeyError):",
             "_tempvar = False",
             "if _tempvar:",

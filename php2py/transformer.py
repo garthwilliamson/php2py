@@ -1,10 +1,9 @@
 from __future__ import absolute_import, unicode_literals
 
 import logging
-
-from .parsetree import ParseNode
-from .intermediate import *
 from typing import Tuple, Iterable
+
+from .intermediate import *
 
 
 TransformExprTuple = Tuple[Iterable[StatementNode], ExpressionNode, Iterable[StatementNode]]
@@ -48,11 +47,11 @@ def transform(root_node: ParseNode) -> RootNode:
         else:
             pdebug("T HTML")
             # TODO: Change to a call to "echo" here
-            body_statements.append(tln)
+            body_statements.append(HtmlNode(tln))
 
     body_block = BlockNode(ParseNode("BLOCK", None), body_statements)
 
-    body_function = FunctionNode(ParseNode("FUNCTION", None, "body"), None, body_block)
+    body_function = FunctionNode("body", None, body_block)
     functions.append(body_function)
     return RootNode(root_node, functions, classes)
 
@@ -96,9 +95,9 @@ def transform_block(node: ParseNode) -> BlockNode:
 @transforms("CLASS")
 def transform_class(node: ParseNode) -> ClassNode:
     if "EXTENDS" not in node:
-        parent = VariableNode("PhpBase")
+        parent = c_access(ParseNode("IDENT", None, "PhpBase"))
     else:
-        parent = VariableNode(node["EXTENDS"])
+        parent = c_access(node["EXTENDS"])
     attribs = []
     methods = []
     for c in node["BLOCK"]:
@@ -148,6 +147,14 @@ def transform_plain_statement(node: ParseNode) -> StatementNode:
 
     if "COMMENTLINE" in node:
         comment = CommentNode(node[0])
+    elif "COMMENTBLOCK" in node:
+        lines = []
+        for c in node.get_all("COMMENTBLOCK"):
+            lines.append(c)
+        comment = CommentNode(lines[0])
+        if len(lines) > 1:
+            for l in lines[1:]:
+                t.post_statements.append(ExpressionStatement(l, NoopNode(""), CommentNode(l)))
     else:
         comment = None
 
@@ -193,6 +200,13 @@ def transform_foreach(node: ParseNode):
     return ForNode(node, thing, items, transform_block(node["BLOCK"]))
 
 
+@transforms("WHILE")
+def transform_while(node: ParseNode):
+    condition = t.transform_expr_node(node["EXPRESSIONGROUP"]["EXPRESSION"])
+    block = transform_block(node["BLOCK"])
+    return WhileNode(node, condition, block)
+
+
 @transforms("SWITCH")
 def transform_switch(node: ParseNode) -> IfNode:
     decide_ex = t.transform_expr_node(node["EXPRESSIONGROUP"]["EXPRESSION"])
@@ -233,6 +247,23 @@ def transform_case(node: ParseNode, switch_var: VariableNode, extras: List[Expre
         decision = Operator2Node("or", e, decision)
     block = transform_block(node["BLOCK"])
     return ElifNode(node, decision, block)
+
+
+@transforms("TRY")
+def transform_try(node: ParseNode):
+    catches = []
+    for c in node.get_all("CATCH"):
+        exc = [transform_exception(e) for e in c.get_all("EXCEPTION")]
+        exc_name = t.transform_expr_node(c["AS"][0])
+        catch_block = transform_block(c["BLOCK"])
+        catches.append(CatchNode(c, exc, exc_name, catch_block))
+
+    block = transform_block(node["BLOCK"])
+    return TryNode(node, block, catches)
+
+
+def transform_exception(node: ParseNode) -> ExceptionNode:
+    return ExceptionNode(node)
 
 
 @transforms("RETURN")
@@ -311,6 +342,9 @@ def transform_callspecial(node: ParseNode) -> CallNode:
         return transform_array(node)
     elif node.value == "isset":
         return transform_isset(node)
+    elif node.value == "__dir__":
+        file = VariableNode("__file__")
+        return f_call(node, "dirname", [file])
 
     # Basis transforms
     args = [t.transform_expr_node(c) for c in node["ARGSLIST"].children]
@@ -343,21 +377,21 @@ def transform_isset(node: ParseNode):
     VAR1 = isset(VAR2)
     Expected output:
     try:
-        _tempvar = not VAR2 is None
+        _tempvar = VAR2 is not None
     except NameError:
         _tempvar = False
     VAR1 =_tempvar
     """
     # TODO: Deal with more than one argument
-    is_ = Operator2Node("is", t.transform_expr_node(node["ARGSLIST"]["EXPRESSION"]), NoneNode(node))
-    not_ = Operator1Node("not", is_)
+    not_none = Operator1Node("not", NoneNode(node))
+    is_ = Operator2Node("is", t.transform_expr_node(node["ARGSLIST"]["EXPRESSION"]), not_none)
     tempvar = VariableNode("_tempvar")
-    try_contents = [assignment_statement(tempvar, not_)]
+    try_contents = [assignment_statement(tempvar, is_)]
     try_block = BlockNode(node, try_contents)
     catch_block = BlockNode(node, [assignment_statement(tempvar, BoolNode("False"))])
-    NameError_node = CatchNode(node, ExceptionNode("NameError"), catch_block)
-    KeyError_node = CatchNode(node, ExceptionNode("KeyError"), catch_block)
-    t.pre_statements.append(TryNode(node, try_block, [NameError_node, KeyError_node]))
+    exceptions = [ExceptionNode("NameError"), ExceptionNode("KeyError")]
+    catch_node = CatchNode(node, exceptions, None, catch_block)
+    t.pre_statements.append(TryNode(node, try_block, [catch_node]))
     return tempvar
 
 
@@ -384,9 +418,24 @@ def transform_operator1(node: ParseNode):
     return Operator1Node(node, child)
 
 
+@transforms("OPERATOR3")
+def transform_operator3(node: ParseNode) -> Operator3Node:
+    condition = t.transform_expr_node(node[2])
+    true_res = t.transform_expr_node(node[0])
+    false_res = t.transform_expr_node(node[1])
+    return Operator3Node(node, condition, true_res, false_res)
+
+
 @transforms("CALL")
 def transform_call(node: ParseNode):
-    lhs = t.transform_expr_node(node[1])
+    if node[1].kind == "CONSTANT":
+        node[1].value = node[1].value.lower()
+        lhs = f_access(node[1])
+    elif node[1].kind == "ATTR":
+        node[1][0].value = node[1][0].value.lower()
+        lhs = transform_attr(node[1])
+    else:
+        lhs = t.transform_expr_node(node[1])
     args = []
     for a in node["EXPRESSIONGROUP"]:
         args.append(t.transform_expr_node(a))
@@ -416,6 +465,13 @@ def transform_new(node: ParseNode) -> CallNode:
     else:
         raise NotImplementedError("This should be implemented")
         return transform_call(node["CALL"])
+
+
+@transforms("GETATTR")
+def transform_getattr(node: ParseNode) -> CallNode:
+    obj = t.transform_expr_node(node[1])
+    name = t.transform_expr_node(node[0])
+    return CallNode(node, IdentNode("getattr"), [obj, name])
 
 
 def g_access(node: ParseNode) -> Operator2Node:

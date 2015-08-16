@@ -4,8 +4,8 @@ import logging
 
 from php2py.parser import PhpParser
 from php2py.compiler import Compiler
-from php2py import transformer, compiler    # Used by the kiddies
-from php2py.parsetree import ParseNode, print_tree, MatchableNode
+from php2py import transformer  # Used by the kiddies
+from clib.parsetree import ParseNode, print_tree, MatchableNode
 from intermediate import BlockNode
 
 
@@ -76,9 +76,15 @@ def compile_body_t(f):
     @wraps(f)
     def wrapper(self, *args, **kwargs):
         root_node = parse_string(f.__doc__).get_tree()
-        transformer.transform(root_node)
-        body_block = get_body(root_node)
-        lines_seg = Compiler().marshal(body_block)
+        root_node_t = transformer.transform(root_node)
+        body_block = root_node_t.match("FUNCTION|body/BLOCK")
+        try:
+            lines_seg = body_block.compile()
+        except:
+            print_tree(root_node)
+            print("------------------")
+            print_tree(root_node_t)
+            raise
         lines = [l[0] for l in lines_seg.lines[1:]]
         f(self, lines, *args, **kwargs)
 
@@ -94,9 +100,9 @@ def compile_class_t(f):
     @wraps(f)
     def wrapper(self, *args, **kwargs):
         root_node = parse_string(f.__doc__).get_tree()
-        transformer.transform(root_node)
-        class_block = root_node["CLASS"]
-        lines_seg = Compiler().marshal(class_block)
+        root_node_t = transformer.transform(root_node)
+        class_ = root_node_t["CLASS"]
+        lines_seg = class_.compile()
         lines = [l[0] for l in lines_seg.lines]
         f(self, lines, *args, **kwargs)
 
