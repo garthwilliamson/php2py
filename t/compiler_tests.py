@@ -31,6 +31,14 @@ class CompilerTests(Php2PyTestCase):
         cs = get_body(root_node).get("EX_STATEMENT").compile()
         self.assertEqual('_g_.a["MagicEmptyArrayIndex"] = "bob"', cs[0])
 
+    @compile_body_t
+    def test_array_construct(self, lines):
+        """ Array as a dict
+        <?php
+        $a = array("a" => "A", "b" => "B");
+        """
+        self.assertEqual('_g_.a = _f_.array(("a", "A"), ("b", "B"))', lines[0])
+
     @parse_t
     def test_while(self, root_node):
         """ Simple while loop
@@ -293,3 +301,17 @@ class CompilerTests(Php2PyTestCase):
             "6",
             "",
         ], lines)
+
+    @compile_body_t
+    def test_pdo(self, lines):
+        """
+        <?php
+        $opts = array(PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ);
+        $p = new PDO("con_string", "user", "pass", $opts);
+        """
+        self.assertSequenceEqual(lines, [
+            "_g_.opts = _f_.array((_c_.PDO.ATTR_DEFAULT_FETCH_MODE, _c_.PDO.FETCH_OBJ))",
+            "_g_.p = _c_.PDO(\"con_string\", \"user\", \"pass\", _g_.opts)",
+            "",
+        ])
+

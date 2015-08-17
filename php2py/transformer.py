@@ -390,8 +390,7 @@ def transform_array(node: ParseNode) -> CallNode:
             index = IntNode(str(i))
             i += 1
             children.append(TupleNode(el.parse_node, [index, el]))
-    ln = ListNode(node, children)
-    return f_call(node, "array", [ln])
+    return f_call(node, "array", children)
 
 
 def transform_isset(node: ParseNode):
@@ -465,10 +464,22 @@ def transform_call(node: ParseNode):
     return CallNode(node, lhs, args)
 
 
-@transforms("ATTR", "STATICATTR")
+@transforms("ATTR")
 def transform_attr(node: ParseNode) -> Operator2Node:
     lhs = t.transform_expr_node(node[1])
     # right hand side of attrs are just idents
+    if node[0].kind == "CONSTANT":
+        node[0].kind = "IDENT"
+    rhs = t.transform_expr_node(node[0])
+    return Operator2Node(".", lhs, rhs)
+
+
+@transforms("STATICATTR")
+def transform_staticattr(node: ParseNode) -> Operator2Node:
+    if node[1].kind == "CONSTANT":
+        lhs = c_access(node[1])
+    else:
+        raise NotImplementedError("Expect LHS of staticattr to be constant")
     if node[0].kind == "CONSTANT":
         node[0].kind = "IDENT"
     rhs = t.transform_expr_node(node[0])

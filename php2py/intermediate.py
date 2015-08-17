@@ -167,9 +167,15 @@ class NoneNode(ExpressionNode):
 class ListNode(CommaListNode):
     kind = "LIST"
 
+    def compile(self):
+        return "[{}]".format(super().compile())
+
 
 class TupleNode(CommaListNode):
     kind = "TUPLE"
+
+    def compile(self):
+        return "({})".format(super().compile())
 
 
 class IdentNode(ExpressionNode):

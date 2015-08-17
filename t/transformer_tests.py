@@ -56,9 +56,7 @@ class TransformerTests(Php2PyTestCase):
         od = ex.get("ASSIGNMENT").rhs
         self.assertEqual("CALL", od.kind)
         self.assertEqual(od.value, "array")
-        l = od.args[0]
-        self.assertEqual("LIST", l.kind)
-        t = l.children[0]
+        t = od.args[0]
         self.assertEqual(t.kind, "TUPLE")
         self.assertEqual(t.children[0].kind, "STRING")
         self.assertEqual(t.children[1].kind, "INT")
@@ -347,3 +345,14 @@ class TransformerTests(Php2PyTestCase):
         call = get_body(root_node)["EX_STATEMENT"].child
         self.assertContainsNode(call, "INDEX/INT|0")
         self.assertContainsNode(call, "IDENT|del")
+
+    @transform_t
+    def test_static_attr(self, root_node):
+        """ Double colon lookup means class on lhs
+        <?php
+        PDO::Something;
+        """
+        attr_lookup = get_body(root_node)["EX_STATEMENT"].child
+        self.assertEqual(".", attr_lookup.value)
+        self.assertContainsNode(attr_lookup, "OPERATOR2|./VAR|_c_")
+        self.assertContainsNode(attr_lookup, "OPERATOR2|./VAR|PDO")
