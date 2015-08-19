@@ -110,6 +110,17 @@ class CompilerTests(Php2PyTestCase):
         print_tree(root_node)
         print(main)
 
+    @compile_body_t
+    def test_attr_method_result(self, lines):
+        """ Methods returning objects with attributes
+        <?php
+        $a->b()->c;
+        """
+        self.assertSequenceEqual(lines, [
+            "_g_.a.b().c",
+            "",
+        ])
+
     @parse_t
     def test_compile_getattr(self, root_node):
         """ Funky php getattr equivalent

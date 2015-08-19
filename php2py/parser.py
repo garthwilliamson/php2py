@@ -562,7 +562,7 @@ class PhpParser(Parser):
                 op_node.append(eg)
                 op_node.arrity = 1
                 op_node.assoc = "left"
-                op_node.precedence = 152
+                op_node.precedence = 155
                 full_ex.append(op_node)
                 # print_tree(full_ex[-1])
                 self.pdebug("Finished with expression group")

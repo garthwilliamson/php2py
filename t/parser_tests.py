@@ -580,6 +580,15 @@ class ParserTests(Php2PyTestCase):
         self.assertContainsNode(tern, "EXPRESSION/INDEX/GLOBALVAR|u")
         self.assertContainsNode(tern, "GLOBALVAR|f")
 
+    @parse_t
+    def test_attr_method_result(self, root_node):
+        """ Methods returning objects with attributes
+        <?php
+        $a->b()->c;
+        """
+        c_lookup = root_node.match("PHP/STATEMENT/EXPRESSION/ATTR|->")
+        self.assertContainsNode(c_lookup, "CALL/ATTR|->/GLOBALVAR|a")
+
 
 if __name__ == "__main__":
     unittest.main()
