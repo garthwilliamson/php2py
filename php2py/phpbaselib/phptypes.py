@@ -51,3 +51,9 @@ class PhpArray():
         except KeyError:
             # TODO: Does php actually ignore this?
             pass
+
+    def __str__(self):
+        return "Array"
+
+    def items(self):
+        return self.data.items()

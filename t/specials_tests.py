@@ -55,5 +55,8 @@ class SpecialsTests(unittest.TestCase):
         b = specials.array(0)
         self.assertTrue(b)
 
+    def test_array_as_string(self):
+        self.assertEqual("Array", str(specials.array(1, 2, 3)))
+
     # Should I make a special string type?
     # TODO: if "0" is falsey in php

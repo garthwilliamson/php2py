@@ -561,6 +561,7 @@ def assignment_statement(lhs, rhs) -> ExpressionStatement:
     return ExpressionStatement(op2_pn, op2)
 
 
+# TODO: String casts for bools are "1" and "", not "True" and "False"
 cast_map = {
     "(int)": "int",
     "(integer)": "int",
