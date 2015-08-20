@@ -669,6 +669,7 @@ class PhpParser(Parser):
         s = string_token.val[1:-1]
         self.pdebug("String contents are " + s)
 
+        # TODO: Lots of work parsing strings
         #st = tokeniser.tokens(iter([s]), keep_white=True)
         #out = ""
         #format_vars = []
@@ -728,7 +729,9 @@ class PhpParser(Parser):
 
     def parse_int(self, int_token):
         if len(int_token.val) > 1 and int_token.val[0] == "0":
+            # IGNORE: We are deliberately ignoring what php call octal weirdness
             return self.pt.new("OCT", int_token, int_token.val[1:])
+        # TODO: Implement hex
         return self.pt.new("INT", int_token, int(int_token.val))
 
     def parse_newline(self, t=None):
