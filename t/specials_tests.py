@@ -48,3 +48,12 @@ class SpecialsTests(unittest.TestCase):
         a.append("bobity")
         self.assertEqual("majigy", a[100])
         self.assertEqual("bobity", a[101])
+
+    def test_array_bool(self):
+        a = specials.array()
+        self.assertFalse(a)
+        b = specials.array(0)
+        self.assertTrue(b)
+
+    # Should I make a special string type?
+    # TODO: if "0" is falsey in php
