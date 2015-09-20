@@ -23,6 +23,7 @@ class PhpArray():
 
     def __setitem__(self, key, value):
         # TODO: Move this to a transform, although if it were from an expression...
+        # TODO: Deal with bools, warn if illegal type as key
         if isinstance(key, str):
             try:
                 key = int(key)

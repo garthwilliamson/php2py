@@ -60,3 +60,6 @@ class SpecialsTests(unittest.TestCase):
 
     # Should I make a special string type?
     # TODO: if "0" is falsey in php
+    # TODO: Autoconversion of string + number
+    # TODO: Strings are actually bytes... encoded in the encoding of the source file
+    # Might be safest to assume utf8 and ignore the whole byte thing?!

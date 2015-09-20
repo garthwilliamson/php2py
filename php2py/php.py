@@ -92,15 +92,25 @@ class PhpApp(object):
         self.g._SERVER["SCRIPT_NAME"] = script_name
         self.g._SERVER["HTTP_HOST"] = self.environ["HTTP_HOST"]
 
+        # TODO: . and space should convert to underscores
         get = self.g._GET
         queries = urllib.parse.parse_qsl(self.environ["QUERY_STRING"])
         get.update(queries)
+        self.g._REQUEST.update(queries)
+
+        # TODO: _POST
+
+        # TODO: _COOKIE
 
 
 class WsgiApp(PhpApp):
     """ Designed to implement the wgsi specifications
 
     """
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.c.PHP_SAPI = "wsgi"
+
     def __call__(self, environ: dict, start_response):
         init_metavars(self)
         self.i = {}
@@ -149,6 +159,11 @@ class WsgiApp(PhpApp):
 
 
 class ConsoleApp(WsgiApp):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.c.PHP_SAPI = "cli"
+
     def run(self):
         environ = {
             "HTTP_HOST":    '',

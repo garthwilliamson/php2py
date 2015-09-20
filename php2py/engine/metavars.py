@@ -5,6 +5,7 @@ from php2py.phpbaselib import filters
 from php2py.phpbaselib.specials import Specials
 from php2py.phpbaselib.functions import Functions
 from .basetypes import PhpBase
+from php2py.phpbaselib.PDO import PDO
 
 
 class PhpVars(object):
@@ -38,12 +39,18 @@ class PhpGlobals(PhpVars):
         # $_POST etc
         self._SERVER = {}
         self._GET = {}
-        pass
+        self._POST = {}
+        self._COOKIES = {}
+        self._REQUEST = {}
+        # TODO: implement getitem and setitem so GLOBALS global works
+        # Or just convert as part of transformer...
+        self.GLOBALS = self
 
 
 class PhpClasses(PhpVars):
     def __init__(self) -> None:
         self.PhpBase = PhpBase
+        self.PDO = PDO
 
     def __setattr__(self, key: str, value: Any) -> None:
         super().__setattr__(key.lower(), value)
@@ -54,6 +61,8 @@ class PhpClasses(PhpVars):
 
 class PhpConstants(PhpVars):
     def __init__(self) -> None:
+        self.PHP_VERSION = "5.4.0"
+
         self.DIRECTORY_SEPARATOR = os.path.sep
 
         # Error reporting constants
