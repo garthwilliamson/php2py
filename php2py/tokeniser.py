@@ -305,8 +305,8 @@ start_block_comment = re.compile("{}(.|[^*/])*".format(STARTBLOCKCOMMENT, ENDBLO
 end_block_comment = re.compile(".*?{}".format(ENDBLOCKCOMMENT))
 full_block_comment = re.compile(STARTBLOCKCOMMENT + ".*?" + ENDBLOCKCOMMENT)
 COMMENTS = "\/\/.*"
-VARIABLES = "\\$[a-z1-9_]+"
-INDENTIFIERS = "[a-z_][a-z_1-9]*"
+VARIABLES = "\\$[a-z0-9_]+"
+INDENTIFIERS = "[a-z_][a-z_0-9]*"
 TOKENS = "{0}|{1}|{2}|{3}|{4}|{5}".format(COMMENTS, NUMBERS, escape_and_join(SYMBOLS), STRINGS, VARIABLES, INDENTIFIERS)
 
 more_table = {
