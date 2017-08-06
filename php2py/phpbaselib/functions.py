@@ -242,7 +242,7 @@ class Functions:
     def get_current_user(self) -> str:
         return os.getlogin()
 
-    def getmygid(self) -> Union(int, False):
+    def getmygid(self) -> Union[int, bool]:
         try:
             return os.getgid()
         except:
@@ -460,3 +460,4 @@ class Functions:
         return h.hexdigest()
 
     def hash_hmac_file(self, algo: str, filename: str, ):
+        pass

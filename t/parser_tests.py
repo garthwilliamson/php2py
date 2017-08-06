@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
 from tlib.php2pytests import *
-from clib.parsetree import print_tree
+from php2py.clib.parsetree import print_tree
 
 html = "<div>hello</div>"
 
@@ -391,6 +391,26 @@ class ParserTests(Php2PyTestCase):
         self.assertEcho(if_b.get("STATEMENT"), "1")
         else_s = if_s[2]
         self.assertEqual(else_s.kind, "ELSE")
+
+    #@parse_t
+    #def test_else_alternative(self, root_node):
+    #    """ If with else, Alternative syntax
+    #    <?php
+    #    if (1):
+    #        echo "1";
+    #    else:
+    #        echo "2"
+    #    endif;
+    #    """
+    #    # print_tree(root_node)
+    #    if_s = root_node.match("PHP/IF")
+    #    eg = if_s[0]
+    #    self.assertEqual(eg.get("EXPRESSION")[0].kind, "INT")
+    #    if_b = if_s[1]
+    #    self.assertEqual(if_b.kind, "BLOCK")
+    #    self.assertEcho(if_b.get("STATEMENT"), "1")
+    #    else_s = if_s[2]
+    #    self.assertEqual(else_s.kind, "ELSE")
 
     """
     def test_multi_space_comment(self):

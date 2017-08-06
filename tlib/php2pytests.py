@@ -6,7 +6,7 @@ from php2py.parser import PhpParser
 from php2py.compiler import Compiler
 from php2py import transformer  # Used by the kiddies
 from php2py.clib.parsetree import ParseNode, print_tree, MatchableNode
-from intermediate import BlockNode
+from php2py.intermediate import BlockNode
 
 
 logging.basicConfig(level=logging.DEBUG)

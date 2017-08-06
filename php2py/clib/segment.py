@@ -1,6 +1,6 @@
 
 class CompiledSegment(object):
-    def __init__(self) -> 'CompiledSegment':
+    def __init__(self) -> None:
         self._indent = 0
         self.lines = []
 

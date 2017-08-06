@@ -20,7 +20,7 @@ class PhpFunctionsTests(unittest.TestCase):
     def test_dirname(self):
         self.assertEqual(".", phpfunctions.dirname("hello.py"))
         self.assertEqual("somewhere", phpfunctions.dirname("somewhere/a/"))
-        self.assertEqual("somewhere", phpfunctions.dirname("somewhere\\a"))
+        self.assertEqual("somewhere", phpfunctions.dirname("somewhere/a"))
         self.assertEqual("/", phpfunctions.dirname("/etc/"))
         self.assertEqual("somewhere/else", phpfunctions.dirname("somewhere/else/a"))
 

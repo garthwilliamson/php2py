@@ -252,6 +252,7 @@ keyword_table = {
     ",": "COMMA",
     ":": "COLON",
     "__DIR__": "SPECIAL",
+    "endif": "CONTROL",
 }
 
 
